@@ -3,9 +3,9 @@ spring:
     name: trading-platform
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/leap_trading
+    url: jdbc:postgresql://localhost:5433/leap_trading
     username: postgres
-    password: n3u3d4!
+    password: n3u3da!
     driver-class-name: org.postgresql.Driver
 
   jpa:
