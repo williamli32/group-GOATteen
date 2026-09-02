@@ -1,0 +1,24 @@
+# Java
+target/
+*.class
+
+# Spring Boot
+.log
+*.log
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Angular
+node_modules/
+dist/
+
+# Environment
+.env
+
+# PostgreSQL
+*.sql.backup

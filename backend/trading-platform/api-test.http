@@ -1,0 +1,24 @@
+### Health Check
+GET http://localhost:8080/api/health
+
+
+### Create Test Record
+POST http://localhost:8080/api/test
+Content-Type: application/json
+
+{
+    "message": "Flyway works!"
+}
+
+### Create Test Record
+POST http://localhost:8080/api/test
+Content-Type: application/json
+
+{
+    "id": 1,
+    "message": "Flyway controls my database!"
+}
+
+
+### Get Test Records
+GET http://localhost:8080/api/test

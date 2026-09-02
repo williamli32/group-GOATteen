@@ -1,10 +1,24 @@
-## Branching Strategy
-Team decided to implement the Trunk-based branching strategy, since we are a 6-person team with the aim to add and merge features frequently.
+# LEAP Trading Platform
 
-## Team Section
-- Hannah Ton
-- Niyati Goswami
-- Nowsin Mozumder
-- Prasamsha Dahal
-- Seeyan Newaz
-- William Li
+Direct-to-consumer trading platform built using:
+
+## Technology Stack
+
+### Backend
+- Java 21
+- Spring Boot
+- Spring Security
+- Spring Data JPA
+
+### Frontend
+- Angular
+- TypeScript
+
+### Database
+- PostgreSQL
+
+## Project Structure
+- backend - Spring Boot API
+- frontend - Angular application
+- database - Database migrations
+- docs - Architecture and documentation
