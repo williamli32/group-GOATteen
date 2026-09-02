@@ -1,0 +1,24 @@
+services:
+
+  postgres:
+    image: postgres:17
+
+    container_name: leap-postgres
+
+    restart: always
+
+    environment:
+      POSTGRES_DB: leap_trading
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: n3u3da!
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+volumes:
+
+  postgres_data:

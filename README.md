@@ -14,8 +14,19 @@ Direct-to-consumer trading platform built using:
 - Angular
 - TypeScript
 
-### Database
-- PostgreSQL
+# Database
+
+Start PostgreSQL:
+docker compose up -d
+
+Stop PostgreSQL:
+docker compose down
+
+View logs:
+docker compose logs postgres
+
+Connect:
+psql -U postgres -h localhost -d leap_trading
 
 ## Project Structure
 - backend - Spring Boot API
