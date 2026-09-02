@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/leap_trading
     username: postgres
-    password: n3u3da!
+    password: n3u3d4!
     driver-class-name: org.postgresql.Driver
 
   jpa:
