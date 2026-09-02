@@ -8,9 +8,9 @@ services:
     restart: always
 
     environment:
-      POSTGRES_DB: leap_trading
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: n3u3da!
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
     ports:
       - "5432:5432"
