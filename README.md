@@ -15,7 +15,6 @@ Direct-to-consumer trading platform built using:
 - TypeScript
 
 # Database
-
 Start PostgreSQL:
 docker compose up -d
 
@@ -27,6 +26,15 @@ docker compose logs postgres
 
 Connect:
 psql -U postgres -h localhost -d leap_trading
+
+## API Documentation
+Swagger UI:
+
+http://localhost:8080/swagger-ui/index.html
+
+OpenAPI JSON:
+
+http://localhost:8080/v3/api-docs
 
 ## Project Structure
 - backend - Spring Boot API
