@@ -10,6 +10,6 @@ public interface QuoteRepository
         extends JpaRepository<Quote, Long> {
 
 
-    Optional<Quote> findByInstrumentId(Long instrumentId);
+    Optional<Quote> findTopByInstrumentIdOrderByQuotedAtDesc(Long instrumentId);
 
 }
