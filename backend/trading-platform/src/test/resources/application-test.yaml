@@ -2,12 +2,12 @@ spring:
 
   datasource:
 
-    url: jdbc:postgresql://localhost:5432/leap_trading
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/leap_trading}
 
-    username: postgres
+    username: ${DB_USERNAME:postgres}
 
-    password: n3u3da!
-
+    password: ${DB_PASSWORD:n3u3da!}
+    
     driver-class-name: org.postgresql.Driver
 
 
