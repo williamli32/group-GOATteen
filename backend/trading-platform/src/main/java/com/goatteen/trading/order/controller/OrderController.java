@@ -74,7 +74,11 @@ public class OrderController {
             try {
                 executionService.executeOrder(saved.getId());
             } catch (OrderExecutionService.OrderExecutionException e) {
-                executionService.rejectOrder(saved.getId(), e.getMessage());
+                try {
+                    executionService.rejectOrder(saved.getId(), e.getMessage());
+                } catch (OrderExecutionService.OrderExecutionException ex) {
+                    // Ignore rejection errors for now
+                }
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Order rejected: " + e.getMessage());
             }
 
