@@ -21,6 +21,10 @@ public class Position {
     private Long id;
 
 
+    @Version
+    private Long version;
+
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
     private Account account;
@@ -44,6 +48,11 @@ public class Position {
     }
 
 
+    public Long getVersion() {
+        return version;
+    }
+
+
     public Account getAccount() {
         return account;
     }
@@ -61,5 +70,25 @@ public class Position {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+
+    public void setQuantity(java.math.BigDecimal quantity) {
+        this.quantity = quantity;
+    }
+
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+
+    public void setAccount(Account account) {
+        this.account = account;
+    }
+
+
+    public void setInstrument(com.goatteen.trading.instrument.Instrument instrument) {
+        this.instrument = instrument;
     }
 }

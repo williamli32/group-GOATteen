@@ -18,6 +18,10 @@ public class Account {
     private Long id;
 
 
+    @Version
+    private Long version;
+
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(
         name = "client_id",
@@ -51,6 +55,11 @@ public class Account {
     }
 
 
+    public Long getVersion() {
+        return version;
+    }
+
+
     public Client getClient() {
         return client;
     }
@@ -68,5 +77,10 @@ public class Account {
 
     public String getCurrency() {
         return currency;
+    }
+
+
+    public void setCashBalance(java.math.BigDecimal cashBalance) {
+        this.cashBalance = cashBalance;
     }
 }
