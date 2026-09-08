@@ -19,12 +19,18 @@ dist/
 
 # Environment
 .env
+*.env
 
 # PostgreSQL
 *.sql.backup
+
+# Application profiles
+backend/trading-platform/src/main/resources/application-dev.yaml
 
 .git
 
 backend/target
 frontend/node_modules
 frontend/dist
+
+req/

@@ -1,13 +1,25 @@
 package com.goatteen.trading.controller;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+
+import io.swagger.v3.oas.annotations.Operation;
+
+import org.springframework.web.bind.annotation.*;
+
 
 @RestController
+@RequestMapping("/api")
 public class HealthController {
 
-    @GetMapping("/api/health")
-    public String health() {
+
+    @Operation(
+        summary = "Backend health check",
+        description = "Checks whether the LEAP backend service is running"
+    )
+    @GetMapping("/health")
+    public String health(){
+
         return "LEAP Backend is running!";
+
     }
+
 }

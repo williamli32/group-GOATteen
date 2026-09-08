@@ -2,11 +2,8 @@ spring:
   application:
     name: trading-platform
 
-  datasource:
-    url: jdbc:postgresql://localhost:5433/leap_trading
-    username: postgres
-    password: n3u3da!
-    driver-class-name: org.postgresql.Driver
+  profiles:
+    active: dev
 
   jpa:
     hibernate:
@@ -18,5 +15,5 @@ spring:
 
   flyway:
     enabled: true
-    
+
     locations: classpath:db/migration
