@@ -77,4 +77,34 @@ public class CashTransaction {
     public String getDescription() {
         return description;
     }
+
+
+    public void setAccount(Account account) {
+        this.account = account;
+    }
+
+
+    public void setFill(Fill fill) {
+        this.fill = fill;
+    }
+
+
+    public void setAmount(java.math.BigDecimal amount) {
+        this.amount = amount;
+    }
+
+
+    public void setBalanceAfter(java.math.BigDecimal balanceAfter) {
+        this.balanceAfter = balanceAfter;
+    }
+
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
 }

@@ -97,4 +97,24 @@ public class Order {
     public LocalDateTime getCompletedAt() {
         return completedAt;
     }
+
+
+    public void setSubmittedAt(LocalDateTime submittedAt) {
+        this.submittedAt = submittedAt;
+    }
+
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
+
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
+    }
+
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
+    }
 }
