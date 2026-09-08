@@ -117,4 +117,24 @@ public class Order {
     public void setCompletedAt(LocalDateTime completedAt) {
         this.completedAt = completedAt;
     }
+
+
+    public void setAccount(Account account) {
+        this.account = account;
+    }
+
+
+    public void setInstrument(Instrument instrument) {
+        this.instrument = instrument;
+    }
+
+
+    public void setSide(OrderSide side) {
+        this.side = side;
+    }
+
+
+    public void setQuantity(BigDecimal quantity) {
+        this.quantity = quantity;
+    }
 }
