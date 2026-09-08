@@ -17,11 +17,10 @@ public class Quote {
     private Long id;
 
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
         name = "instrument_id",
-        nullable = false,
-        unique = true
+        nullable = false
     )
     private Instrument instrument;
 

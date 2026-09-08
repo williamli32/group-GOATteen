@@ -58,4 +58,24 @@ public class OrderStatusHistory {
     public String getNote() {
         return note;
     }
+
+
+    public void setOrder(Order order) {
+        this.order = order;
+    }
+
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
+
+
+    public void setChangedAt(LocalDateTime changedAt) {
+        this.changedAt = changedAt;
+    }
+
+
+    public void setNote(String note) {
+        this.note = note;
+    }
 }

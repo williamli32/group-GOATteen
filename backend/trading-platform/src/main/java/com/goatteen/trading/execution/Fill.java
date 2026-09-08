@@ -72,4 +72,29 @@ public class Fill {
     public LocalDateTime getExecutedAt() {
         return executedAt;
     }
+
+
+    public void setOrder(Order order) {
+        this.order = order;
+    }
+
+
+    public void setQuote(Quote quote) {
+        this.quote = quote;
+    }
+
+
+    public void setFillPrice(java.math.BigDecimal fillPrice) {
+        this.fillPrice = fillPrice;
+    }
+
+
+    public void setFillQuantity(java.math.BigDecimal fillQuantity) {
+        this.fillQuantity = fillQuantity;
+    }
+
+
+    public void setExecutedAt(LocalDateTime executedAt) {
+        this.executedAt = executedAt;
+    }
 }
