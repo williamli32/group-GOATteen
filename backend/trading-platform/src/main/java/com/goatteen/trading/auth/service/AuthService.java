@@ -14,6 +14,12 @@ import com.goatteen.trading.user.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.goatteen.trading.auth.dto.LoginRequest;
+import com.goatteen.trading.auth.dto.LoginResponse;
+import com.goatteen.trading.auth.exception.InvalidCredentialsException;
+
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -21,99 +27,120 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
-    private static final String CLIENT_ROLE = "CLIENT";
-    private static final String DEFAULT_ACCOUNT_CURRENCY = "GBP";
+        private static final String CLIENT_ROLE = "CLIENT";
+        private static final String DEFAULT_ACCOUNT_CURRENCY = "GBP";
 
-    private final UserRepository userRepository;
-    private final ClientRepository clientRepository;
-    private final AccountRepository accountRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
+        private final UserRepository userRepository;
+        private final ClientRepository clientRepository;
+        private final AccountRepository accountRepository;
+        private final RoleRepository roleRepository;
+        private final PasswordEncoder passwordEncoder;
 
-    public AuthService(
-            UserRepository userRepository,
-            ClientRepository clientRepository,
-            AccountRepository accountRepository,
-            RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder
-    ) {
-        this.userRepository = userRepository;
-        this.clientRepository = clientRepository;
-        this.accountRepository = accountRepository;
-        this.roleRepository = roleRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    @Transactional
-    public RegisterResponse register(RegisterRequest request) {
-
-        String normalizedEmail =
-                request.getEmail().trim().toLowerCase(Locale.ROOT);
-
-        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
-            throw new DuplicateEmailException();
+        public AuthService(
+                        UserRepository userRepository,
+                        ClientRepository clientRepository,
+                        AccountRepository accountRepository,
+                        RoleRepository roleRepository,
+                        PasswordEncoder passwordEncoder) {
+                this.userRepository = userRepository;
+                this.clientRepository = clientRepository;
+                this.accountRepository = accountRepository;
+                this.roleRepository = roleRepository;
+                this.passwordEncoder = passwordEncoder;
         }
 
-        Role clientRole = roleRepository.findByName(CLIENT_ROLE)
-                .orElseThrow(() ->
-                        new IllegalStateException(
-                                "Required CLIENT role is not configured"
-                        )
-                );
+        @Transactional
+        public RegisterResponse register(RegisterRequest request) {
 
-        String passwordHash =
-                passwordEncoder.encode(request.getPassword());
+                String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
 
-        User user = new User(
-                normalizedEmail,
-                passwordHash
-        );
+                if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+                        throw new DuplicateEmailException();
+                }
 
-        user.addRole(clientRole);
-        user = userRepository.save(user);
+                Role clientRole = roleRepository.findByName(CLIENT_ROLE)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Required CLIENT role is not configured"));
 
-        Client client = new Client(
-                user,
-                request.getFirstName().trim(),
-                request.getLastName().trim()
-        );
+                String passwordHash = passwordEncoder.encode(request.getPassword());
 
-        client = clientRepository.save(client);
+                User user = new User(
+                                normalizedEmail,
+                                passwordHash);
 
-        String accountNumber = generateAccountNumber();
+                user.addRole(clientRole);
+                user = userRepository.save(user);
 
-        Account account = new Account(
-                client,
-                accountNumber,
-                DEFAULT_ACCOUNT_CURRENCY
-        );
+                Client client = new Client(
+                                user,
+                                request.getFirstName().trim(),
+                                request.getLastName().trim());
 
-        account = accountRepository.save(account);
+                client = clientRepository.save(client);
 
-        return new RegisterResponse(
-                user.getEmail(),
-                client.getFirstName(),
-                client.getLastName(),
-                account.getAccountNumber(),
-                account.getCurrency()
-        );
-    }
+                String accountNumber = generateAccountNumber();
 
-    private String generateAccountNumber() {
+                Account account = new Account(
+                                client,
+                                accountNumber,
+                                DEFAULT_ACCOUNT_CURRENCY);
 
-        String accountNumber;
+                account = accountRepository.save(account);
 
-        do {
-            accountNumber =
-                    "LEAP-" +
-                    UUID.randomUUID()
-                            .toString()
-                            .replace("-", "")
-                            .substring(0, 12)
-                            .toUpperCase(Locale.ROOT);
+                return new RegisterResponse(
+                                user.getEmail(),
+                                client.getFirstName(),
+                                client.getLastName(),
+                                account.getAccountNumber(),
+                                account.getCurrency());
+        }
 
-        } while (accountRepository.existsByAccountNumber(accountNumber));
+        private String generateAccountNumber() {
 
-        return accountNumber;
-    }
+                String accountNumber;
+
+                do {
+                        accountNumber = "LEAP-" +
+                                        UUID.randomUUID()
+                                                        .toString()
+                                                        .replace("-", "")
+                                                        .substring(0, 12)
+                                                        .toUpperCase(Locale.ROOT);
+
+                } while (accountRepository.existsByAccountNumber(accountNumber));
+
+                return accountNumber;
+        }
+
+        @Transactional(readOnly = true)
+        public LoginResponse login(LoginRequest request) {
+
+                String normalizedEmail = request.getEmail()
+                                .trim()
+                                .toLowerCase(Locale.ROOT);
+
+                User user = userRepository
+                                .findByEmailIgnoreCase(normalizedEmail)
+                                .orElseThrow(InvalidCredentialsException::new);
+
+                if (!user.isEnabled()) {
+                        throw new InvalidCredentialsException();
+                }
+
+                if (!passwordEncoder.matches(
+                                request.getPassword(),
+                                user.getPasswordHash())) {
+                        throw new InvalidCredentialsException();
+                }
+
+                Set<String> roles = user.getRoles()
+                                .stream()
+                                .map(Role::getName)
+                                .collect(Collectors.toSet());
+
+                return new LoginResponse(
+                                user.getId(),
+                                user.getEmail(),
+                                roles);
+        }
 }
