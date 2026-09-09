@@ -1,0 +1,183 @@
+<div class="dashboard-container">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="symbol-buttons">
+      <button
+        *ngFor="let symbol of symbols"
+        (click)="selectTicker(symbol)"
+        [class.active]="ticker === symbol"
+        class="symbol-btn"
+      >
+        {{ symbol }}
+      </button>
+    </div>
+    <div class="topbar-right">
+      <span class="label">Last</span>
+      <span class="price">{{ lastPrice | currency }}</span>
+      <span [class.positive]="change >= 0" [class.negative]="change < 0" class="change">
+        {{ (change >= 0 ? '+' : '') }}{{ change.toFixed(2) }} ({{ (change >= 0 ? '+' : '') }}{{ changePct }}%)
+      </span>
+      <div class="divider"></div>
+      <span class="label">VOL</span>
+      <span class="volume">18.4M</span>
+      <div class="live-indicator">
+        <div class="live-dot"></div>
+        <span class="live-text">LIVE</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <!-- Main area -->
+    <div class="chart-area">
+      <!-- Chart area -->
+      <div class="chart-section">
+        <div class="chart-header">
+          <span class="ticker-name">{{ ticker }}</span>
+          <span class="exchange">NASDAQ · USD</span>
+        </div>
+        <!-- Canvas-based chart -->
+        <canvas #priceChart class="chart-canvas"></canvas>
+      </div>
+
+      <!-- Positions table -->
+      <div class="positions-section">
+        <p class="section-title">POSITIONS</p>
+        <div class="table-wrapper">
+          <table class="positions-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Shares</th>
+                <th>Avg Cost</th>
+                <th>Last</th>
+                <th>P&L</th>
+                <th>P&L %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let pos of positions"
+                (click)="selectTicker(pos.symbol)"
+                class="position-row"
+              >
+                <td class="symbol-cell">{{ pos.symbol }}</td>
+                <td class="number-cell">{{ pos.shares }}</td>
+                <td class="number-cell">{{ pos.avgCost | currency }}</td>
+                <td class="number-cell">{{ pos.currentPrice | currency }}</td>
+                <td class="number-cell" [class.positive]="(pos.currentPrice - pos.avgCost) * pos.shares >= 0" [class.negative]="(pos.currentPrice - pos.avgCost) * pos.shares < 0">
+                  {{ getPnlFormatted((pos.currentPrice - pos.avgCost) * pos.shares) }}
+                </td>
+                <td class="number-cell" [class.positive]="(pos.currentPrice - pos.avgCost) * pos.shares >= 0" [class.negative]="(pos.currentPrice - pos.avgCost) * pos.shares < 0">
+                  {{ getPnlPercent((pos.currentPrice - pos.avgCost) * pos.shares, pos.avgCost) }}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right rail -->
+    <div class="right-panel">
+      <!-- Order panel -->
+      <div class="order-panel">
+        <p class="section-title">ORDER TICKET · {{ ticker }}</p>
+
+        <div class="side-buttons">
+          <button
+            (click)="setSide('BUY')"
+            [class.active]="side === 'BUY'"
+            class="side-btn buy-btn"
+          >
+            BUY
+          </button>
+          <button
+            (click)="setSide('SELL')"
+            [class.active]="side === 'SELL'"
+            class="side-btn sell-btn"
+          >
+            SELL
+          </button>
+        </div>
+
+        <form (ngSubmit)="submitOrder()" class="order-form">
+          <div class="form-group">
+            <label>ORDER TYPE</label>
+            <select
+              [(ngModel)]="orderType"
+              name="orderType"
+              class="form-input"
+            >
+              <option value="MARKET">MARKET</option>
+              <option value="LIMIT">LIMIT</option>
+              <option value="STOP">STOP</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>QUANTITY</label>
+            <input
+              type="number"
+              [(ngModel)]="qty"
+              (change)="qty = +$any($event.target).value"
+              name="qty"
+              class="form-input"
+            />
+          </div>
+
+          <div *ngIf="orderType !== 'MARKET'" class="form-group">
+            <label>{{ orderType }} PRICE</label>
+            <input
+              type="number"
+              step="0.01"
+              [(ngModel)]="limitPrice"
+              (change)="limitPrice = +$any($event.target).value"
+              name="limitPrice"
+              class="form-input"
+            />
+          </div>
+
+          <div class="order-summary">
+            <div class="summary-row">
+              <span>Estimated Value</span>
+              <span class="mono">{{ (lastPrice * (qty || 0)) | currency }}</span>
+            </div>
+            <div class="summary-row">
+              <span>Commission</span>
+              <span class="mono">{{ ((lastPrice * (qty || 0)) * 0.001) | currency }}</span>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            [class.submitted]="submitted"
+            [class.buy]="!submitted && side === 'BUY'"
+            [class.sell]="!submitted && side === 'SELL'"
+            class="submit-btn"
+          >
+            {{ submitted ? '✓ ORDER SUBMITTED' : 'PLACE ' + side + ' ORDER' }}
+          </button>
+        </form>
+      </div>
+
+      <!-- Recent orders -->
+      <div class="recent-orders">
+        <p class="section-title">RECENT ORDERS</p>
+        <div class="orders-list">
+          <div *ngFor="let order of orderHistory.slice(0, 6)" class="order-item" [class]="'status-' + order.status.toLowerCase()">
+            <div class="order-header">
+              <span class="order-symbol">{{ order.symbol }}</span>
+              <span class="order-status">{{ order.status }}</span>
+            </div>
+            <div class="order-details">
+              <span [class]="'side-' + order.side.toLowerCase()">{{ order.side }}</span>
+              <span>{{ order.qty }} @ {{ order.price | currency }}</span>
+            </div>
+            <p class="order-time">{{ order.time }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
