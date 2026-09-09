@@ -1,0 +1,119 @@
+package com.goatteen.trading.auth.service;
+
+import com.goatteen.trading.account.Account;
+import com.goatteen.trading.account.AccountRepository;
+import com.goatteen.trading.auth.dto.RegisterRequest;
+import com.goatteen.trading.auth.dto.RegisterResponse;
+import com.goatteen.trading.auth.exception.DuplicateEmailException;
+import com.goatteen.trading.client.Client;
+import com.goatteen.trading.client.ClientRepository;
+import com.goatteen.trading.role.Role;
+import com.goatteen.trading.role.RoleRepository;
+import com.goatteen.trading.user.User;
+import com.goatteen.trading.user.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Locale;
+import java.util.UUID;
+
+@Service
+public class AuthService {
+
+    private static final String CLIENT_ROLE = "CLIENT";
+    private static final String DEFAULT_ACCOUNT_CURRENCY = "GBP";
+
+    private final UserRepository userRepository;
+    private final ClientRepository clientRepository;
+    private final AccountRepository accountRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public AuthService(
+            UserRepository userRepository,
+            ClientRepository clientRepository,
+            AccountRepository accountRepository,
+            RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder
+    ) {
+        this.userRepository = userRepository;
+        this.clientRepository = clientRepository;
+        this.accountRepository = accountRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Transactional
+    public RegisterResponse register(RegisterRequest request) {
+
+        String normalizedEmail =
+                request.getEmail().trim().toLowerCase(Locale.ROOT);
+
+        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+            throw new DuplicateEmailException();
+        }
+
+        Role clientRole = roleRepository.findByName(CLIENT_ROLE)
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Required CLIENT role is not configured"
+                        )
+                );
+
+        String passwordHash =
+                passwordEncoder.encode(request.getPassword());
+
+        User user = new User(
+                normalizedEmail,
+                passwordHash
+        );
+
+        user.addRole(clientRole);
+        user = userRepository.save(user);
+
+        Client client = new Client(
+                user,
+                request.getFirstName().trim(),
+                request.getLastName().trim()
+        );
+
+        client = clientRepository.save(client);
+
+        String accountNumber = generateAccountNumber();
+
+        Account account = new Account(
+                client,
+                accountNumber,
+                DEFAULT_ACCOUNT_CURRENCY
+        );
+
+        account = accountRepository.save(account);
+
+        return new RegisterResponse(
+                user.getEmail(),
+                client.getFirstName(),
+                client.getLastName(),
+                account.getAccountNumber(),
+                account.getCurrency()
+        );
+    }
+
+    private String generateAccountNumber() {
+
+        String accountNumber;
+
+        do {
+            accountNumber =
+                    "LEAP-" +
+                    UUID.randomUUID()
+                            .toString()
+                            .replace("-", "")
+                            .substring(0, 12)
+                            .toUpperCase(Locale.ROOT);
+
+        } while (accountRepository.existsByAccountNumber(accountNumber));
+
+        return accountNumber;
+    }
+}

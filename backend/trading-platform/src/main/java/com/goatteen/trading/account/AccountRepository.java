@@ -1,19 +1,15 @@
 package com.goatteen.trading.account;
 
-
 import org.springframework.data.jpa.repository.JpaRepository;
-
 
 import java.util.Optional;
 
-
-public interface AccountRepository 
+public interface AccountRepository
         extends JpaRepository<Account, Long> {
-
 
     Optional<Account> findByAccountNumber(String accountNumber);
 
-
     Optional<Account> findByClientId(Long clientId);
 
+    boolean existsByAccountNumber(String accountNumber);
 }
