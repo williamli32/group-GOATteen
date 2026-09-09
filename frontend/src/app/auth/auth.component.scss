@@ -1,0 +1,352 @@
+:host {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #e2e8f0;
+  background-color: #060913;
+}
+
+// Tab toggle pill container
+.tab-toggle-container {
+  background-color: #0c1322;
+  border: 1px solid #1a263c !important;
+  border-radius: 6px;
+  padding: 3px;
+  display: flex;
+  gap: 2px;
+  margin-bottom: 1.5rem;
+}
+
+// Tab button base styles
+.tab-button {
+  flex: 1;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem; /* ~13px matching the design */
+  border: none;
+  outline: none;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  font-weight: 500;
+  padding: 0 1rem;
+}
+
+// Inactive tab button state
+.tab-button--inactive {
+  background-color: transparent;
+  color: #64748b;
+
+  &:hover {
+    color: #94a3b8;
+  }
+}
+
+// Active tab button state
+.tab-button--active {
+  background-color: #00d4aa;
+  color: #080c18;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 212, 170, 0.1);
+}
+
+// Global reset & container
+.min-h-full {
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+// -------------------------------------------------------------
+// Left Branding Panel
+// -------------------------------------------------------------
+.lg\:flex {
+  position: relative;
+  width: 50%;
+  background-color: #080c16;
+  border-right: 1px solid rgba(30, 45, 69, 0.45);
+  padding: 3.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+
+  // Grid background pattern
+  .absolute.inset-0 {
+    background-image: 
+      linear-gradient(to right, rgba(30, 45, 69, 0.15) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(30, 45, 69, 0.15) 1px, transparent 1px);
+    background-size: 12.5% 12.5%;
+  }
+
+  // Logo
+  .font-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 1rem;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+
+    &.text-\[\#00d4aa\] {
+      color: #00d4aa;
+    }
+
+    &.text-\[\#64748b\] {
+      color: #475569;
+    }
+  }
+
+  // Market status badge
+  .inline-flex {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    background: rgba(0, 212, 170, 0.05);
+    border: 1px solid rgba(0, 212, 170, 0.25);
+    width: fit-content;
+
+    .w-1\.5 {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #00d4aa;
+      box-shadow: 0 0 8px #00d4aa;
+    }
+
+    span {
+      color: #00d4aa;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+    }
+  }
+
+  // Hero Heading
+  h1 {
+    font-size: 2.5rem;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #f1f5f9;
+
+    span {
+      color: #00d4aa;
+    }
+  }
+
+  p {
+    color: #64748b;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    max-width: 320px;
+  }
+
+  // Metrics / Stats Cards
+  .grid-cols-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding-top: 1rem;
+
+    .border {
+      background-color: rgba(13, 18, 37, 0.3);
+      border: 1px solid rgba(30, 45, 69, 0.8);
+      border-radius: 6px;
+      padding: 0.9rem 1rem;
+
+      p.font-mono {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #00d4aa;
+        letter-spacing: normal;
+      }
+
+      p.text-\[10px\] {
+        font-size: 0.68rem;
+        color: #64748b;
+        margin-top: 0.25rem;
+      }
+    }
+  }
+
+  // Footer copyright
+  > p.relative {
+    font-size: 0.72rem;
+    color: #475569;
+  }
+}
+
+// -------------------------------------------------------------
+// Right Form Panel
+// -------------------------------------------------------------
+.flex-1 {
+  flex: 1;
+  background-color: #050811;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+  position: relative;
+
+  .max-w-sm {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  h2 {
+    font-size: 1.65rem;
+    font-weight: 600;
+    color: #f8fafc;
+    letter-spacing: -0.01em;
+  }
+
+  .mb-8 > p {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+
+  // Tab switcher
+  .border-\[\#1e2d45\] {
+    background-color: #090e1d;
+    border: 1px solid #192338;
+    border-radius: 6px;
+    padding: 3px;
+    display: flex;
+
+    button {
+      flex: 1;
+      padding: 0.5rem;
+      font-size: 0.82rem;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      color: #64748b;
+
+      &:hover:not(.bg-\[\#00d4aa\]) {
+        color: #94a3b8;
+      }
+
+      &.bg-\[\#00d4aa\] {
+        background-color: #00d4aa;
+        color: #080c18;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+    }
+  }
+
+  // Form Fields
+  form {
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #7b8ba5;
+      margin-bottom: 0.4rem;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      background-color: #0b1122;
+      border: 1px solid #19263e;
+      border-radius: 5px;
+      padding: 0.65rem 0.85rem;
+      color: #f1f5f9;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+
+      &::placeholder {
+        color: #273752;
+      }
+
+      &:focus {
+        border-color: #00d4aa;
+        box-shadow: 0 0 0 1px rgba(0, 212, 170, 0.25);
+      }
+    }
+
+    // Submit Button
+    button[type='submit'] {
+      width: 100%;
+      background-color: #00d4aa;
+      color: #060913;
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 0.65rem;
+      border-radius: 5px;
+      border: none;
+      margin-top: 0.75rem;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+
+      &:hover {
+        background-color: #00bf99;
+      }
+
+      &:active {
+        transform: scale(0.99);
+      }
+    }
+  }
+
+  // Links & Legal
+  a {
+    color: #64748b;
+    text-decoration: none;
+    font-size: 0.78rem;
+
+    &:hover {
+      color: #94a3b8;
+    }
+  }
+
+  p.text-\[\#2a3f5f\] {
+    color: #3b4e6d;
+    font-size: 0.68rem;
+    margin-top: 1.75rem;
+    text-align: center;
+  }
+}
+
+// -------------------------------------------------------------
+// Floating Help / Info Button (bottom right corner in screenshot)
+// -------------------------------------------------------------
+:host::after {
+  content: '?';
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  color: #0b1122;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+  pointer-events: auto;
+}
+
+// Responsive layout
+@media (max-width: 1024px) {
+  .lg\:flex {
+    display: none !important;
+  }
+}
