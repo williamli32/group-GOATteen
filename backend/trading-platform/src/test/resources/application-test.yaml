@@ -21,3 +21,8 @@ spring:
 
   flyway:
     enabled: true
+
+app:
+  jwt:
+    secret: VGhpcy1pcy1hLXRlc3Qtb25seS1zZWNyZXQta2V5LWZvci1MRUFQLWF1dGhlbnRpY2F0aW9uLXRlc3Rpbmc=
+    access-token-expiration-minutes: 15
