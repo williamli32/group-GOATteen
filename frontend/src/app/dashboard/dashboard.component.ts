@@ -1,7 +1,7 @@
 import { Component, ViewChild, ElementRef, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { priceHistory, positions, orderHistory } from './mock-data';
+import { priceHistory, positions, orderHistory } from '../data/mock-data';
 
 interface PriceData {
   time: string;

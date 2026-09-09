@@ -1,0 +1,140 @@
+<div class="clientview-container">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1 class="title">Portfolio Summary</h1>
+      <p class="subtitle">Alex Hartmann · Account #AT-00812 · As of Aug 28, 2026 09:45 ET</p>
+    </div>
+    <div class="live-indicator">
+      <div class="live-dot"></div>
+      <span>Live Pricing</span>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <p class="stat-label">TOTAL PORTFOLIO VALUE</p>
+      <p class="stat-value">{{ fmt(portfolioValue) }}</p>
+      <p class="stat-sub">Equity + Cash</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">CASH BALANCE</p>
+      <p class="stat-value accent-positive">{{ fmt(cashBalance) }}</p>
+      <p class="stat-sub">Available to trade</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">TOTAL P&L</p>
+      <p [class.accent-positive]="totalPl >= 0" [class.accent-negative]="totalPl < 0" class="stat-value">
+        {{ (totalPl >= 0 ? '+' : '') + fmt(totalPl) }}
+      </p>
+      <p class="stat-sub">{{ returnPct.toFixed(2) }}% return</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">OPEN POSITIONS</p>
+      <p class="stat-value">{{ positions.length }}</p>
+      <p class="stat-sub">{{ positions.length }} securities</p>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="charts-row">
+    <div class="chart-card large">
+      <p class="card-label">PORTFOLIO VALUE · 30 DAY</p>
+      <canvas #portfolioChart class="portfolio-chart"></canvas>
+    </div>
+    <div class="chart-card">
+      <p class="card-label">SECTOR ALLOCATION</p>
+      <canvas #sectorPie class="sector-pie"></canvas>
+      <div class="sector-legend">
+        <div *ngFor="let sector of sectorAllocation; let i = index" class="legend-item">
+          <div class="legend-dot" [style.background]="sectorColors[i % sectorColors.length]"></div>
+          <span class="legend-label">{{ sector.sector }}</span>
+          <span class="legend-value">{{ sector.pct }}%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Holdings Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <p class="card-label">CURRENT HOLDINGS</p>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Name</th>
+            <th>Sector</th>
+            <th>Shares</th>
+            <th>Avg Cost</th>
+            <th>Current Price</th>
+            <th>Market Value</th>
+            <th>P&L</th>
+            <th>Return</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let position of positions" [class.positive]="getPositionPL(position) >= 0" [class.negative]="getPositionPL(position) < 0">
+            <td class="symbol">{{ position.symbol }}</td>
+            <td class="name">{{ position.name }}</td>
+            <td><span class="sector-badge">{{ position.sector }}</span></td>
+            <td>{{ position.shares.toLocaleString() }}</td>
+            <td>{{ fmt(position.avgCost) }}</td>
+            <td>{{ fmt(position.currentPrice) }}</td>
+            <td>{{ fmt(position.currentPrice * position.shares) }}</td>
+            <td [class.positive-text]="getPositionPL(position) >= 0" [class.negative-text]="getPositionPL(position) < 0">
+              {{ (getPositionPL(position) >= 0 ? '+' : '') + fmt(getPositionPL(position)) }}
+            </td>
+            <td [class.positive-text]="getPositionReturn(position) >= 0" [class.negative-text]="getPositionReturn(position) < 0">
+              {{ (getPositionReturn(position) >= 0 ? '+' : '') + getPositionReturn(position).toFixed(2) }}%
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Order History Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <p class="card-label">ORDER HISTORY</p>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of orderHistory">
+            <td class="order-id">{{ order.id }}</td>
+            <td>{{ order.date }}</td>
+            <td>{{ order.time }}</td>
+            <td class="symbol">{{ order.symbol }}</td>
+            <td [class.buy]="order.side === 'BUY'" [class.sell]="order.side === 'SELL'" class="side">{{ order.side }}</td>
+            <td>{{ order.qty }}</td>
+            <td>{{ fmt(order.price) }}</td>
+            <td>{{ fmt(order.total) }}</td>
+            <td>
+              <span class="status-badge" [class.filled]="order.status === 'FILLED'" [class.partial]="order.status === 'PARTIAL'" [class.cancelled]="order.status === 'CANCELLED'">
+                {{ order.status }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
