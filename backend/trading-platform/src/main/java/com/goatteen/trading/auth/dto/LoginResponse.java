@@ -7,15 +7,18 @@ public class LoginResponse {
     private final Long userId;
     private final String email;
     private final Set<String> roles;
+    private final String accessToken;
 
     public LoginResponse(
             Long userId,
             String email,
-            Set<String> roles
+            Set<String> roles,
+            String accessToken
     ) {
         this.userId = userId;
         this.email = email;
         this.roles = roles;
+        this.accessToken = accessToken;
     }
 
     public Long getUserId() {
@@ -28,5 +31,9 @@ public class LoginResponse {
 
     public Set<String> getRoles() {
         return roles;
+    }
+
+    public String getAccessToken() {
+        return accessToken;
     }
 }

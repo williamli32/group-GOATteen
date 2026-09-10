@@ -11,57 +11,75 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.http.HttpStatus;
 import com.goatteen.trading.auth.security.JwtProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.goatteen.trading.auth.security.JwtAuthenticationFilter;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 @Configuration
 @EnableMethodSecurity
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
+        private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
-    }
+        public SecurityConfig(
+                        JwtAuthenticationFilter jwtAuthenticationFilter) {
+                this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder(12);
+        }
 
-        http
-                .csrf(csrf -> csrf.disable())
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http)
+                        throws Exception {
 
-                .sessionManagement(session -> session.sessionCreationPolicy(
-                        SessionCreationPolicy.STATELESS))
+                http
+                                .csrf(csrf -> csrf.disable())
 
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(
-                                (request, response, authException) -> response.setStatus(
-                                        HttpStatus.UNAUTHORIZED.value()))
-                        .accessDeniedHandler(
-                                (request, response, accessDeniedException) -> response.setStatus(
-                                        HttpStatus.FORBIDDEN.value())))
+                                .sessionManagement(session -> session.sessionCreationPolicy(
+                                                SessionCreationPolicy.STATELESS))
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**")
-                        .permitAll()
+                                .exceptionHandling(exceptions -> exceptions
+                                                .authenticationEntryPoint(
+                                                                (request, response, authException) -> response
+                                                                                .setStatus(
+                                                                                                HttpStatus.UNAUTHORIZED
+                                                                                                                .value()))
+                                                .accessDeniedHandler(
+                                                                (request, response, accessDeniedException) -> response
+                                                                                .setStatus(
+                                                                                                HttpStatus.FORBIDDEN
+                                                                                                                .value())))
 
-                        .requestMatchers("/api/health")
-                        .permitAll()
-                        
-                        .requestMatchers("/error")
-                        .permitAll()
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers("/api/auth/**")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**")
-                        .permitAll()
+                                                .requestMatchers("/api/health")
+                                                .permitAll()
 
-                        .anyRequest()
-                        .authenticated())
+                                                .requestMatchers("/error")
+                                                .permitAll()
 
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
-                .logout(logout -> logout.disable());
+                                                .requestMatchers(
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html",
+                                                                "/v3/api-docs/**")
+                                                .permitAll()
 
-        return http.build();
-    }
+                                                .anyRequest()
+                                                .authenticated())
+
+                                .formLogin(form -> form.disable())
+                                .httpBasic(basic -> basic.disable())
+                                .logout(logout -> logout.disable());
+
+                http.addFilterBefore(
+                                jwtAuthenticationFilter,
+                                UsernamePasswordAuthenticationFilter.class);
+
+                return http.build();
+        }
 }

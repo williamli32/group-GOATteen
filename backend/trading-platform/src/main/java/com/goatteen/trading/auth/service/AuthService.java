@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.goatteen.trading.auth.dto.LoginRequest;
 import com.goatteen.trading.auth.dto.LoginResponse;
 import com.goatteen.trading.auth.exception.InvalidCredentialsException;
+import com.goatteen.trading.auth.security.JwtService;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,18 +36,21 @@ public class AuthService {
         private final AccountRepository accountRepository;
         private final RoleRepository roleRepository;
         private final PasswordEncoder passwordEncoder;
+        private final JwtService jwtService;
 
         public AuthService(
                         UserRepository userRepository,
                         ClientRepository clientRepository,
                         AccountRepository accountRepository,
                         RoleRepository roleRepository,
-                        PasswordEncoder passwordEncoder) {
+                        PasswordEncoder passwordEncoder,
+                        JwtService jwtService) {
                 this.userRepository = userRepository;
                 this.clientRepository = clientRepository;
                 this.accountRepository = accountRepository;
                 this.roleRepository = roleRepository;
                 this.passwordEncoder = passwordEncoder;
+                this.jwtService = jwtService;
         }
 
         @Transactional
@@ -138,9 +142,12 @@ public class AuthService {
                                 .map(Role::getName)
                                 .collect(Collectors.toSet());
 
+                String accessToken = jwtService.generateAccessToken(user);
+
                 return new LoginResponse(
                                 user.getId(),
                                 user.getEmail(),
-                                roles);
+                                roles,
+                                accessToken);
         }
 }
