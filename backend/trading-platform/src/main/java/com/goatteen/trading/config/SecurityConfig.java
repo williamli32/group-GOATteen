@@ -14,10 +14,14 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import com.goatteen.trading.auth.security.JwtAuthenticationFilter;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.goatteen.trading.auth.security.AuthProperties;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({
+        JwtProperties.class,
+        AuthProperties.class
+})
 public class SecurityConfig {
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
 

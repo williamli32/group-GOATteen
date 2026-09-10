@@ -37,6 +37,7 @@ public class AuthService {
         private final RoleRepository roleRepository;
         private final PasswordEncoder passwordEncoder;
         private final JwtService jwtService;
+        private final RefreshTokenService refreshTokenService;
 
         public AuthService(
                         UserRepository userRepository,
@@ -44,13 +45,15 @@ public class AuthService {
                         AccountRepository accountRepository,
                         RoleRepository roleRepository,
                         PasswordEncoder passwordEncoder,
-                        JwtService jwtService) {
+                        JwtService jwtService,
+                        RefreshTokenService refreshTokenService) {
                 this.userRepository = userRepository;
                 this.clientRepository = clientRepository;
                 this.accountRepository = accountRepository;
                 this.roleRepository = roleRepository;
                 this.passwordEncoder = passwordEncoder;
                 this.jwtService = jwtService;
+                this.refreshTokenService = refreshTokenService;
         }
 
         @Transactional
@@ -116,8 +119,7 @@ public class AuthService {
                 return accountNumber;
         }
 
-        @Transactional(readOnly = true)
-        public LoginResponse login(LoginRequest request) {
+        public LoginResult login(LoginRequest request) {
 
                 String normalizedEmail = request.getEmail()
                                 .trim()
@@ -144,10 +146,27 @@ public class AuthService {
 
                 String accessToken = jwtService.generateAccessToken(user);
 
-                return new LoginResponse(
+                RefreshTokenService.RefreshTokenResult refresh = refreshTokenService.createSession(user);
+
+                LoginResponse response = new LoginResponse(
                                 user.getId(),
                                 user.getEmail(),
                                 roles,
                                 accessToken);
+
+                return new LoginResult(
+                                response,
+                                refresh.token(),
+                                refresh.expiresAt());
+        }
+
+        public record LoginResult(
+                        LoginResponse response,
+                        String refreshToken,
+                        java.time.LocalDateTime refreshTokenExpiresAt) {
+        }
+
+        public String generateAccessToken(User user) {
+                return jwtService.generateAccessToken(user);
         }
 }

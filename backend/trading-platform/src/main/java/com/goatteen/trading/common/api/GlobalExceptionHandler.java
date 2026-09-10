@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.goatteen.trading.auth.exception.InvalidCredentialsException;
+import com.goatteen.trading.auth.service.RefreshTokenService;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -56,6 +57,23 @@ public class GlobalExceptionHandler {
         @ExceptionHandler(InvalidCredentialsException.class)
         public ResponseEntity<ApiError> handleInvalidCredentials(
                         InvalidCredentialsException exception,
+                        HttpServletRequest request) {
+
+                ApiError error = new ApiError(
+                                HttpStatus.UNAUTHORIZED.value(),
+                                "Unauthorized",
+                                exception.getMessage(),
+                                request.getRequestURI(),
+                                null);
+
+                return ResponseEntity
+                                .status(HttpStatus.UNAUTHORIZED)
+                                .body(error);
+        }
+
+        @ExceptionHandler(RefreshTokenService.InvalidRefreshTokenException.class)
+        public ResponseEntity<ApiError> handleInvalidRefreshToken(
+                        RefreshTokenService.InvalidRefreshTokenException exception,
                         HttpServletRequest request) {
 
                 ApiError error = new ApiError(

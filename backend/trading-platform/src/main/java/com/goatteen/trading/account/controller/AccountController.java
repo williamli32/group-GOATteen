@@ -2,7 +2,11 @@ package com.goatteen.trading.account.controller;
 
 import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
+import com.goatteen.trading.auth.service.CurrentUserService;
+import com.goatteen.trading.account.AccountOwnershipService;
+import com.goatteen.trading.account.dto.AccountResponse;
 import com.goatteen.trading.execution.Fill;
+import com.goatteen.trading.account.dto.AccountResponse;
 import com.goatteen.trading.execution.FillRepository;
 import com.goatteen.trading.order.Order;
 import com.goatteen.trading.order.OrderRepository;
@@ -21,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
 @RestController
 @RequestMapping("/api/accounts")
 public class AccountController {
@@ -30,59 +33,69 @@ public class AccountController {
     private final PositionRepository positionRepository;
     private final OrderRepository orderRepository;
     private final FillRepository fillRepository;
+    private final CurrentUserService currentUserService;
+    private final AccountOwnershipService accountOwnershipService;
 
-    public AccountController(AccountRepository accountRepository, PositionRepository positionRepository,
-                            OrderRepository orderRepository, FillRepository fillRepository) {
+    public AccountController(
+            AccountRepository accountRepository,
+            PositionRepository positionRepository,
+            OrderRepository orderRepository,
+            FillRepository fillRepository,
+            CurrentUserService currentUserService,
+            AccountOwnershipService accountOwnershipService) {
+
         this.accountRepository = accountRepository;
         this.positionRepository = positionRepository;
         this.orderRepository = orderRepository;
         this.fillRepository = fillRepository;
+        this.currentUserService = currentUserService;
+        this.accountOwnershipService = accountOwnershipService;
     }
 
-    @GetMapping("/{accountId}/holdings")
-    public ResponseEntity<HoldingsResponse> getHoldings(@PathVariable Long accountId) {
-        Account account = accountRepository.findById(accountId)
-                .orElse(null);
+    @GetMapping("/me/holdings")
+    public ResponseEntity<HoldingsResponse> getHoldings() {
 
-        if (account == null) {
-            return ResponseEntity.notFound().build();
-        }
+        Long userId = currentUserService.getCurrentUserId();
 
-        // BR-10: client views current holdings and cash balance
-        List<Position> positions = positionRepository.findByAccountId(accountId);
+        Account account = accountOwnershipService
+                .getCurrentUserAccount(userId);
+
+        Long accountId = account.getId();
+
+        List<Position> positions = positionRepository
+                .findByAccountId(accountId);
+
         List<PositionResponse> positionResponses = positions.stream()
                 .map(pos -> new PositionResponse(
                         pos.getInstrument().getId(),
                         pos.getInstrument().getSymbol(),
                         pos.getInstrument().getName(),
-                        pos.getQuantity()
-                ))
-                .collect(Collectors.toList());
+                        pos.getQuantity()))
+                .toList();
 
         HoldingsResponse holdings = new HoldingsResponse(
                 accountId,
                 account.getCashBalance(),
                 account.getCurrency(),
-                positionResponses
-        );
+                positionResponses);
 
         return ResponseEntity.ok(holdings);
     }
 
-    @GetMapping("/{accountId}/blotter")
-    public ResponseEntity<?> getBlotter(@PathVariable Long accountId) {
-        Account account = accountRepository.findById(accountId)
-                .orElse(null);
+    @GetMapping("/me/blotter")
+    public ResponseEntity<List<OrderResponse>> getBlotter() {
 
-        if (account == null) {
-            return ResponseEntity.notFound().build();
-        }
+        Long userId = currentUserService.getCurrentUserId();
 
-        // BR-11: client views chronological history of orders and fills
-        List<Order> orders = orderRepository.findByAccountIdOrderBySubmittedAtDesc(accountId);
-        List<OrderResponse> orderResponses = orders.stream()
+        Account account = accountOwnershipService
+                .getCurrentUserAccount(userId);
+
+        List<OrderResponse> orderResponses = orderRepository
+                .findByAccountIdOrderBySubmittedAtDesc(
+                        account.getId())
+                .stream()
                 .map(this::toOrderResponse)
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(orderResponses);
     }
@@ -105,5 +118,24 @@ public class AccountController {
         }
 
         return response;
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<AccountResponse> getMyAccount() {
+
+        Long userId = currentUserService.getCurrentUserId();
+
+        Account account = accountOwnershipService
+                .getCurrentUserAccount(userId);
+
+        AccountResponse response = new AccountResponse(
+                account.getId(),
+                account.getAccountNumber(),
+                account.getCashBalance(),
+                account.getCurrency(),
+                account.getClient().getFirstName(),
+                account.getClient().getLastName());
+
+        return ResponseEntity.ok(response);
     }
 }

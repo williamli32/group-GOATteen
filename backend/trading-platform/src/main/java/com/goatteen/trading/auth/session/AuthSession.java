@@ -14,33 +14,19 @@ public class AuthSession {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "user_id",
-            nullable = false
-    )
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(
-            name = "refresh_token_hash",
-            nullable = false,
-            unique = true
-    )
+    @Column(name = "refresh_token_hash", nullable = false, unique = true)
     private String refreshTokenHash;
 
-    @Column(
-            name = "expires_at",
-            nullable = false
-    )
+    @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
-    @Column(
-            name = "created_at",
-            nullable = false,
-            updatable = false
-    )
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "last_used_at")
@@ -53,8 +39,7 @@ public class AuthSession {
     public AuthSession(
             User user,
             String refreshTokenHash,
-            LocalDateTime expiresAt
-    ) {
+            LocalDateTime expiresAt) {
         this.user = user;
         this.refreshTokenHash = refreshTokenHash;
         this.expiresAt = expiresAt;
@@ -109,5 +94,13 @@ public class AuthSession {
 
     public void markUsed() {
         lastUsedAt = LocalDateTime.now();
+    }
+
+    public void rotate(
+            String newRefreshTokenHash,
+            LocalDateTime newExpiresAt) {
+        this.refreshTokenHash = newRefreshTokenHash;
+        this.expiresAt = newExpiresAt;
+        this.lastUsedAt = LocalDateTime.now();
     }
 }
