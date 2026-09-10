@@ -1,0 +1,237 @@
+<div class="reports-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div class="header-title">
+      <h1>Internal Reports</h1>
+      <p>Trading activity analytics · Internal use only</p>
+    </div>
+    <div class="period-buttons">
+      <button
+        [class.active]="period === '7D'"
+        (click)="setPeriod('7D')"
+        class="period-btn"
+      >
+        7D
+      </button>
+      <button
+        [class.active]="period === '30D'"
+        (click)="setPeriod('30D')"
+        class="period-btn"
+      >
+        30D
+      </button>
+      <button
+        [class.active]="period === 'MTD'"
+        (click)="setPeriod('MTD')"
+        class="period-btn"
+      >
+        MTD
+      </button>
+      <button
+        [class.active]="period === 'YTD'"
+        (click)="setPeriod('YTD')"
+        class="period-btn"
+      >
+        YTD
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <p class="kpi-label">TOTAL P&L</p>
+      <p class="kpi-value" [class.positive]="totalPnl >= 0" [class.negative]="totalPnl < 0">
+        {{ formatShort(totalPnl) }}
+      </p>
+      <p class="kpi-delta" [class.positive]="totalPnl >= 0" [class.negative]="totalPnl < 0">
+        {{ totalPnl >= 0 ? '+' : '' }}{{ ((totalPnl / 248500) * 100).toFixed(2) }}% vs prev. period
+      </p>
+    </div>
+
+    <div class="kpi-card">
+      <p class="kpi-label">WIN RATE (DAYS)</p>
+      <p class="kpi-value">{{ winDays }}/{{ dailyPnl.length }}</p>
+      <p class="kpi-sub">{{ ((winDays / dailyPnl.length) * 100).toFixed(0) }}% profitable days</p>
+    </div>
+
+    <div class="kpi-card">
+      <p class="kpi-label">BEST DAY</p>
+      <p class="kpi-value positive">{{ formatShort(bestDay) }}</p>
+      <p class="kpi-sub">{{ bestDayDate }}</p>
+    </div>
+
+    <div class="kpi-card">
+      <p class="kpi-label">ORDER FILL RATE</p>
+      <p class="kpi-value">{{ fillRate }}%</p>
+      <p class="kpi-sub">{{ filledOrders }} of {{ MOCK_ORDER_HISTORY.length }} orders filled</p>
+    </div>
+  </div>
+
+  <!-- Daily P&L Chart -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <p class="chart-label">DAILY P&L · LAST 14 TRADING DAYS</p>
+      <div class="chart-stats">
+        <span>Best: <span class="text-green">{{ formatShort(bestDay) }}</span></span>
+        <span>Worst: <span class="text-red">{{ formatShort(worstDay) }}</span></span>
+      </div>
+    </div>
+    <div class="bar-chart">
+      @for (day of dailyPnl; track day.date) {
+        <div class="bar-container">
+          <div
+            class="bar"
+            [class.positive]="day.pnl >= 0"
+            [class.negative]="day.pnl < 0"
+            [style.height.%]="getChartBarHeight(Math.abs(day.pnl), Math.max(...dailyPnl.map(d => Math.abs(d.pnl))))"
+            [title]="formatFull(day.pnl)"
+          ></div>
+          <p class="bar-label">{{ day.date }}</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Volume & Monthly Charts Grid -->
+  <div class="charts-grid">
+    <!-- Volume by Symbol -->
+    <div class="chart-card">
+      <p class="chart-label">TRADED VOLUME BY SYMBOL</p>
+      <div class="horizontal-bar-chart">
+        @for (vol of volumeBySymbol; track vol.symbol) {
+          <div class="h-bar-row">
+            <span class="h-bar-label">{{ vol.symbol }}</span>
+            <div class="h-bar-container">
+              <div
+                class="h-bar"
+                [style.width.%]="getChartBarWidth(vol.volume, Math.max(...volumeBySymbol.map(v => v.volume)))"
+                [title]="formatFull(vol.volume)"
+              ></div>
+            </div>
+            <span class="h-bar-value">{{ formatShort(vol.volume) }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Monthly Activity Line Chart (simplified) -->
+    <div class="chart-card">
+      <p class="chart-label">MONTHLY ORDER COUNT · BUYS VS SELLS</p>
+      <div class="monthly-chart">
+        <svg class="line-chart" viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet">
+          <!-- Grid lines -->
+          <line x1="0" y1="30" x2="600" y2="30" class="grid-line" />
+          <line x1="0" y1="60" x2="600" y2="60" class="grid-line" />
+          <line x1="0" y1="90" x2="600" y2="90" class="grid-line" />
+          <line x1="0" y1="120" x2="600" y2="120" class="grid-line" />
+
+          <!-- Buys line (green) -->
+          @for (item of monthlyActivity; track item.month; let i = $index) {
+            @if (i < monthlyActivity.length - 1) {
+              <line
+                [attr.x1]="(i / (monthlyActivity.length - 1)) * 600"
+                [attr.y1]="150 - (monthlyActivity[i].buys / 30) * 120"
+                [attr.x2]="((i + 1) / (monthlyActivity.length - 1)) * 600"
+                [attr.y2]="150 - (monthlyActivity[i + 1].buys / 30) * 120"
+                class="line-buys"
+              />
+            }
+          }
+
+          <!-- Sells line (red) -->
+          @for (item of monthlyActivity; track item.month; let i = $index) {
+            @if (i < monthlyActivity.length - 1) {
+              <line
+                [attr.x1]="(i / (monthlyActivity.length - 1)) * 600"
+                [attr.y1]="150 - (monthlyActivity[i].sells / 30) * 120"
+                [attr.x2]="((i + 1) / (monthlyActivity.length - 1)) * 600"
+                [attr.y2]="150 - (monthlyActivity[i + 1].sells / 30) * 120"
+                class="line-sells"
+              />
+            }
+          }
+
+          <!-- Data points for buys -->
+          @for (item of monthlyActivity; track item.month; let i = $index) {
+            <circle
+              [attr.cx]="(i / (monthlyActivity.length - 1)) * 600"
+              [attr.cy]="150 - (item.buys / 30) * 120"
+              r="2"
+              class="dot-buys"
+            />
+          }
+
+          <!-- Data points for sells -->
+          @for (item of monthlyActivity; track item.month; let i = $index) {
+            <circle
+              [attr.cx]="(i / (monthlyActivity.length - 1)) * 600"
+              [attr.cy]="150 - (item.sells / 30) * 120"
+              r="2"
+              class="dot-sells"
+            />
+          }
+
+          <!-- X-axis labels -->
+          @for (item of monthlyActivity; track item.month; let i = $index) {
+            <text
+              [attr.x]="(i / (monthlyActivity.length - 1)) * 600"
+              y="170"
+              class="chart-tick-label"
+            >
+              {{ item.month }}
+            </text>
+          }
+        </svg>
+        <div class="chart-legend">
+          <span class="legend-item buys">● Buys</span>
+          <span class="legend-item sells">● Sells</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sector Exposure Table -->
+  <div class="sector-card">
+    <div class="sector-header">
+      <p class="chart-label">SECTOR EXPOSURE BREAKDOWN</p>
+      <span class="sector-period">Current period</span>
+    </div>
+    <table class="sector-table">
+      <thead>
+        <tr>
+          <th>Sector</th>
+          <th>Allocation %</th>
+          <th>Market Value</th>
+          <th>P&L Contribution</th>
+          <th>Weight Bar</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (sector of sectorData; track sector.sector) {
+          <tr>
+            <td class="sector-name">{{ sector.sector }}</td>
+            <td class="sector-pct">{{ sector.pct }}%</td>
+            <td class="sector-value">{{ formatFull(sector.value) }}</td>
+            <td [class]="'sector-pl ' + (getSectorPlContrib(sector) >= 0 ? 'positive' : 'negative')">
+              {{ getSectorPlContrib(sector) >= 0 ? '+' : '' }}{{ formatFull(getSectorPlContrib(sector)) }}
+            </td>
+            <td class="sector-bar">
+              <div class="bar-bg">
+                <div class="bar-fill" [style.width.%]="sector.pct"></div>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer Note -->
+  <div class="footer-note">
+    <span class="note-icon">▲</span>
+    <p>
+      Internal reports are refreshed every <span class="highlight">15 minutes</span> during market hours. Data is for internal use only and not for client distribution.
+    </p>
+  </div>
+</div>

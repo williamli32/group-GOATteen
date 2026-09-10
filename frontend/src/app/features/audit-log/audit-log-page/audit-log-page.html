@@ -1,0 +1,151 @@
+<div class="audit-log-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div class="header-title">
+      <h1>Audit Log</h1>
+      <p>Immutable, timestamped record of every order and its outcome</p>
+    </div>
+    <div class="header-actions">
+      <div class="records-badge">
+        <span class="label">RECORDS</span>
+        <span class="count">{{ auditLog.length }}</span>
+      </div>
+      <button class="export-btn">↓ Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Security Notice Banner -->
+  <div class="notice-banner">
+    <span class="icon">◈</span>
+    <p>
+      All records in this log are
+      <span class="highlight">write-protected and cryptographically hashed</span>. Any modification attempt
+      is automatically flagged and alerted to compliance.
+    </p>
+  </div>
+
+  <!-- Filters Section -->
+  <div class="filters-section">
+    <input
+      type="text"
+      placeholder="Search by order ID, symbol, or trader..."
+      [(ngModel)]="search"
+      class="search-input"
+    />
+    <div class="status-filters">
+      @for (status of ['ALL', 'FILLED', 'PARTIAL', 'CANCELLED']; track status) {
+        <button
+          [class.active]="statusFilter === status"
+          (click)="statusFilter = status"
+          class="filter-btn"
+        >
+          {{ status }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrapper">
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Executed At</th>
+          <th>Trader</th>
+          <th>Symbol</th>
+          <th>Side</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th>Total</th>
+          <th>Commission</th>
+          <th>Venue</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (record of filteredRecords; track record.id) {
+          <tr class="data-row" (click)="toggleExpand(record.id)">
+            <td class="col-id">{{ record.id }}</td>
+            <td class="col-date">{{ formatDateTime(record.executedAt) }}</td>
+            <td class="col-trader">{{ record.userName }}</td>
+            <td class="col-symbol">{{ record.symbol }}</td>
+            <td [class]="'col-side ' + (record.side === 'BUY' ? 'buy' : 'sell')">
+              {{ record.side }}
+            </td>
+            <td class="col-qty">{{ record.qty }}</td>
+            <td class="col-price">{{ formatCurrency(record.price) }}</td>
+            <td class="col-total">{{ formatCurrency(record.total) }}</td>
+            <td class="col-commission">
+              {{ record.commission > 0 ? formatCurrency(record.commission) : '—' }}
+            </td>
+            <td class="col-venue">{{ record.venue }}</td>
+            <td class="col-status">
+              <span [class]="'status-badge ' + getStatusStyle(record.status)">
+                {{ record.status }}
+              </span>
+            </td>
+            <td class="col-expand">{{ expandedId === record.id ? '▲' : '▼' }}</td>
+          </tr>
+          @if (expandedId === record.id) {
+            <tr class="detail-row">
+              <td [attr.colspan]="12" class="detail-cell">
+                <div class="detail-grid">
+                  <div class="detail-section">
+                    <h4>EXECUTION DETAILS</h4>
+                    <div class="detail-row-item">
+                      <span class="label">Order ID</span>
+                      <span class="value">{{ record.id }}</span>
+                    </div>
+                    <div class="detail-row-item">
+                      <span class="label">Execution Time</span>
+                      <span class="value">{{ record.executedAt }}</span>
+                    </div>
+                    <div class="detail-row-item">
+                      <span class="label">Venue</span>
+                      <span class="value">{{ record.venue || '—' }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-section">
+                    <h4>TRADER INFO</h4>
+                    <div class="detail-row-item">
+                      <span class="label">Trader</span>
+                      <span class="value">{{ record.userName }}</span>
+                    </div>
+                    <div class="detail-row-item">
+                      <span class="label">User ID</span>
+                      <span class="value">{{ record.userId }}</span>
+                    </div>
+                    <div class="detail-row-item">
+                      <span class="label">IP Address</span>
+                      <span class="value">{{ record.ip }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-section">
+                    <h4>NOTES</h4>
+                    <p class="notes-text">
+                      {{ record.notes || 'No notes — order executed as submitted.' }}
+                    </p>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+        @if (filteredRecords.length === 0) {
+          <tr class="empty-row">
+            <td [attr.colspan]="12" class="empty-cell">
+              No records match your filters.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <p class="footer-compliance">
+    HASH: SHA-256 · CHAIN: IMMUTABLE · RETENTION: 7 YEARS · COMPLIANT: SEC 17a-4, FINRA 4511
+  </p>
+</div>
