@@ -1,5 +1,7 @@
 ﻿<div class="app-container">
-  <app-sidebar></app-sidebar>
+  @if (!isAuthPage()) {
+    <app-sidebar></app-sidebar>
+  }
   <main class="main-content">
     <router-outlet></router-outlet>
   </main>
