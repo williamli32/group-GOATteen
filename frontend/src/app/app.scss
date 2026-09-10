@@ -10,4 +10,16 @@
   width: 100%;
   height: 100%;
   flex: 1;
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+
+    app-dashboard,
+    app-clientview {
+      flex: 1;
+      overflow: hidden;
+    }
+  }
 }
