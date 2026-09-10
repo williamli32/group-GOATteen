@@ -1,19 +1,35 @@
+:host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .reports-container {
-  flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
   background-color: #0f172a;
   color: #e2e8f0;
-  display: flex;
-  flex-direction: column;
   gap: 20px;
 }
 
-// Header
+/* Header */
 .header-section {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 20px;
 }
 
@@ -21,52 +37,52 @@
   flex: 1;
 
   h1 {
-    font-size: 20px;
-    font-weight: 600;
     margin: 0;
     color: #e2e8f0;
+    font-size: 20px;
+    font-weight: 600;
   }
 
   p {
-    font-size: 12px;
+    margin: 4px 0 0;
     color: #64748b;
-    margin: 4px 0 0 0;
+    font-size: 12px;
   }
 }
 
 .period-buttons {
   display: flex;
-  gap: 4px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 4px;
 }
 
 .period-btn {
   padding: 6px 12px;
-  background-color: transparent;
   border: 1px solid #1e2d45;
   border-radius: 4px;
   color: #64748b;
-  font-size: 11px;
+  background-color: transparent;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 
   &:hover {
-    color: #94a3b8;
     border-color: #2a3f5f;
+    color: #94a3b8;
   }
 
   &.active {
-    background-color: rgba(0, 212, 170, 0.1);
-    color: #00d4aa;
     border-color: rgba(0, 212, 170, 0.25);
+    color: #00d4aa;
+    background-color: rgba(0, 212, 170, 0.1);
   }
 }
 
-// KPI Grid
+/* KPI Grid */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -74,27 +90,27 @@
 }
 
 .kpi-card {
-  background-color: #0d1225;
+  padding: 16px;
   border: 1px solid #1e2d45;
   border-radius: 4px;
-  padding: 16px;
+  background-color: #0d1225;
 }
 
 .kpi-label {
-  font-size: 10px;
+  margin: 0 0 8px;
   color: #64748b;
-  letter-spacing: 0.05em;
+  font-size: 10px;
   font-weight: 600;
-  margin: 0 0 8px 0;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .kpi-value {
+  margin: 0;
+  color: #e2e8f0;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 20px;
   font-weight: 600;
-  margin: 0;
-  color: #e2e8f0;
 
   &.positive {
     color: #22c55e;
@@ -106,9 +122,9 @@
 }
 
 .kpi-delta {
-  font-size: 11px;
+  margin: 4px 0 0;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  margin: 4px 0 0 0;
+  font-size: 11px;
 
   &.positive {
     color: #22c55e;
@@ -120,42 +136,42 @@
 }
 
 .kpi-sub {
-  font-size: 11px;
+  margin: 4px 0 0;
   color: #64748b;
-  margin: 4px 0 0 0;
+  font-size: 11px;
 }
 
-// Charts
+/* Charts */
 .chart-card {
-  background-color: #0d1225;
+  padding: 16px;
   border: 1px solid #1e2d45;
   border-radius: 4px;
-  padding: 16px;
+  background-color: #0d1225;
 }
 
 .chart-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  justify-content: space-between;
   gap: 12px;
+  margin-bottom: 16px;
 }
 
 .chart-label {
-  font-size: 10px;
-  color: #64748b;
-  letter-spacing: 0.05em;
-  font-weight: 600;
   margin: 0;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .chart-stats {
   display: flex;
   gap: 16px;
-  font-size: 10px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   color: #64748b;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 10px;
 
   .text-green {
     color: #22c55e;
@@ -166,29 +182,36 @@
   }
 }
 
-// Bar Chart
+/* Daily P&L Bar Chart */
 .bar-chart {
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
+  width: 100%;
   height: 200px;
-  gap: 4px;
+  min-height: 200px;
+  gap: 8px;
   padding: 8px 0;
+  border-bottom: 1px solid #1e2d45;
 }
 
 .bar-container {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
   align-items: center;
-  flex: 1;
-  gap: 4px;
+  justify-content: flex-end;
+  align-self: stretch;
   min-width: 24px;
+  gap: 4px;
 }
 
 .bar {
+  display: block;
   width: 100%;
+  min-height: 4px;
   border-radius: 2px 2px 0 0;
-  opacity: 0.8;
+  opacity: 0.85;
   cursor: pointer;
   transition: opacity 0.2s ease;
 
@@ -206,21 +229,21 @@
 }
 
 .bar-label {
-  font-size: 9px;
-  color: #64748b;
   margin: 0;
+  color: #64748b;
+  font-size: 9px;
   text-align: center;
   white-space: nowrap;
 }
 
-// Charts Grid
+/* Charts Grid */
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 16px;
 }
 
-// Horizontal Bar Chart
+/* Horizontal Bar Chart */
 .horizontal-bar-chart {
   display: flex;
   flex-direction: column;
@@ -235,37 +258,37 @@
 }
 
 .h-bar-label {
+  flex-shrink: 0;
   width: 32px;
   color: #94a3b8;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-weight: 600;
-  flex-shrink: 0;
 }
 
 .h-bar-container {
   flex: 1;
   height: 20px;
-  background-color: #1e2d45;
-  border-radius: 2px;
   overflow: hidden;
+  border-radius: 2px;
+  background-color: #1e2d45;
 }
 
 .h-bar {
   height: 100%;
-  background-color: #00d4aa;
   border-radius: 2px;
+  background-color: #00d4aa;
   opacity: 0.7;
 }
 
 .h-bar-value {
+  flex-shrink: 0;
   width: 60px;
-  text-align: right;
   color: #64748b;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  flex-shrink: 0;
+  text-align: right;
 }
 
-// Line Chart (SVG)
+/* Line Chart */
 .monthly-chart {
   display: flex;
   flex-direction: column;
@@ -284,15 +307,15 @@
 }
 
 .line-buys {
+  fill: none;
   stroke: #22c55e;
   stroke-width: 1.5;
-  fill: none;
 }
 
 .line-sells {
+  fill: none;
   stroke: #ef4444;
   stroke-width: 1.5;
-  fill: none;
 }
 
 .dot-buys {
@@ -306,22 +329,22 @@
 }
 
 .chart-tick-label {
-  font-size: 9px;
   fill: #64748b;
-  text-anchor: middle;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 9px;
+  text-anchor: middle;
 }
 
 .chart-legend {
   display: flex;
+  justify-content: center;
   gap: 12px;
   font-size: 10px;
-  justify-content: center;
 }
 
 .legend-item {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   color: #64748b;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 
   &.buys {
     color: #22c55e;
@@ -332,45 +355,45 @@
   }
 }
 
-// Sector Table
+/* Sector Table */
 .sector-card {
-  background-color: #0d1225;
+  overflow: hidden;
   border: 1px solid #1e2d45;
   border-radius: 4px;
-  overflow: hidden;
+  background-color: #0d1225;
 }
 
 .sector-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid #1e2d45;
 }
 
 .sector-period {
-  font-size: 10px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   color: #2a3f5f;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 10px;
 }
 
 .sector-table {
   width: 100%;
-  font-size: 11px;
   border-collapse: collapse;
+  font-size: 11px;
 
   thead {
-    background-color: #080c18;
     border-bottom: 1px solid #1e2d45;
+    background-color: #080c18;
   }
 
   th {
-    text-align: left;
     padding: 10px 16px;
-    font-size: 10px;
     color: #64748b;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.05em;
+    text-align: left;
     text-transform: uppercase;
   }
 
@@ -394,14 +417,10 @@
   font-weight: 500;
 }
 
-.sector-pct {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  color: #e2e8f0;
-}
-
+.sector-pct,
 .sector-value {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   color: #e2e8f0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 .sector-pl {
@@ -423,40 +442,40 @@
 
 .bar-bg {
   width: 100%;
-  background-color: #1e2d45;
-  border-radius: 2px;
   height: 6px;
   overflow: hidden;
+  border-radius: 2px;
+  background-color: #1e2d45;
 }
 
 .bar-fill {
   height: 100%;
-  background-color: #00d4aa;
   border-radius: 2px;
+  background-color: #00d4aa;
 }
 
-// Footer Note
+/* Footer Note */
 .footer-note {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   padding: 12px 16px;
-  background-color: #0d1225;
   border: 1px solid #1e2d45;
   border-radius: 4px;
+  background-color: #0d1225;
 }
 
 .note-icon {
-  color: #f59e0b;
-  font-size: 13px;
   flex-shrink: 0;
   margin-top: 2px;
+  color: #f59e0b;
+  font-size: 13px;
 }
 
 .footer-note p {
-  font-size: 11px;
-  color: #64748b;
   margin: 0;
+  color: #64748b;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -464,7 +483,7 @@
   color: #94a3b8;
 }
 
-// Responsive
+/* Responsive */
 @media (max-width: 1024px) {
   .charts-grid {
     grid-template-columns: 1fr;
@@ -497,6 +516,7 @@
 
   .bar-chart {
     height: 160px;
+    min-height: 160px;
   }
 
   .charts-grid {

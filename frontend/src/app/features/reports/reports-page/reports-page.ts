@@ -39,7 +39,7 @@ const MOCK_DAILY_PNL: DailyPnL[] = [
   { date: 'Aug 25', pnl: -1100 },
   { date: 'Aug 26', pnl: 4200 },
   { date: 'Aug 27', pnl: 3500 },
-  { date: 'Aug 28', pnl: 2800 },
+  { date: 'Aug 28', pnl: 2800 }
 ];
 
 const MOCK_ORDER_HISTORY = [
@@ -58,7 +58,7 @@ const MOCK_ORDER_HISTORY = [
   { symbol: 'XOM', total: 5600, status: 'FILLED' },
   { symbol: 'JNJ', total: 9200, status: 'FILLED' },
   { symbol: 'AAPL', total: 7800, status: 'FILLED' },
-  { symbol: 'MSFT', total: 16400, status: 'FILLED' },
+  { symbol: 'MSFT', total: 16400, status: 'FILLED' }
 ];
 
 const MOCK_MONTHLY_ACTIVITY: MonthlyActivity[] = [
@@ -67,7 +67,7 @@ const MOCK_MONTHLY_ACTIVITY: MonthlyActivity[] = [
   { month: 'May', buys: 22, sells: 14, volume: 267000 },
   { month: 'Jun', buys: 15, sells: 11, volume: 183000 },
   { month: 'Jul', buys: 25, sells: 18, volume: 312000 },
-  { month: 'Aug', buys: 9, sells: 6, volume: 147000 },
+  { month: 'Aug', buys: 9, sells: 6, volume: 147000 }
 ];
 
 const MOCK_SECTOR_ALLOCATION: SectorData[] = [
@@ -75,76 +75,93 @@ const MOCK_SECTOR_ALLOCATION: SectorData[] = [
   { sector: 'Financials', pct: 22, value: 165000 },
   { sector: 'Healthcare', pct: 18, value: 135000 },
   { sector: 'Energy', pct: 12, value: 90000 },
-  { sector: 'Other', pct: 10, value: 75000 },
+  { sector: 'Other', pct: 10, value: 75000 }
 ];
 
 @Component({
   imports: [CommonModule],
   selector: 'app-reports-page',
   styleUrl: './reports-page.scss',
-  templateUrl: './reports-page.html',
+  templateUrl: './reports-page.html'
 })
 export class ReportsPage {
   period: '7D' | '30D' | 'MTD' | 'YTD' = '30D';
   dailyPnl: DailyPnL[] = MOCK_DAILY_PNL;
   monthlyActivity: MonthlyActivity[] = MOCK_MONTHLY_ACTIVITY;
   sectorData: SectorData[] = MOCK_SECTOR_ALLOCATION;
+
   protected readonly MOCK_ORDER_HISTORY = MOCK_ORDER_HISTORY;
 
   get volumeBySymbol(): VolumeData[] {
     const symbols = ['AAPL', 'MSFT', 'NVDA', 'JPM', 'V', 'XOM', 'JNJ'];
-    return symbols.map((s) => {
-      const orders = MOCK_ORDER_HISTORY.filter((o) => o.symbol === s);
+
+    return symbols.map((symbol) => {
+      const orders = MOCK_ORDER_HISTORY.filter(
+        (order) => order.symbol === symbol
+      );
+
       return {
-        symbol: s,
-        volume: orders.reduce((a, o) => a + o.total, 0),
-        count: orders.length,
+        symbol,
+        volume: orders.reduce((total, order) => total + order.total, 0),
+        count: orders.length
       };
     });
   }
 
   get totalPnl(): number {
-    return this.dailyPnl.reduce((a, d) => a + d.pnl, 0);
+    return this.dailyPnl.reduce((total, day) => total + day.pnl, 0);
   }
 
   get winDays(): number {
-    return this.dailyPnl.filter((d) => d.pnl > 0).length;
+    return this.dailyPnl.filter((day) => day.pnl > 0).length;
   }
 
   get bestDay(): number {
-    return Math.max(...this.dailyPnl.map((d) => d.pnl));
+    return Math.max(...this.dailyPnl.map((day) => day.pnl));
   }
 
   get worstDay(): number {
-    return Math.min(...this.dailyPnl.map((d) => d.pnl));
+    return Math.min(...this.dailyPnl.map((day) => day.pnl));
   }
 
   get bestDayDate(): string {
-    return this.dailyPnl.find((d) => d.pnl === this.bestDay)?.date || '';
+    return this.dailyPnl.find((day) => day.pnl === this.bestDay)?.date || '';
   }
 
   get fillRate(): string {
-    const filled = MOCK_ORDER_HISTORY.filter((o) => o.status === 'FILLED').length;
+    const filled = MOCK_ORDER_HISTORY.filter(
+      (order) => order.status === 'FILLED'
+    ).length;
+
     return ((filled / MOCK_ORDER_HISTORY.length) * 100).toFixed(1);
   }
 
   get filledOrders(): number {
-    return MOCK_ORDER_HISTORY.filter((o) => o.status === 'FILLED').length;
+    return MOCK_ORDER_HISTORY.filter(
+      (order) => order.status === 'FILLED'
+    ).length;
   }
 
-  formatShort(n: number): string {
-    const abs = Math.abs(n);
-    const sign = n < 0 ? '-' : n > 0 ? '+' : '';
-    if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`;
-    return `${sign}$${abs.toFixed(0)}`;
+  formatShort(value: number): string {
+    const absoluteValue = Math.abs(value);
+    const sign = value < 0 ? '-' : value > 0 ? '+' : '';
+
+    if (absoluteValue >= 1000) {
+      return `${sign}$${(absoluteValue / 1000).toFixed(1)}K`;
+    }
+
+    return `${sign}$${absoluteValue.toFixed(0)}`;
   }
 
-  formatFull(n: number): string {
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  formatFull(value: number): string {
+    return value.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    });
   }
 
-  setPeriod(p: '7D' | '30D' | 'MTD' | 'YTD'): void {
-    this.period = p;
+  setPeriod(period: '7D' | '30D' | 'MTD' | 'YTD'): void {
+    this.period = period;
   }
 
   getChartBarHeight(value: number, maxValue: number): number {
