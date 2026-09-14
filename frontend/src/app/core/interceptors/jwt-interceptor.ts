@@ -56,6 +56,16 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
 
       return auth.refresh().pipe(
 
+        catchError(refreshError => {
+
+          auth.clearToken();
+
+          return throwError(
+            () => refreshError
+          );
+
+        }),
+
         switchMap(refreshResponse => {
 
           auth.saveToken(
@@ -72,16 +82,6 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
             });
 
           return next(retriedRequest);
-
-        }),
-
-        catchError(refreshError => {
-
-          auth.clearToken();
-
-          return throwError(
-            () => refreshError
-          );
 
         })
 
