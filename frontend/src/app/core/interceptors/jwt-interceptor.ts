@@ -3,13 +3,24 @@ import {
   HttpErrorResponse,
   HttpInterceptorFn
 } from '@angular/common/http';
+
 import {
+  Observable,
   catchError,
+  finalize,
+  shareReplay,
   switchMap,
+  tap,
   throwError
 } from 'rxjs';
 
-import { Auth } from '../auth/auth';
+import {
+  Auth,
+  RefreshResponse
+} from '../auth/auth';
+
+
+let refreshRequest$: Observable<RefreshResponse> | null = null;
 
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
@@ -20,6 +31,7 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
 
   const isAuthRequest =
     req.url.includes('/api/auth/');
+
 
   let request = req.clone({
     withCredentials: true
@@ -41,11 +53,6 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
 
     catchError((error: HttpErrorResponse) => {
 
-      /*
-       * Do not try refreshing if:
-       * - the failure wasn't 401
-       * - the request itself is an auth endpoint
-       */
       if (
         error.status !== 401 ||
         isAuthRequest
@@ -54,23 +61,50 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
       }
 
 
-      return auth.refresh().pipe(
+      /*
+       * Multiple API calls can fail with 401 at the same time.
+       *
+       * Only allow ONE refresh-token rotation.
+       * Other failed requests share the same refresh request.
+       */
+      if (!refreshRequest$) {
 
-        catchError(refreshError => {
+        refreshRequest$ = auth.refresh().pipe(
 
-          auth.clearToken();
+          tap(refreshResponse => {
 
-          return throwError(
-            () => refreshError
-          );
+            auth.saveToken(
+              refreshResponse.accessToken
+            );
 
-        }),
+          }),
+
+          catchError(refreshError => {
+
+            auth.clearToken();
+
+            return throwError(
+              () => refreshError
+            );
+
+          }),
+
+          finalize(() => {
+
+            refreshRequest$ = null;
+
+          }),
+
+          shareReplay(1)
+
+        );
+
+      }
+
+
+      return refreshRequest$.pipe(
 
         switchMap(refreshResponse => {
-
-          auth.saveToken(
-            refreshResponse.accessToken
-          );
 
           const retriedRequest =
             req.clone({
