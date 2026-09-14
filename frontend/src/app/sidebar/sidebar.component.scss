@@ -122,5 +122,29 @@ $accent-primary: #00d4aa;
         }
       }
     }
+
+    .logout-button {
+      width: 100%;
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: rgba($accent-primary, 0.1);
+      border: 1px solid $border-color;
+      color: $accent-primary;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba($accent-primary, 0.2);
+        border-color: $accent-primary;
+      }
+
+      &:active {
+        background: rgba($accent-primary, 0.15);
+      }
+    }
   }
 }
