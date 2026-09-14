@@ -4,6 +4,10 @@ import { environment } from '../../../environments/environment';
 import { Observable } from 'rxjs';
 
 
+export interface RefreshResponse {
+  accessToken: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -33,9 +37,11 @@ export class Auth {
 
     return this.http.post<LoginResponse>(
       `${this.apiUrl}/login`,
-      request
+      request,
+      {
+        withCredentials: true
+      }
     );
-
   }
 
 
@@ -54,7 +60,7 @@ export class Auth {
   }
 
 
-  logout(): void {
+  clearToken(): void {
     localStorage.removeItem(
       'accessToken'
     );
@@ -65,6 +71,7 @@ export class Auth {
     return !!this.getToken();
   }
 
+
   register(data: {
     firstName: string;
     lastName: string;
@@ -73,7 +80,33 @@ export class Auth {
   }) {
     return this.http.post(
       `${this.apiUrl}/register`,
-      data
+      data,
+      {
+        withCredentials: true
+      }
+    );
+  }
+
+  refresh(): Observable<RefreshResponse> {
+
+    return this.http.post<RefreshResponse>(
+      `${this.apiUrl}/refresh`,
+      {},
+      {
+        withCredentials: true
+      }
+    );
+  }
+
+
+  logoutSession(): Observable<void> {
+
+    return this.http.post<void>(
+      `${this.apiUrl}/logout`,
+      {},
+      {
+        withCredentials: true
+      }
     );
   }
 
