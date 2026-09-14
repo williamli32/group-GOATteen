@@ -1,5 +1,7 @@
 package com.goatteen.trading.order.controller;
 
+import com.goatteen.trading.account.AccountOwnershipService;
+import com.goatteen.trading.auth.service.CurrentUserService;
 import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.execution.Fill;
@@ -21,7 +23,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -32,29 +33,42 @@ public class OrderController {
     private final FillRepository fillRepository;
     private final OrderValidationService validationService;
     private final OrderExecutionService executionService;
+    private final CurrentUserService currentUserService;
+    private final AccountOwnershipService accountOwnershipService;
 
-    public OrderController(OrderRepository orderRepository, AccountRepository accountRepository,
-                          InstrumentRepository instrumentRepository, FillRepository fillRepository,
-                          OrderValidationService validationService, OrderExecutionService executionService) {
+    public OrderController(
+            OrderRepository orderRepository,
+            AccountRepository accountRepository,
+            InstrumentRepository instrumentRepository,
+            FillRepository fillRepository,
+            OrderValidationService validationService,
+            OrderExecutionService executionService,
+            CurrentUserService currentUserService,
+            AccountOwnershipService accountOwnershipService) {
         this.orderRepository = orderRepository;
         this.accountRepository = accountRepository;
         this.instrumentRepository = instrumentRepository;
         this.fillRepository = fillRepository;
         this.validationService = validationService;
         this.executionService = executionService;
+        this.currentUserService = currentUserService;
+        this.accountOwnershipService = accountOwnershipService;
     }
 
     @PostMapping
     public ResponseEntity<?> placeOrder(@RequestBody PlaceOrderRequest request) {
         try {
-            Account account = accountRepository.findById(request.getAccountId())
-                    .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+            Long userId = currentUserService.getCurrentUserId();
+
+            Account account = accountOwnershipService
+                    .getCurrentUserAccount(userId);
 
             Instrument instrument = instrumentRepository.findById(request.getInstrumentId())
                     .orElseThrow(() -> new IllegalArgumentException("Instrument not found"));
 
             // Validate order (BR-05)
-            ValidationResult validation = validationService.validate(account, instrument, request.getSide(), request.getQuantity());
+            ValidationResult validation = validationService.validate(account, instrument, request.getSide(),
+                    request.getQuantity());
             if (!validation.isAccepted()) {
                 return ResponseEntity.badRequest().body("Order rejected: " + validation.getRejectionReason());
             }
@@ -82,7 +96,8 @@ public class OrderController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Order rejected: " + e.getMessage());
             }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(toOrderResponse(orderRepository.findById(saved.getId()).orElseThrow()));
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(toOrderResponse(orderRepository.findById(saved.getId()).orElseThrow()));
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
