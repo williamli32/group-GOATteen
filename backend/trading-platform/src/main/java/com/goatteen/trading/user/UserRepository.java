@@ -1,14 +1,19 @@
 package com.goatteen.trading.user;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-
+import org.springframework.data.jpa.repository.EntityGraph;
 import java.util.Optional;
 
-
-public interface UserRepository 
+public interface UserRepository
         extends JpaRepository<User, Long> {
-
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmailIgnoreCase(String email);
+
+    boolean existsByEmailIgnoreCase(String email);
+
+    @EntityGraph(attributePaths = "roles")
+
+    Optional<User> findWithRolesById(Long id);
 }

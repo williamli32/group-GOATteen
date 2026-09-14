@@ -2,9 +2,10 @@ package com.goatteen.trading.client;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
 
-public interface ClientRepository 
+public interface ClientRepository
         extends JpaRepository<Client, Long> {
 
-
+    Optional<Client> findByUserId(Long userId);
 }

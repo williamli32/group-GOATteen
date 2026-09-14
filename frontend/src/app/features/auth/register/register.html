@@ -1,0 +1,271 @@
+<div class="auth-page">
+
+    <div class="background-glow background-glow-left"></div>
+    <div class="background-glow background-glow-right"></div>
+
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="brand-mark">
+                <span></span>
+                <span></span>
+            </div>
+
+            <span class="brand-name">APEXTRADE</span>
+
+        </div>
+
+        <div class="tagline">
+            Trade Smarter. Go Further.
+        </div>
+
+    </header>
+
+    <main class="auth-main">
+
+        <section class="auth-card">
+
+            <div class="card-heading">
+
+                <div class="eyebrow">
+                    APEXTRADE
+                </div>
+
+                <h1>Create account</h1>
+
+                <p>
+                    Join your trading terminal
+                </p>
+
+            </div>
+
+            <div class="auth-tabs">
+
+                <button type="button" class="auth-tab" routerLink="/login">
+                    Sign In
+                </button>
+
+                <button type="button" class="auth-tab active">
+                    Sign Up
+                </button>
+
+            </div>
+
+            <form class="login-form" (ngSubmit)="register()">
+
+                <div class="name-row">
+
+                    <div class="form-field">
+
+                        <label for="firstName">
+                            First Name
+                        </label>
+
+                        <input id="firstName" name="firstName" type="text" [(ngModel)]="firstName" placeholder="Joanna"
+                            autocomplete="given-name" required />
+
+                    </div>
+
+                    <div class="form-field">
+
+                        <label for="lastName">
+                            Last Name
+                        </label>
+
+                        <input id="lastName" name="lastName" type="text" [(ngModel)]="lastName" placeholder="Smith"
+                            autocomplete="family-name" required />
+
+                    </div>
+
+                </div>
+
+                <div class="form-field">
+
+                    <label for="email">
+                        Email
+                    </label>
+
+                    <div class="input-wrapper">
+
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.8">
+                            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+
+                            <path d="m3 7 9 6 9-6"></path>
+
+                        </svg>
+
+                        <input id="email" name="email" type="email" [(ngModel)]="email" placeholder="you@firm.com"
+                            autocomplete="email" required />
+
+                    </div>
+
+                </div>
+
+                <div class="form-field">
+
+                    <label for="password">
+                        Password
+                    </label>
+
+                    <div class="input-wrapper">
+
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.8">
+                            <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+
+                        </svg>
+
+                        <input id="password" name="password" [type]="showPassword ? 'text' : 'password'"
+                            [(ngModel)]="password" placeholder="••••••••" autocomplete="new-password" required />
+
+                        <button type="button" class="password-toggle" (click)="showPassword = !showPassword"
+                            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'">
+
+                            @if (showPassword) {
+
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M3 3l18 18"></path>
+                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                                <path d="M9.9 4.3A10.7 10.7 0 0 1 12 4c5 0 8.5 4 9.5 6a12.7 12.7 0 0 1-3.1 3.7"></path>
+                                <path d="M6.6 6.6C4.6 8 3.3 9.7 2.5 10.8c1 2 4.5 6.2 9.5 6.2 1.3 0 2.5-.3 3.5-.7">
+                                </path>
+                            </svg>
+
+                            } @else {
+
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+
+                                <circle cx="12" cy="12" r="2.5"></circle>
+                            </svg>
+
+                            }
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div class="form-field">
+
+                    <label for="confirmPassword">
+                        Confirm Password
+                    </label>
+
+                    <div class="input-wrapper">
+
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.8">
+                            <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+
+                        </svg>
+
+                        <input id="confirmPassword" name="confirmPassword"
+                            [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="confirmPassword"
+                            placeholder="••••••••" autocomplete="new-password" required />
+
+                        <button type="button" class="password-toggle"
+                            (click)="showConfirmPassword = !showConfirmPassword"
+                            [attr.aria-label]="showConfirmPassword ? 'Hide password' : 'Show password'">
+
+                            @if (showConfirmPassword) {
+
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M3 3l18 18"></path>
+                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                                <path d="M9.9 4.3A10.7 10.7 0 0 1 12 4c5 0 8.5 4 9.5 6a12.7 12.7 0 0 1-3.1 3.7"></path>
+                                <path d="M6.6 6.6C4.6 8 3.3 9.7 2.5 10.8c1 2 4.5 6.2 9.5 6.2 1.3 0 2.5-.3 3.5-.7">
+                                </path>
+                            </svg>
+
+                            } @else {
+
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+
+                                <circle cx="12" cy="12" r="2.5"></circle>
+                            </svg>
+
+                            }
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+                @if (validationMessage()) {
+                <div class="form-message validation">
+                    {{ validationMessage() }}
+                </div>
+                }
+
+                @if (errorMessage()) {
+                <div class="form-message error">
+                    {{ errorMessage() }}
+                </div>
+                }
+
+                <button type="submit" class="submit-button" [disabled]="loading()">
+
+                    @if (loading()) {
+                    <span class="spinner"></span>
+                    Creating account...
+                    } @else {
+                    Create Account
+                    }
+
+                </button>
+
+            </form>
+
+            <div class="login-prompt">
+                Already have an account?
+                <button type="button" routerLink="/login">
+                    Sign in
+                </button>
+            </div>
+
+            <div class="security-note">
+                <span class="security-dot"></span>
+                Secure access to your trading account
+            </div>
+
+        </section>
+
+    </main>
+
+    <div class="corner-text corner-left">
+
+        <div class="corner-line"></div>
+
+        <span>GLOBAL MARKETS</span>
+        <span>REAL OPPORTUNITIES</span>
+
+    </div>
+
+    <div class="corner-text corner-right">
+
+        <div class="chart-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+        <div>
+            <span style="display:block;">SECURE</span>
+            <span style="display:block;">RELIABLE</span>
+            <span style="display:block;">BUILT FOR TRADERS</span>
+        </div>
+
+    </div>
+
+</div>

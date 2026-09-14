@@ -1,0 +1,552 @@
+<div class="dashboard-container">
+
+  @if (loading()) {
+
+    <div class="dashboard-state">
+
+      <div class="state-spinner"></div>
+
+      <p>Loading your trading account...</p>
+
+    </div>
+
+  } @else if (errorMessage()) {
+
+    <div class="dashboard-state">
+
+      <p class="state-error">
+        {{ errorMessage() }}
+      </p>
+
+      <button
+        type="button"
+        class="retry-btn"
+        (click)="loadDashboard()"
+      >
+        Retry
+      </button>
+
+    </div>
+
+  } @else {
+
+    <!-- ========================= -->
+    <!-- TOP BAR                   -->
+    <!-- ========================= -->
+
+    <div class="topbar">
+
+      <div class="account-identity">
+
+        <span class="brand-name">
+          APEXTRADE
+        </span>
+
+        <div class="divider"></div>
+
+        <span class="account-name">
+
+          {{ account()?.firstName }}
+          {{ account()?.lastName }}
+
+        </span>
+
+        <span class="account-number">
+
+          {{ account()?.accountNumber }}
+
+        </span>
+
+      </div>
+
+
+      <div class="topbar-right">
+
+        <span class="label">
+          CASH
+        </span>
+
+        <span class="price">
+
+          {{
+            (account()?.cashBalance ?? 0)
+            |
+            currency:
+              (account()?.currency ?? 'GBP'):
+              'symbol':
+              '1.2-2'
+          }}
+
+        </span>
+
+
+        <div class="divider"></div>
+
+
+        <span class="label">
+          CURRENCY
+        </span>
+
+        <span class="volume">
+
+          {{ account()?.currency }}
+
+        </span>
+
+
+        <div class="live-indicator">
+
+          <div class="live-dot"></div>
+
+          <span class="live-text">
+            SECURE
+          </span>
+
+        </div>
+
+
+        <button
+          type="button"
+          class="logout-btn"
+          [disabled]="loggingOut()"
+          (click)="logout()"
+        >
+
+          @if (loggingOut()) {
+            LOGGING OUT...
+          } @else {
+            LOG OUT
+          }
+
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- MAIN DASHBOARD            -->
+    <!-- ========================= -->
+
+    <div class="main-content">
+
+
+      <!-- LEFT / MAIN AREA -->
+
+      <div class="chart-area">
+
+
+        <!-- Account / market area -->
+
+        <div class="chart-section">
+
+          <div class="chart-header">
+
+            <span class="ticker-name">
+              ACCOUNT OVERVIEW
+            </span>
+
+            <span class="exchange">
+              {{ account()?.accountNumber }}
+            </span>
+
+          </div>
+
+
+          <div class="market-placeholder">
+
+            <div class="placeholder-kicker">
+              MARKET TERMINAL
+            </div>
+
+            <div class="placeholder-title">
+              Market data and charting
+            </div>
+
+            <p class="placeholder-copy">
+
+              Your account is connected and authenticated.
+              Live instruments, pricing and trading will be
+              enabled in Sprint 3.
+
+            </p>
+
+
+            <div class="account-summary-grid">
+
+              <div class="summary-card">
+
+                <span class="summary-label">
+                  ACCOUNT
+                </span>
+
+                <span class="summary-value">
+                  {{ account()?.accountNumber }}
+                </span>
+
+              </div>
+
+
+              <div class="summary-card">
+
+                <span class="summary-label">
+                  AVAILABLE CASH
+                </span>
+
+                <span class="summary-value">
+
+                  {{
+                    (account()?.cashBalance ?? 0)
+                    |
+                    currency:
+                      (account()?.currency ?? 'GBP'):
+                      'symbol':
+                      '1.2-2'
+                  }}
+
+                </span>
+
+              </div>
+
+
+              <div class="summary-card">
+
+                <span class="summary-label">
+                  POSITIONS
+                </span>
+
+                <span class="summary-value">
+
+                  {{
+                    holdings()?.positions?.length ?? 0
+                  }}
+
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- ========================= -->
+        <!-- REAL POSITIONS            -->
+        <!-- ========================= -->
+
+        <div class="positions-section">
+
+          <p class="section-title">
+            POSITIONS
+          </p>
+
+
+          <div class="table-wrapper">
+
+            <table class="positions-table">
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Symbol
+                  </th>
+
+                  <th>
+                    Instrument
+                  </th>
+
+                  <th>
+                    Quantity
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody>
+
+                @for (
+                  position of holdings()?.positions ?? [];
+                  track position.instrumentId
+                ) {
+
+                  <tr class="position-row">
+
+                    <td class="symbol-cell">
+
+                      {{ position.symbol }}
+
+                    </td>
+
+
+                    <td>
+
+                      {{ position.instrumentName }}
+
+                    </td>
+
+
+                    <td class="number-cell">
+
+                      {{ position.quantity }}
+
+                    </td>
+
+                  </tr>
+
+                } @empty {
+
+                  <tr>
+
+                    <td
+                      colspan="3"
+                      class="empty-state"
+                    >
+
+                      No positions currently held.
+
+                    </td>
+
+                  </tr>
+
+                }
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- ========================= -->
+      <!-- RIGHT PANEL               -->
+      <!-- ========================= -->
+
+      <div class="right-panel">
+
+
+        <!-- ORDER PANEL -->
+
+        <div class="order-panel">
+
+          <p class="section-title">
+            ORDER TICKET
+          </p>
+
+
+          <div class="order-form">
+
+            <div class="account-facts">
+
+
+              <div class="fact-row">
+
+                <span>
+                  ACCOUNT ID
+                </span>
+
+                <span class="mono">
+
+                  #{{ account()?.accountId }}
+
+                </span>
+
+              </div>
+
+
+              <div class="fact-row">
+
+                <span>
+                  CURRENCY
+                </span>
+
+                <span class="mono">
+
+                  {{ account()?.currency }}
+
+                </span>
+
+              </div>
+
+
+              <div class="fact-row">
+
+                <span>
+                  CASH BALANCE
+                </span>
+
+                <span class="mono">
+
+                  {{
+                    (account()?.cashBalance ?? 0)
+                    |
+                    currency:
+                      (account()?.currency ?? 'GBP'):
+                      'symbol':
+                      '1.2-2'
+                  }}
+
+                </span>
+
+              </div>
+
+            </div>
+
+
+            <button
+              type="button"
+              class="submit-btn disabled-submit"
+              disabled
+            >
+
+              TRADING ENABLES IN SPRINT 3
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- ========================= -->
+        <!-- REAL ACCOUNT ORDERS       -->
+        <!-- ========================= -->
+
+        <div class="recent-orders">
+
+          <p class="section-title">
+            RECENT ORDERS
+          </p>
+
+
+          <div class="orders-list">
+
+            @for (
+              order of orders().slice(0, 6);
+              track order.id
+            ) {
+
+              <div
+                class="order-item"
+                [class]="
+                  'order-item status-' +
+                  order.status.toLowerCase()
+                "
+              >
+
+                <div class="order-header">
+
+                  <span class="order-symbol">
+
+                    ORDER #{{ order.id }}
+
+                  </span>
+
+
+                  <span class="order-status">
+
+                    {{ order.status }}
+
+                  </span>
+
+                </div>
+
+
+                <div class="order-details">
+
+                  <span
+                    [class]="
+                      'side-' +
+                      order.side.toLowerCase()
+                    "
+                  >
+
+                    {{ order.side }}
+
+                  </span>
+
+
+                  @if (order.fillPrice !== null) {
+
+                    <span>
+
+                      {{ order.quantity }}
+
+                      @
+
+                      {{
+                        order.fillPrice
+                        |
+                        currency:
+                          (account()?.currency ?? 'GBP')
+                      }}
+
+                    </span>
+
+                  } @else {
+
+                    <span>
+
+                      Qty {{ order.quantity }}
+
+                    </span>
+
+                  }
+
+                </div>
+
+
+                <p class="order-time">
+
+                  {{
+                    order.submittedAt
+                    |
+                    date:'medium'
+                  }}
+
+                </p>
+
+
+                @if (order.rejectionReason) {
+
+                  <p class="rejection-reason">
+
+                    {{ order.rejectionReason }}
+
+                  </p>
+
+                }
+
+              </div>
+
+            } @empty {
+
+              <div class="empty-orders">
+
+                No orders have been submitted yet.
+
+              </div>
+
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  }
+
+</div>
