@@ -5,6 +5,11 @@ import {
 } from '@angular/core';
 
 import {
+  MarketDataService,
+  MarketInstrumentResponse
+} from '../core/services/market-data';
+
+import {
   CommonModule
 } from '@angular/common';
 
@@ -43,6 +48,17 @@ import {
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit {
+  marketInstruments =
+    signal<MarketInstrumentResponse[]>([]);
+
+  selectedInstrument =
+    signal<MarketInstrumentResponse | null>(null);
+
+  marketLoading =
+    signal(true);
+
+  marketErrorMessage =
+    signal('');
 
   account =
     signal<AccountResponse | null>(null);
@@ -65,14 +81,17 @@ export class DashboardComponent implements OnInit {
 
   constructor(
     private accountService: AccountService,
+    private marketDataService: MarketDataService,
     private auth: Auth,
     private router: Router
-  ) {}
+  ) { }
 
 
   ngOnInit(): void {
 
     this.loadDashboard();
+
+    this.loadMarketData();
 
   }
 
@@ -96,55 +115,55 @@ export class DashboardComponent implements OnInit {
         this.accountService.getBlotter()
 
     })
-    .pipe(
+      .pipe(
 
-      finalize(() => {
+        finalize(() => {
 
-        this.loading.set(false);
+          this.loading.set(false);
 
-      })
+        })
 
-    )
-    .subscribe({
+      )
+      .subscribe({
 
-      next: result => {
+        next: result => {
 
-        this.account.set(
-          result.account
-        );
+          this.account.set(
+            result.account
+          );
 
-        this.holdings.set(
-          result.holdings
-        );
+          this.holdings.set(
+            result.holdings
+          );
 
-        this.orders.set(
-          result.orders
-        );
+          this.orders.set(
+            result.orders
+          );
 
-      },
+        },
 
 
-      error: (error: HttpErrorResponse) => {
+        error: (error: HttpErrorResponse) => {
 
-        if (error.status === 401) {
+          if (error.status === 401) {
 
-          this.auth.clearToken();
+            this.auth.clearToken();
 
-          this.router.navigate([
-            '/login'
-          ]);
+            this.router.navigate([
+              '/login'
+            ]);
 
-          return;
+            return;
+          }
+
+
+          this.errorMessage.set(
+            'Unable to load your account dashboard. Please try again.'
+          );
+
         }
 
-
-        this.errorMessage.set(
-          'Unable to load your account dashboard. Please try again.'
-        );
-
-      }
-
-    });
+      });
 
   }
 
@@ -200,6 +219,84 @@ export class DashboardComponent implements OnInit {
     this.router.navigate([
       '/login'
     ]);
+
+  }
+
+  loadMarketData(): void {
+
+    this.marketLoading.set(true);
+
+    this.marketErrorMessage.set('');
+
+
+    this.marketDataService
+      .getInstruments()
+      .pipe(
+
+        finalize(() => {
+
+          this.marketLoading.set(false);
+
+        })
+
+      )
+      .subscribe({
+
+        next: instruments => {
+
+          this.marketInstruments.set(
+            instruments
+          );
+
+          if (
+            instruments.length > 0 &&
+            !this.selectedInstrument()
+          ) {
+
+            this.selectedInstrument.set(
+              instruments[0]
+            );
+
+          }
+
+        },
+
+
+        error: (
+          error: HttpErrorResponse
+        ) => {
+
+          if (error.status === 401) {
+
+            this.auth.clearToken();
+
+            this.router.navigate([
+              '/login'
+            ]);
+
+            return;
+
+          }
+
+
+          this.marketErrorMessage.set(
+            'Unable to load market data.'
+          );
+
+        }
+
+      });
+
+  }
+
+
+  selectInstrument(
+    instrument: MarketInstrumentResponse
+  ): void {
+
+    this.selectedInstrument.set(
+      instrument
+    );
 
   }
 

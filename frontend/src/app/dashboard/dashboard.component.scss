@@ -1007,3 +1007,200 @@ $accent-primary: #00d4aa;
 
   }
 }
+
+// =====================================================
+// SPRINT 3 MARKET DATA
+// =====================================================
+
+.market-terminal {
+  flex: 1;
+  min-height: 240px;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+
+  border: 1px solid $border-color;
+  border-radius: 6px;
+
+  background: $bg-darker;
+}
+
+
+.selected-market {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 14px 16px;
+
+  border-bottom: 1px solid $border-color;
+}
+
+
+.selected-symbol {
+  color: $text-primary;
+
+  font-size: 20px;
+  font-weight: 700;
+}
+
+
+.selected-name {
+  margin-top: 3px;
+
+  color: $text-muted;
+
+  font-size: 10px;
+}
+
+
+.selected-price {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+
+  strong {
+    color: $accent-primary;
+
+    font-size: 20px;
+  }
+}
+
+
+.price-label,
+.currency-label {
+  color: $text-muted;
+
+  font-size: 9px;
+
+  letter-spacing: 0.5px;
+}
+
+
+.market-table-wrapper {
+  flex: 1;
+
+  overflow: auto;
+}
+
+
+.market-table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  font-family:
+    'JetBrains Mono',
+    monospace;
+
+  font-size: 10px;
+
+  th {
+    position: sticky;
+    top: 0;
+
+    padding: 8px 10px;
+
+    background: $bg-dark;
+
+    color: $text-muted;
+
+    text-align: right;
+
+    border-bottom:
+      1px solid $border-color;
+
+    &:first-child,
+    &:nth-child(2) {
+      text-align: left;
+    }
+  }
+
+  td {
+    padding: 8px 10px;
+
+    text-align: right;
+
+    color: $text-dim;
+
+    border-bottom:
+      1px solid $border-light;
+
+    &:first-child,
+    &:nth-child(2) {
+      text-align: left;
+    }
+  }
+}
+
+
+.market-row {
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease;
+
+  &:hover {
+    background:
+      rgba(255, 255, 255, 0.025);
+  }
+
+  &.selected {
+    background:
+      rgba(0, 212, 170, 0.07);
+  }
+}
+
+
+.market-symbol {
+  color: $text-primary !important;
+
+  font-weight: 600;
+}
+
+
+.market-last {
+  color: $accent-primary !important;
+}
+
+
+.market-state {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  color: $text-muted;
+}
+
+
+.market-error {
+  color: $accent-negative;
+}
+
+
+.market-retry-btn {
+  padding: 5px 9px;
+
+  border:
+    1px solid $accent-primary;
+
+  border-radius: 4px;
+
+  background:
+    rgba(0, 212, 170, 0.08);
+
+  color: $accent-primary;
+
+  font-family:
+    'JetBrains Mono',
+    monospace;
+
+  font-size: 9px;
+
+  cursor: pointer;
+}
