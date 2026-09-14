@@ -409,7 +409,8 @@ $accent-primary: #00d4aa;
         color: $bg-darker;
 
         &:hover {
-          background: darken($accent-positive, 10%);
+          background: color.adjust($accent-positive,
+              $lightness: -10%);
         }
       }
 
@@ -418,7 +419,8 @@ $accent-primary: #00d4aa;
         color: white;
 
         &:hover {
-          background: darken($accent-negative, 10%);
+          background: color.adjust($accent-negative,
+              $lightness: -10%);
         }
       }
 
@@ -529,6 +531,8 @@ $accent-primary: #00d4aa;
   }
 }
 
+@use 'sass:color';
+
 // ============ ANIMATIONS ============
 @keyframes pulse {
 
@@ -555,7 +559,8 @@ $accent-primary: #00d4aa;
     border-radius: 4px;
 
     &:hover {
-      background: lighten($border-color, 10%);
+      background: color.adjust($border-color,
+          $lightness: 10%);
     }
   }
 }
