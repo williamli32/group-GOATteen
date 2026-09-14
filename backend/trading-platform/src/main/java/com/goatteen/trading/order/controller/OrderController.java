@@ -3,7 +3,6 @@ package com.goatteen.trading.order.controller;
 import com.goatteen.trading.account.AccountOwnershipService;
 import com.goatteen.trading.auth.service.CurrentUserService;
 import com.goatteen.trading.account.Account;
-import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.execution.Fill;
 import com.goatteen.trading.execution.FillRepository;
 import com.goatteen.trading.execution.OrderExecutionService;
@@ -13,22 +12,17 @@ import com.goatteen.trading.order.Order;
 import com.goatteen.trading.order.OrderRepository;
 import com.goatteen.trading.order.OrderValidationService;
 import com.goatteen.trading.order.OrderValidationService.ValidationResult;
-import com.goatteen.trading.order.dto.BlotterResponse;
 import com.goatteen.trading.order.dto.OrderResponse;
 import com.goatteen.trading.order.dto.PlaceOrderRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
 
     private final OrderRepository orderRepository;
-    private final AccountRepository accountRepository;
     private final InstrumentRepository instrumentRepository;
     private final FillRepository fillRepository;
     private final OrderValidationService validationService;
@@ -38,7 +32,6 @@ public class OrderController {
 
     public OrderController(
             OrderRepository orderRepository,
-            AccountRepository accountRepository,
             InstrumentRepository instrumentRepository,
             FillRepository fillRepository,
             OrderValidationService validationService,
@@ -46,7 +39,6 @@ public class OrderController {
             CurrentUserService currentUserService,
             AccountOwnershipService accountOwnershipService) {
         this.orderRepository = orderRepository;
-        this.accountRepository = accountRepository;
         this.instrumentRepository = instrumentRepository;
         this.fillRepository = fillRepository;
         this.validationService = validationService;
@@ -105,33 +97,29 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable Long orderId) {
-        Order order = orderRepository.findById(orderId)
+    public ResponseEntity<OrderResponse> getOrder(
+            @PathVariable Long orderId) {
+
+        Long userId = currentUserService
+                .getCurrentUserId();
+
+        Account account = accountOwnershipService
+                .getCurrentUserAccount(userId);
+
+        Order order = orderRepository
+                .findByIdAndAccountId(
+                        orderId,
+                        account.getId())
                 .orElse(null);
 
         if (order == null) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity
+                    .notFound()
+                    .build();
         }
 
-        return ResponseEntity.ok(toOrderResponse(order));
-    }
-
-    @GetMapping("/account/{accountId}/blotter")
-    public ResponseEntity<BlotterResponse> getBlotter(@PathVariable Long accountId) {
-        Account account = accountRepository.findById(accountId)
-                .orElse(null);
-
-        if (account == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        List<Order> orders = orderRepository.findByAccountIdOrderBySubmittedAtDesc(accountId);
-        List<OrderResponse> orderResponses = orders.stream()
-                .map(this::toOrderResponse)
-                .collect(Collectors.toList());
-
-        BlotterResponse blotter = new BlotterResponse(accountId, orderResponses);
-        return ResponseEntity.ok(blotter);
+        return ResponseEntity.ok(
+                toOrderResponse(order));
     }
 
     private OrderResponse toOrderResponse(Order order) {
