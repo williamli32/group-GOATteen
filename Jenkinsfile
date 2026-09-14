@@ -2,6 +2,11 @@ pipeline {
 
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+    }
+
     environment {
         DB_URL = 'jdbc:postgresql://localhost:5433/leap_trading_test'
         DB_USERNAME = 'postgres'
@@ -14,6 +19,22 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Frontend Test & Build') {
+            steps {
+                dir('frontend') {
+                    sh '''
+                        docker run --rm \
+                            -u "$(id -u):$(id -g)" \
+                            -e HOME=/tmp \
+                            -v "$PWD:/app" \
+                            -w /app \
+                            node:24-bookworm \
+                            sh -lc 'npm ci && npm test -- --watch=false && npm run build'
+                    '''
+                }
             }
         }
 
@@ -45,7 +66,7 @@ pipeline {
             }
         }
 
-        stage('Build & Test Backend') {
+        stage('Backend Build & Test') {
             steps {
                 dir('backend/trading-platform') {
                     sh '''
@@ -54,6 +75,7 @@ pipeline {
                 }
             }
         }
+
     }
 
     post {
@@ -65,11 +87,23 @@ pipeline {
         }
 
         success {
-            echo 'LEAP backend CI pipeline passed.'
+            echo '''
+            ==========================================
+            LEAP CI PASSED
+            ==========================================
+            Frontend tests: PASSED
+            Frontend build: PASSED
+            Backend tests: PASSED
+            Backend build: PASSED
+            ==========================================
+            '''
         }
 
         failure {
-            echo 'LEAP backend CI pipeline failed.'
+            echo '''
+            LEAP CI FAILED.
+            Check the failed pipeline stage.
+            '''
         }
     }
 }

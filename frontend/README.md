@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 # Frontend
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.0.7.
+=======
+# TradingPlatformUi
+
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.8.
+>>>>>>> 272756fdd31cbc5e77a8f9646662bbac0fccf6b4
 
 ## Development server
 

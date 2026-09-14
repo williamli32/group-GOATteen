@@ -2,11 +2,20 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "cli": {
+<<<<<<< HEAD
     "packageManager": "npm"
   },
   "newProjectRoot": "projects",
   "projects": {
     "frontend": {
+=======
+    "packageManager": "npm",
+    "analytics": "201994e5-db75-4873-b50b-50828c736672"
+  },
+  "newProjectRoot": "projects",
+  "projects": {
+    "trading-platform-ui": {
+>>>>>>> 272756fdd31cbc5e77a8f9646662bbac0fccf6b4
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -43,8 +52,13 @@
                 },
                 {
                   "type": "anyComponentStyle",
+<<<<<<< HEAD
                   "maximumWarning": "4kB",
                   "maximumError": "8kB"
+=======
+                  "maximumWarning": "15kB",
+                  "maximumError": "20kB"
+>>>>>>> 272756fdd31cbc5e77a8f9646662bbac0fccf6b4
                 }
               ],
               "outputHashing": "all"
@@ -61,10 +75,17 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
+<<<<<<< HEAD
               "buildTarget": "frontend:build:production"
             },
             "development": {
               "buildTarget": "frontend:build:development"
+=======
+              "buildTarget": "trading-platform-ui:build:production"
+            },
+            "development": {
+              "buildTarget": "trading-platform-ui:build:development"
+>>>>>>> 272756fdd31cbc5e77a8f9646662bbac0fccf6b4
             }
           },
           "defaultConfiguration": "development"

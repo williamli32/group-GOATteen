@@ -1,0 +1,10 @@
+{
+  "description": "This trading platform offers users real-time charts, order placement, portfolio tracking, and detailed reporting for efficient trading management.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
