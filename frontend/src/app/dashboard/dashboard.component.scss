@@ -1,3 +1,5 @@
+@use 'sass:color';
+
 :host {
   display: flex;
   width: 100%;
@@ -530,8 +532,6 @@ $accent-primary: #00d4aa;
     }
   }
 }
-
-@use 'sass:color';
 
 // ============ ANIMATIONS ============
 @keyframes pulse {
