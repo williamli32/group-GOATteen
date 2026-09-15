@@ -49,51 +49,120 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<?> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
+    public ResponseEntity<?> placeOrder(
+            @Valid @RequestBody PlaceOrderRequest request) {
+
         try {
-            Long userId = currentUserService.getCurrentUserId();
+
+            Long userId = currentUserService
+                    .getCurrentUserId();
 
             Account account = accountOwnershipService
-                    .getCurrentUserAccount(userId);
+                    .getCurrentUserAccount(
+                            userId);
 
-            Instrument instrument = instrumentRepository.findById(request.getInstrumentId())
-                    .orElseThrow(() -> new IllegalArgumentException("Instrument not found"));
+            Instrument instrument = instrumentRepository
+                    .findById(
+                            request.getInstrumentId())
+                    .orElseThrow(
+                            () -> new IllegalArgumentException(
+                                    "Instrument not found"));
 
-            // Validate order (BR-05)
-            ValidationResult validation = validationService.validate(account, instrument, request.getSide(),
-                    request.getQuantity());
-            if (!validation.isAccepted()) {
-                return ResponseEntity.badRequest().body("Order rejected: " + validation.getRejectionReason());
-            }
-
-            // Create and submit order (BR-04, BR-06)
+            /*
+             * Persist the firm order first.
+             *
+             * At this point no cash, position,
+             * or fill changes occur.
+             */
             Order order = new Order();
-            order.setAccount(account);
-            order.setInstrument(instrument);
-            order.setSide(request.getSide());
-            order.setQuantity(request.getQuantity());
-            order.setStatus(com.goatteen.trading.order.OrderStatus.SUBMITTED);
 
-            executionService.submitOrder(order);
+            order.setAccount(
+                    account);
 
-            // Auto-execute order (simplified: in production, this might be async)
-            Order saved = orderRepository.findById(order.getId()).orElseThrow();
-            try {
-                executionService.executeOrder(saved.getId());
-            } catch (OrderExecutionService.OrderExecutionException e) {
-                try {
-                    executionService.rejectOrder(saved.getId(), e.getMessage());
-                } catch (OrderExecutionService.OrderExecutionException ex) {
-                    // Ignore rejection errors for now
-                }
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Order rejected: " + e.getMessage());
+            order.setInstrument(
+                    instrument);
+
+            order.setSide(
+                    request.getSide());
+
+            order.setQuantity(
+                    request.getQuantity());
+
+            executionService
+                    .submitOrder(order);
+
+            /*
+             * Run Sprint 3 business validation.
+             */
+            ValidationResult validation = validationService.validate(
+                    account,
+                    instrument,
+                    request.getSide(),
+                    request.getQuantity());
+
+            /*
+             * Business-rule failure:
+             * SUBMITTED -> REJECTED
+             */
+            if (!validation.isAccepted()) {
+
+                executionService
+                        .rejectOrder(
+                                order.getId(),
+                                validation
+                                        .getRejectionReason());
+
+                Order rejectedOrder = orderRepository
+                        .findById(
+                                order.getId())
+                        .orElseThrow();
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.BAD_REQUEST)
+                        .body(
+                                toOrderResponse(
+                                        rejectedOrder));
             }
 
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(toOrderResponse(orderRepository.findById(saved.getId()).orElseThrow()));
+            /*
+             * Business validation succeeded:
+             * SUBMITTED -> ACCEPTED
+             *
+             * Execution is deliberately deferred
+             * to Sprint 4.
+             */
+            executionService
+                    .acceptOrder(
+                            order.getId());
+
+            Order acceptedOrder = orderRepository
+                    .findById(
+                            order.getId())
+                    .orElseThrow();
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.CREATED)
+                    .body(
+                            toOrderResponse(
+                                    acceptedOrder));
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.BAD_REQUEST)
+                    .body(
+                            e.getMessage());
+
+        } catch (OrderExecutionService.OrderExecutionException e) {
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            e.getMessage());
         }
     }
 

@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-
 @Service
 public class OrderExecutionService {
 
@@ -34,9 +33,9 @@ public class OrderExecutionService {
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
     public OrderExecutionService(OrderRepository orderRepository, FillRepository fillRepository,
-                                 QuoteRepository quoteRepository, AccountRepository accountRepository,
-                                 PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
-                                 OrderStatusHistoryRepository orderStatusHistoryRepository) {
+            QuoteRepository quoteRepository, AccountRepository accountRepository,
+            PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
+            OrderStatusHistoryRepository orderStatusHistoryRepository) {
         this.orderRepository = orderRepository;
         this.fillRepository = fillRepository;
         this.quoteRepository = quoteRepository;
@@ -48,9 +47,46 @@ public class OrderExecutionService {
 
     @Transactional
     public void submitOrder(Order order) {
-        order.setSubmittedAt(LocalDateTime.now());
+
+        order.setStatus(
+                OrderStatus.SUBMITTED);
+
+        order.setSubmittedAt(
+                LocalDateTime.now());
+
         Order saved = orderRepository.save(order);
-        recordStatusChange(saved, OrderStatus.SUBMITTED, "Order submitted");
+
+        recordStatusChange(
+                saved,
+                OrderStatus.SUBMITTED,
+                "Order submitted");
+    }
+
+    @Transactional
+    public void acceptOrder(
+            Long orderId) throws OrderExecutionException {
+
+        Order order = orderRepository
+                .findById(orderId)
+                .orElseThrow(
+                        () -> new OrderExecutionException(
+                                "Order not found"));
+
+        if (order.getStatus() != OrderStatus.SUBMITTED) {
+
+            throw new OrderExecutionException(
+                    "Order is not in SUBMITTED state");
+        }
+
+        order.setStatus(
+                OrderStatus.ACCEPTED);
+
+        orderRepository.save(order);
+
+        recordStatusChange(
+                order,
+                OrderStatus.ACCEPTED,
+                "Order accepted");
     }
 
     @Transactional
@@ -112,7 +148,8 @@ public class OrderExecutionService {
         recordStatusChange(order, OrderStatus.REJECTED, reason);
     }
 
-    private void updateCashBalance(Account account, Order order, BigDecimal executionPrice) throws OrderExecutionException {
+    private void updateCashBalance(Account account, Order order, BigDecimal executionPrice)
+            throws OrderExecutionException {
         BigDecimal totalCost = executionPrice.multiply(order.getQuantity());
 
         if (order.getSide() == OrderSide.BUY) {
