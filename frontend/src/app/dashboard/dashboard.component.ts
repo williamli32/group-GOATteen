@@ -37,12 +37,22 @@ import {
   Auth
 } from '../core/auth/auth';
 
+import {
+  FormsModule
+} from '@angular/forms';
+
+import {
+  OrderService,
+  OrderSide
+} from '../core/services/order';
+
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    CommonModule
+    CommonModule,
+    FormsModule
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
@@ -78,10 +88,26 @@ export class DashboardComponent implements OnInit {
   errorMessage =
     signal('');
 
+  orderSide: OrderSide =
+    'BUY';
+
+  orderQuantity:
+    number | null = null;
+
+  orderSubmitting =
+    signal(false);
+
+  orderMessage =
+    signal('');
+
+  orderErrorMessage =
+    signal('');
+
 
   constructor(
     private accountService: AccountService,
     private marketDataService: MarketDataService,
+    private orderService: OrderService,
     private auth: Auth,
     private router: Router
   ) { }
@@ -296,6 +322,247 @@ export class DashboardComponent implements OnInit {
 
     this.selectedInstrument.set(
       instrument
+    );
+
+    this.orderMessage.set('');
+
+    this.orderErrorMessage.set('');
+
+  }
+
+  setOrderSide(
+    side: OrderSide
+  ): void {
+
+    this.orderSide =
+      side;
+
+    this.orderMessage.set('');
+
+    this.orderErrorMessage.set('');
+
+  }
+
+
+  currentOrderPrice():
+    number | null {
+
+    const quote =
+      this.selectedInstrument()
+        ?.latestQuote;
+
+    if (!quote) {
+      return null;
+    }
+
+    return this.orderSide === 'BUY'
+      ? quote.askPrice
+      : quote.bidPrice;
+
+  }
+
+
+  estimatedNotional():
+    number | null {
+
+    const price =
+      this.currentOrderPrice();
+
+    const quantity =
+      Number(this.orderQuantity);
+
+
+    if (
+      price === null ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0
+    ) {
+
+      return null;
+
+    }
+
+
+    return price * quantity;
+
+  }
+
+
+  submitOrder(): void {
+
+    if (this.orderSubmitting()) {
+      return;
+    }
+
+
+    this.orderMessage.set('');
+
+    this.orderErrorMessage.set('');
+
+
+    const instrument =
+      this.selectedInstrument();
+
+
+    if (!instrument) {
+
+      this.orderErrorMessage.set(
+        'Select an instrument first.'
+      );
+
+      return;
+
+    }
+
+
+    if (!instrument.latestQuote) {
+
+      this.orderErrorMessage.set(
+        'No market quote is available for this instrument.'
+      );
+
+      return;
+
+    }
+
+
+    const quantity =
+      Number(this.orderQuantity);
+
+
+    if (
+      !Number.isFinite(quantity) ||
+      quantity <= 0
+    ) {
+
+      this.orderErrorMessage.set(
+        'Quantity must be greater than zero.'
+      );
+
+      return;
+
+    }
+
+
+    this.orderSubmitting.set(true);
+
+
+    this.orderService
+      .placeOrder({
+
+        instrumentId:
+          instrument.instrumentId,
+
+        side:
+          this.orderSide,
+
+        quantity
+
+      })
+      .pipe(
+
+        finalize(() => {
+
+          this.orderSubmitting.set(
+            false
+          );
+
+        })
+
+      )
+      .subscribe({
+
+        next: order => {
+
+          this.addOrderToBlotter(
+            order
+          );
+
+          this.orderMessage.set(
+            `Order #${order.id} accepted.`
+          );
+
+          this.orderQuantity =
+            null;
+
+        },
+
+
+        error: (
+          error: HttpErrorResponse
+        ) => {
+
+          if (error.status === 401) {
+
+            this.auth.clearToken();
+
+            this.router.navigate([
+              '/login'
+            ]);
+
+            return;
+
+          }
+
+
+          /*
+           * Business-rule rejection from the
+           * order controller returns the stored
+           * OrderResponse in the 400 body.
+           */
+          const rejectedOrder =
+            error.error as OrderResponse;
+
+
+          if (
+            error.status === 400 &&
+            rejectedOrder &&
+            typeof rejectedOrder.id === 'number' &&
+            rejectedOrder.status === 'REJECTED'
+          ) {
+
+            this.addOrderToBlotter(
+              rejectedOrder
+            );
+
+            this.orderErrorMessage.set(
+              rejectedOrder
+                .rejectionReason
+              ??
+              'Order rejected.'
+            );
+
+            return;
+
+          }
+
+
+          this.orderErrorMessage.set(
+            'Unable to submit the order.'
+          );
+
+        }
+
+      });
+
+  }
+
+
+  private addOrderToBlotter(
+    order: OrderResponse
+  ): void {
+
+    this.orders.update(
+      current => [
+
+        order,
+
+        ...current.filter(
+          existing =>
+            existing.id !== order.id
+        )
+
+      ]
     );
 
   }

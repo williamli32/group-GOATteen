@@ -89,4 +89,35 @@ describe('Register', () => {
     }
   );
 
+  it(
+    'should reject a password shorter than 12 characters',
+    () => {
+
+      component.firstName =
+        'Joanna';
+
+      component.lastName =
+        'Smith';
+
+      component.email =
+        'joanna@example.com';
+
+      component.password =
+        'Short123!';
+
+      component.confirmPassword =
+        'Short123!';
+
+
+      component.register();
+
+
+      expect(
+        component.validationMessage()
+      ).toBe(
+        'Password must be between 12 and 72 characters.'
+      );
+
+    }
+  );
 });

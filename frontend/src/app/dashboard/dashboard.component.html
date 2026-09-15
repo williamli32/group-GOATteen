@@ -420,58 +420,164 @@
           ORDER TICKET
         </p>
 
-
         <div class="order-form">
 
-          <div class="account-facts">
+          @if (selectedInstrument(); as selected) {
 
+          <div class="order-summary">
 
-            <div class="fact-row">
+            <div class="summary-row">
 
               <span>
-                ACCOUNT ID
+                INSTRUMENT
               </span>
 
               <span class="mono">
-
-                #{{ account()?.accountId }}
-
+                {{ selected.symbol }}
               </span>
 
             </div>
 
 
-            <div class="fact-row">
+            <div class="summary-row">
+
+              <span>
+                MARKET
+              </span>
+
+              <span class="mono">
+                {{ selected.instrumentClass }}
+              </span>
+
+            </div>
+
+
+            <div class="summary-row">
 
               <span>
                 CURRENCY
               </span>
 
               <span class="mono">
+                {{ selected.currency }}
+              </span>
 
-                {{ account()?.currency }}
+            </div>
+
+          </div>
+
+
+          <div class="side-buttons">
+
+            <button type="button" class="side-btn buy-btn" [class.active]="
+          orderSide === 'BUY'
+        " [disabled]="orderSubmitting()" (click)="setOrderSide('BUY')">
+              BUY
+            </button>
+
+
+            <button type="button" class="side-btn sell-btn" [class.active]="
+          orderSide === 'SELL'
+        " [disabled]="orderSubmitting()" (click)="setOrderSide('SELL')">
+              SELL
+            </button>
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label for="orderQuantity">
+              Quantity
+            </label>
+
+            <input id="orderQuantity" name="orderQuantity" type="number" class="form-input" min="0" step="any"
+              placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderSubmitting()" />
+
+          </div>
+
+
+          <div class="order-summary">
+
+            <div class="summary-row">
+
+              <span>
+                {{
+                orderSide === 'BUY'
+                ? 'ASK'
+                : 'BID'
+                }}
+              </span>
+
+              <span class="mono">
+
+                @if (
+                currentOrderPrice() !== null
+                ) {
+
+                {{
+                currentOrderPrice()
+                | number:'1.2-6'
+                }}
+
+                {{ selected.currency }}
+
+                } @else {
+
+                —
+
+                }
 
               </span>
 
             </div>
 
 
-            <div class="fact-row">
+            <div class="summary-row">
 
               <span>
-                CASH BALANCE
+                EST. VALUE
+              </span>
+
+              <span class="mono">
+
+                @if (
+                estimatedNotional() !== null
+                ) {
+
+                {{
+                estimatedNotional()
+                | number:'1.2-6'
+                }}
+
+                {{ selected.currency }}
+
+                } @else {
+
+                —
+
+                }
+
+              </span>
+
+            </div>
+
+
+            <div class="summary-row">
+
+              <span>
+                ACCOUNT CASH
               </span>
 
               <span class="mono">
 
                 {{
-                (account()?.cashBalance ?? 0)
-                |
-                currency:
-                (account()?.currency ?? 'GBP'):
-                'symbol':
-                '1.2-2'
+                account()?.cashBalance
+                ?? 0
+                | number:'1.2-2'
                 }}
+
+                {{ account()?.currency }}
 
               </span>
 
@@ -480,11 +586,78 @@
           </div>
 
 
-          <button type="button" class="submit-btn disabled-submit" disabled>
+          @if (
+          orderSide === 'BUY' &&
+          account()?.currency !== selected.currency
+          ) {
 
-            TRADING ENABLES IN SPRINT 3
+          <p class="order-warning">
+
+            Account currency is
+            {{ account()?.currency }},
+            while this instrument trades in
+            {{ selected.currency }}.
+            Currency conversion is not
+            currently supported.
+
+          </p>
+
+          }
+
+
+          @if (orderMessage()) {
+
+          <p class="order-success">
+
+            {{ orderMessage() }}
+
+          </p>
+
+          }
+
+
+          @if (orderErrorMessage()) {
+
+          <p class="order-error">
+
+            {{ orderErrorMessage() }}
+
+          </p>
+
+          }
+
+
+          <button type="button" class="submit-btn" [class.buy]="
+        orderSide === 'BUY'
+      " [class.sell]="
+        orderSide === 'SELL'
+      " [disabled]="
+        orderSubmitting() ||
+        !selected.latestQuote
+      " (click)="submitOrder()">
+
+            @if (orderSubmitting()) {
+
+            SUBMITTING...
+
+            } @else {
+
+            SUBMIT {{ orderSide }}
+
+            }
 
           </button>
+
+          } @else {
+
+          <div class="empty-orders">
+
+            Select a market instrument
+            to create an order.
+
+          </div>
+
+          }
 
         </div>
 
