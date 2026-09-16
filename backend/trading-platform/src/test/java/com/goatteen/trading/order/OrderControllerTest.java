@@ -1,4 +1,4 @@
-package com.goatteen.trading.order.controller;
+package com.goatteen.trading.order;
 
 import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountOwnershipService;
@@ -7,11 +7,7 @@ import com.goatteen.trading.execution.FillRepository;
 import com.goatteen.trading.execution.OrderExecutionService;
 import com.goatteen.trading.instrument.Instrument;
 import com.goatteen.trading.instrument.InstrumentRepository;
-import com.goatteen.trading.order.Order;
-import com.goatteen.trading.order.OrderRepository;
-import com.goatteen.trading.order.OrderSide;
-import com.goatteen.trading.order.OrderStatus;
-import com.goatteen.trading.order.OrderValidationService;
+import com.goatteen.trading.order.controller.OrderController;
 import com.goatteen.trading.order.dto.OrderResponse;
 import com.goatteen.trading.order.dto.PlaceOrderRequest;
 import org.junit.jupiter.api.BeforeEach;
