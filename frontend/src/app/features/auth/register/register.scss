@@ -10,7 +10,8 @@
 .auth-page {
     position: relative;
     min-height: 100vh;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 
     background:
         radial-gradient(ellipse at 78% 5%,
@@ -73,7 +74,7 @@
 
     height: 108px;
 
-    padding: 0 4.5vw;
+    padding: 0 56px;
 
     display: flex;
     align-items: center;
@@ -218,7 +219,7 @@
 .card-heading h1 {
     margin: 0;
 
-    font-size: clamp(38px, 5vw, 46px);
+    font-size: 46px;
     line-height: 1.05;
 
     font-weight: 700;
@@ -661,7 +662,7 @@
 /* Responsive */
 /* -------------------------------------------------- */
 
-@media (max-width: 700px) {
+@media (max-width: 600px) {
 
     .topbar {
         height: 82px;
@@ -705,131 +706,125 @@
 
 }
 
-@media (max-height: 750px) {
+/* -------------------------------------------------- */
+/* Registration-specific layout */
+/* -------------------------------------------------- */
 
-    .auth-main {
-        align-items: flex-start;
+.name-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
 
-        padding-top: 20px;
-    }
 
-    .auth-card {
-        padding-top: 32px;
-        padding-bottom: 30px;
-    }
+/* Text inputs without an icon */
 
-    /* Registration-specific layout */
+.form-field > input {
+    width: 100%;
+    height: 62px;
+
+    padding: 0 18px;
+
+    border: 1px solid rgba(150, 170, 165, 0.22);
+    border-radius: 11px;
+
+    outline: none;
+
+    color: #f4f7f6;
+    background: rgba(20, 27, 28, 0.85);
+
+    font-size: 16px;
+
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        background 160ms ease;
+}
+
+.form-field > input::placeholder {
+    color: #697672;
+}
+
+.form-field > input:focus {
+    border-color: rgba(40, 244, 139, 0.65);
+
+    background: rgba(19, 30, 26, 0.95);
+
+    box-shadow:
+        0 0 0 3px rgba(34, 244, 137, 0.07),
+        0 0 22px rgba(34, 244, 137, 0.08);
+}
+
+
+/* Registration messages */
+
+.form-message {
+    padding: 12px 14px;
+
+    border-radius: 9px;
+
+    font-size: 14px;
+}
+
+.form-message.validation {
+    color: #ffd98a;
+
+    background: rgba(255, 190, 60, 0.07);
+
+    border: 1px solid rgba(255, 190, 60, 0.22);
+}
+
+.form-message.error {
+    color: #ff9d9d;
+
+    background: rgba(255, 70, 70, 0.07);
+
+    border: 1px solid rgba(255, 80, 80, 0.25);
+}
+
+
+/* Bottom login prompt */
+
+.login-prompt {
+    margin-top: 25px;
+
+    text-align: center;
+
+    color: #7f8b87;
+
+    font-size: 14px;
+}
+
+.login-prompt button {
+    margin-left: 5px;
+
+    padding: 0;
+
+    border: 0;
+
+    color: #35f29a;
+
+    background: transparent;
+
+    font-size: inherit;
+
+    cursor: pointer;
+}
+
+.login-prompt button:hover {
+    color: #6bffb5;
+}
+
+
+/* -------------------------------------------------- */
+/* Responsive width only */
+/* -------------------------------------------------- */
+
+@media (max-width: 600px) {
 
     .name-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
+        grid-template-columns: 1fr;
+        gap: 19px;
     }
 
-    /* Text inputs without an icon */
-
-    .form-field>input {
-        width: 100%;
-        height: 62px;
-
-        padding: 0 18px;
-
-        border: 1px solid rgba(150, 170, 165, 0.22);
-        border-radius: 11px;
-
-        outline: none;
-
-        color: #f4f7f6;
-        background: rgba(20, 27, 28, 0.85);
-
-        font-size: 16px;
-
-        transition:
-            border-color 160ms ease,
-            box-shadow 160ms ease,
-            background 160ms ease;
-    }
-
-    .form-field>input::placeholder {
-        color: #697672;
-    }
-
-    .form-field>input:focus {
-        border-color: rgba(40, 244, 139, 0.65);
-
-        background: rgba(19, 30, 26, 0.95);
-
-        box-shadow:
-            0 0 0 3px rgba(34, 244, 137, 0.07),
-            0 0 22px rgba(34, 244, 137, 0.08);
-    }
-
-    /* Registration messages */
-
-    .form-message {
-        padding: 12px 14px;
-
-        border-radius: 9px;
-
-        font-size: 14px;
-    }
-
-    .form-message.validation {
-        color: #ffd98a;
-
-        background: rgba(255, 190, 60, 0.07);
-
-        border: 1px solid rgba(255, 190, 60, 0.22);
-    }
-
-    .form-message.error {
-        color: #ff9d9d;
-
-        background: rgba(255, 70, 70, 0.07);
-
-        border: 1px solid rgba(255, 80, 80, 0.25);
-    }
-
-    /* Bottom login prompt */
-
-    .login-prompt {
-        margin-top: 25px;
-
-        text-align: center;
-
-        color: #7f8b87;
-
-        font-size: 14px;
-    }
-
-    .login-prompt button {
-        margin-left: 5px;
-
-        padding: 0;
-
-        border: 0;
-
-        color: #35f29a;
-
-        background: transparent;
-
-        font-size: inherit;
-
-        cursor: pointer;
-    }
-
-    .login-prompt button:hover {
-        color: #6bffb5;
-    }
-
-    /* Responsive */
-
-    @media (max-width: 600px) {
-
-        .name-row {
-            grid-template-columns: 1fr;
-            gap: 19px;
-        }
-
-    }
 }
