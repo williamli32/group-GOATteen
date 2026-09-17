@@ -1,20 +1,14 @@
 import {
   Component,
   OnInit,
-  OnDestroy,
   signal,
-  computed
+  OnDestroy
 } from '@angular/core';
 
 import {
   MarketDataService,
   MarketInstrumentResponse
 } from '../core/services/market-data';
-
-import {
-  MarketDataMicroserviceClient,
-  MarketData
-} from '../core/services/market-data-microservice';
 
 import {
   CommonModule
@@ -71,32 +65,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedInstrument =
     signal<MarketInstrumentResponse | null>(null);
 
-  marketData =
-    signal<MarketData[]>([]);
-
-  selectedMarketData =
-    signal<MarketData | null>(null);
-
-  activeTab =
-    signal<'all' | 'forex' | 'crypto'>('all');
-
-  filteredMarketData = computed(() => {
-    const data = this.marketData();
-    const tab = this.activeTab();
-
-    if (tab === 'forex') {
-      return data.filter(d => 
-        d.symbol.includes('/') || 
-        ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CHF', 'USD/CAD'].includes(d.symbol)
-      );
-    } else if (tab === 'crypto') {
-      return data.filter(d => 
-        ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'DOGE', 'AAPL-CRYPTO'].includes(d.symbol)
-      );
-    }
-    return data;
-  });
-
   marketLoading =
     signal(true);
 
@@ -136,13 +104,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   orderErrorMessage =
     signal('');
 
-  private autoRefreshInterval: number | null = null;
+  private marketRefreshInterval: number | null = null;
 
+  private marketRefreshInProgress = false;
 
   constructor(
     private accountService: AccountService,
     private marketDataService: MarketDataService,
-    private marketDataMicroserviceClient: MarketDataMicroserviceClient,
     private orderService: OrderService,
     private auth: Auth,
     private router: Router
@@ -155,23 +123,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.loadMarketData();
 
-    this.loadMicroserviceMarketData();
-
-    // Auto-refresh market data every 3 seconds
-    this.autoRefreshInterval = window.setInterval(
-      () => this.loadMicroserviceMarketData(),
+    this.marketRefreshInterval = window.setInterval(
+      () => this.loadMarketData(false),
       3000
     );
-
-  }
-
-  ngOnDestroy(): void {
-
-    // Clear the auto-refresh interval when component is destroyed
-    if (this.autoRefreshInterval !== null) {
-      clearInterval(this.autoRefreshInterval);
-      this.autoRefreshInterval = null;
-    }
 
   }
 
@@ -302,11 +257,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   }
 
-  loadMarketData(): void {
+  loadMarketData(
+    showLoading = true
+  ): void {
 
-    this.marketLoading.set(true);
+    if (this.marketRefreshInProgress) {
+      return;
+    }
 
-    this.marketErrorMessage.set('');
+    this.marketRefreshInProgress = true;
+
+
+    if (showLoading) {
+
+      this.marketLoading.set(true);
+
+      this.marketErrorMessage.set('');
+
+    }
 
 
     this.marketDataService
@@ -315,7 +283,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         finalize(() => {
 
-          this.marketLoading.set(false);
+          this.marketRefreshInProgress = false;
+
+          if (showLoading) {
+
+            this.marketLoading.set(false);
+
+          }
 
         })
 
@@ -328,16 +302,49 @@ export class DashboardComponent implements OnInit, OnDestroy {
             instruments
           );
 
-          if (
-            instruments.length > 0 &&
-            !this.selectedInstrument()
-          ) {
+
+          const currentSelected =
+            this.selectedInstrument();
+
+
+          if (currentSelected) {
+
+            const refreshedSelected =
+              instruments.find(
+                instrument =>
+                  instrument.instrumentId ===
+                  currentSelected.instrumentId
+              );
+
+
+            if (refreshedSelected) {
+
+              this.selectedInstrument.set(
+                refreshedSelected
+              );
+
+            } else {
+
+              this.selectedInstrument.set(
+                instruments[0] ?? null
+              );
+
+            }
+
+          } else {
 
             this.selectedInstrument.set(
-              instruments[0]
+              instruments[0] ?? null
             );
 
           }
+
+
+          /*
+           * A successful refresh clears any previous
+           * market-data error.
+           */
+          this.marketErrorMessage.set('');
 
         },
 
@@ -359,97 +366,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
 
 
-          this.marketErrorMessage.set(
-            'Unable to load market data.'
-          );
+          /*
+           * Only replace the visible market area with
+           * an error during the initial/manual load.
+           *
+           * A failed background refresh leaves the most
+           * recently loaded prices visible.
+           */
+          if (showLoading) {
 
-        }
-
-      });
-
-  }
-
-
-  loadMicroserviceMarketData(): void {
-
-    this.marketLoading.set(true);
-
-    this.marketErrorMessage.set('');
-
-
-    this.marketDataMicroserviceClient
-      .getAllMarketData()
-      .pipe(
-
-        finalize(() => {
-
-          this.marketLoading.set(false);
-
-        })
-
-      )
-      .subscribe({
-
-        next: (data: MarketData[]) => {
-
-          this.marketData.set(
-            data
-          );
-
-          if (
-            data.length > 0 &&
-            !this.selectedMarketData()
-          ) {
-
-            this.selectedMarketData.set(
-              data[0]
+            this.marketErrorMessage.set(
+              'Unable to load market data.'
             );
 
           }
 
-          console.log(
-            'Loaded ' + data.length + ' market data records from microservice'
-          );
-
-        },
-
-
-        error: (
-          error: HttpErrorResponse
-        ) => {
-
-          console.error(
-            'Error loading market data from microservice:',
-            error
-          );
-
-          this.marketErrorMessage.set(
-            'Unable to load market data from microservice. Make sure the service is running on port 8081.'
-          );
-
         }
 
       });
-
-  }
-
-
-  selectMarketData(
-    data: MarketData
-  ): void {
-
-    this.selectedMarketData.set(
-      data
-    );
-
-  }
-
-  setActiveTab(
-    tab: 'all' | 'forex' | 'crypto'
-  ): void {
-
-    this.activeTab.set(tab);
-    this.selectedMarketData.set(null);
 
   }
 
@@ -702,6 +636,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       ]
     );
+
+  }
+
+  ngOnDestroy(): void {
+
+    if (this.marketRefreshInterval !== null) {
+
+      window.clearInterval(
+        this.marketRefreshInterval
+      );
+
+      this.marketRefreshInterval = null;
+
+    }
 
   }
 
