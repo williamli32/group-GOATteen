@@ -3,7 +3,7 @@
 :host {
   display: flex;
   width: 100%;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -28,7 +28,7 @@ $accent-primary: #00d4aa;
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
   background: $bg-dark;
   color: $text-primary;
@@ -893,448 +893,412 @@ $accent-primary: #00d4aa;
   }
 }
 
-// ============ RESPONSIVE ============
-@media (max-width: 1024px) {
-  .right-panel {
-    width: 256px;
+// =====================================================
+// SPRINT 2 ACCOUNT DASHBOARD INTEGRATION
+// =====================================================
+
+// Account identity
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+
+  .brand-name {
+    color: $accent-primary;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    font-size: 13px;
+  }
+
+  .account-name {
+    color: $text-primary;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .account-number {
+    color: $text-muted;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .divider {
+    width: 1px;
+    height: 18px;
+    background: $border-color;
   }
 }
 
-@media (max-width: 768px) {
-  .main-content {
-    flex-direction: column;
+
+// Logout
+
+.logout-btn {
+  padding: 5px 10px;
+  border-radius: 4px;
+
+  border: 1px solid $border-color;
+
+  background: transparent;
+
+  color: $text-dim;
+
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    border-color: $accent-negative;
+    color: $accent-negative;
+    background: rgba(239, 68, 68, 0.05);
   }
 
-  .right-panel {
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid $border-color;
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
-
-  // =====================================================
-  // SPRINT 2 ACCOUNT DASHBOARD INTEGRATION
-  // =====================================================
-
-  :host {
-    height: 100vh;
-  }
+}
 
 
-  // Account identity
+// Main account placeholder
 
-  .account-identity {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
+.market-placeholder {
 
-    .brand-name {
-      color: $accent-primary;
-      font-weight: 700;
-      letter-spacing: 1.2px;
-      font-size: 13px;
-    }
+  flex: 1;
 
-    .account-name {
-      color: $text-primary;
-      font-weight: 600;
-      white-space: nowrap;
-    }
+  min-height: 240px;
 
-    .account-number {
-      color: $text-muted;
-      font-size: 10px;
-      white-space: nowrap;
-    }
+  display: flex;
+  flex-direction: column;
 
-    .divider {
-      width: 1px;
-      height: 18px;
-      background: $border-color;
-    }
-  }
+  justify-content: center;
+
+  border: 1px dashed $border-color;
+
+  border-radius: 6px;
+
+  padding: 28px;
+
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(0, 212, 170, 0.05),
+      transparent 55%);
+
+}
 
 
-  // Logout
+.placeholder-kicker {
 
-  .logout-btn {
-    padding: 5px 10px;
-    border-radius: 4px;
+  color: $accent-primary;
 
-    border: 1px solid $border-color;
+  font-size: 10px;
 
-    background: transparent;
+  letter-spacing: 1.4px;
+
+  margin-bottom: 8px;
+
+}
+
+
+.placeholder-title {
+
+  color: $text-primary;
+
+  font-size: 22px;
+
+  font-weight: 600;
+
+  margin-bottom: 8px;
+
+}
+
+
+.placeholder-copy {
+
+  max-width: 580px;
+
+  color: $text-muted;
+
+  font-size: 11px;
+
+  line-height: 1.7;
+
+  margin: 0 0 24px;
+
+}
+
+
+.account-summary-grid {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 10px;
+
+  max-width: 720px;
+
+}
+
+
+.summary-card {
+
+  border: 1px solid $border-color;
+
+  border-radius: 5px;
+
+  padding: 12px;
+
+  background: $bg-darker;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+
+}
+
+
+.summary-label {
+
+  color: $text-muted;
+
+  font-size: 9px;
+
+  letter-spacing: 0.6px;
+
+}
+
+
+.summary-value {
+
+  color: $text-primary;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+}
+
+
+// Account information in right panel
+
+.account-facts {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 7px;
+
+  padding: 9px;
+
+  border: 1px solid $border-color;
+
+  border-radius: 4px;
+
+  background: $bg-darker;
+
+}
+
+
+.fact-row {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  color: $text-muted;
+
+  font-size: 9px;
+
+  gap: 10px;
+
+
+  .mono {
 
     color: $text-dim;
 
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-
-    cursor: pointer;
-
-    transition: all 0.2s ease;
-
-    &:hover:not(:disabled) {
-      border-color: $accent-negative;
-      color: $accent-negative;
-      background: rgba(239, 68, 68, 0.05);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-  }
-
-
-  // Main account placeholder
-
-  .market-placeholder {
-
-    flex: 1;
-
-    min-height: 240px;
-
-    display: flex;
-    flex-direction: column;
-
-    justify-content: center;
-
-    border: 1px dashed $border-color;
-
-    border-radius: 6px;
-
-    padding: 28px;
-
-    background:
-      radial-gradient(circle at 50% 50%,
-        rgba(0, 212, 170, 0.05),
-        transparent 55%);
-
-  }
-
-
-  .placeholder-kicker {
-
-    color: $accent-primary;
-
-    font-size: 10px;
-
-    letter-spacing: 1.4px;
-
-    margin-bottom: 8px;
-
-  }
-
-
-  .placeholder-title {
-
-    color: $text-primary;
-
-    font-size: 22px;
-
-    font-weight: 600;
-
-    margin-bottom: 8px;
-
-  }
-
-
-  .placeholder-copy {
-
-    max-width: 580px;
-
-    color: $text-muted;
-
-    font-size: 11px;
-
-    line-height: 1.7;
-
-    margin: 0 0 24px;
-
-  }
-
-
-  .account-summary-grid {
-
-    display: grid;
-
-    grid-template-columns:
-      repeat(3, minmax(0, 1fr));
-
-    gap: 10px;
-
-    max-width: 720px;
-
-  }
-
-
-  .summary-card {
-
-    border: 1px solid $border-color;
-
-    border-radius: 5px;
-
-    padding: 12px;
-
-    background: $bg-darker;
-
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 5px;
-
-  }
-
-
-  .summary-label {
-
-    color: $text-muted;
-
-    font-size: 9px;
-
-    letter-spacing: 0.6px;
-
-  }
-
-
-  .summary-value {
-
-    color: $text-primary;
-
-    font-size: 13px;
-
-    font-weight: 600;
-
-  }
-
-
-  // Account information in right panel
-
-  .account-facts {
-
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 7px;
-
-    padding: 9px;
-
-    border: 1px solid $border-color;
-
-    border-radius: 4px;
-
-    background: $bg-darker;
-
-  }
-
-
-  .fact-row {
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    color: $text-muted;
-
-    font-size: 9px;
-
-    gap: 10px;
-
-
-    .mono {
-
-      color: $text-dim;
-
-      font-family:
-        'JetBrains Mono',
-        monospace;
-
-      text-align: right;
-
-    }
-
-  }
-
-
-  .disabled-submit {
-
-    background: $border-color !important;
-
-    color: $text-muted !important;
-
-    cursor: not-allowed !important;
-
-    opacity: 0.65;
-
-  }
-
-
-  // Empty states
-
-  .empty-state {
-
-    padding: 16px !important;
-
-    color: $text-muted !important;
-
-    text-align: center;
-
-  }
-
-
-  .empty-orders {
-
-    padding: 16px 8px;
-
-    border: 1px dashed $border-color;
-
-    border-radius: 4px;
-
-    color: $text-muted;
-
-    text-align: center;
-
-    font-size: 10px;
-
-  }
-
-
-  .rejection-reason {
-
-    margin: 5px 0 0;
-
-    padding-top: 5px;
-
-    border-top: 1px solid $border-light;
-
-    color: $accent-negative;
-
-    font-size: 9px;
-
-  }
-
-
-  // Extra real backend statuses
-
-  .status-rejected {
-
-    .order-status {
-      background: rgba(239, 68, 68, 0.1);
-      color: $accent-negative;
-    }
-
-  }
-
-
-  .status-submitted {
-
-    .order-status {
-      background: rgba(0, 212, 170, 0.08);
-      color: $accent-primary;
-    }
-
-  }
-
-
-  // Loading / error screen
-
-  .dashboard-state {
-
-    min-height: 100vh;
-
-    display: flex;
-
-    flex-direction: column;
-
-    align-items: center;
-
-    justify-content: center;
-
-    gap: 14px;
-
-    background: $bg-dark;
-
-    color: $text-muted;
-
     font-family:
       'JetBrains Mono',
       monospace;
 
-  }
-
-
-  .state-spinner {
-
-    width: 28px;
-    height: 28px;
-
-    border-radius: 50%;
-
-    border: 2px solid $border-color;
-
-    border-top-color: $accent-primary;
-
-    animation:
-      dashboard-spin 0.8s linear infinite;
+    text-align: right;
 
   }
 
-
-  @keyframes dashboard-spin {
-
-    to {
-      transform: rotate(360deg);
-    }
-
-  }
-
-
-  .state-error {
-
-    color: $accent-negative;
-
-  }
-
-
-  .retry-btn {
-
-    padding: 7px 14px;
-
-    border-radius: 4px;
-
-    border: 1px solid $accent-primary;
-
-    background:
-      rgba(0, 212, 170, 0.08);
-
-    color: $accent-primary;
-
-    font-family:
-      'JetBrains Mono',
-      monospace;
-
-    cursor: pointer;
-
-  }
-
-
-  @media (max-width: 850px) {
-
-    .account-summary-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .account-number {
-      display: none;
-    }
-
-  }
 }
+
+
+.disabled-submit {
+
+  background: $border-color !important;
+
+  color: $text-muted !important;
+
+  cursor: not-allowed !important;
+
+  opacity: 0.65;
+
+}
+
+
+// Empty states
+
+.empty-state {
+
+  padding: 16px !important;
+
+  color: $text-muted !important;
+
+  text-align: center;
+
+}
+
+
+.empty-orders {
+
+  padding: 16px 8px;
+
+  border: 1px dashed $border-color;
+
+  border-radius: 4px;
+
+  color: $text-muted;
+
+  text-align: center;
+
+  font-size: 10px;
+
+}
+
+
+.rejection-reason {
+
+  margin: 5px 0 0;
+
+  padding-top: 5px;
+
+  border-top: 1px solid $border-light;
+
+  color: $accent-negative;
+
+  font-size: 9px;
+
+}
+
+
+// Extra real backend statuses
+
+.status-rejected {
+
+  .order-status {
+    background: rgba(239, 68, 68, 0.1);
+    color: $accent-negative;
+  }
+
+}
+
+
+.status-submitted {
+
+  .order-status {
+    background: rgba(0, 212, 170, 0.08);
+    color: $accent-primary;
+  }
+
+}
+
+
+// Loading / error screen
+
+.dashboard-state {
+
+  min-height: 100vh;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 14px;
+
+  background: $bg-dark;
+
+  color: $text-muted;
+
+  font-family:
+    'JetBrains Mono',
+    monospace;
+
+}
+
+
+.state-spinner {
+
+  width: 28px;
+  height: 28px;
+
+  border-radius: 50%;
+
+  border: 2px solid $border-color;
+
+  border-top-color: $accent-primary;
+
+  animation:
+    dashboard-spin 0.8s linear infinite;
+
+}
+
+
+@keyframes dashboard-spin {
+
+  to {
+    transform: rotate(360deg);
+  }
+
+}
+
+
+.state-error {
+
+  color: $accent-negative;
+
+}
+
+
+.retry-btn {
+
+  padding: 7px 14px;
+
+  border-radius: 4px;
+
+  border: 1px solid $accent-primary;
+
+  background:
+    rgba(0, 212, 170, 0.08);
+
+  color: $accent-primary;
+
+  font-family:
+    'JetBrains Mono',
+    monospace;
+
+  cursor: pointer;
+
+}
+
 
 // =====================================================
 // SPRINT 3 MARKET DATA
@@ -1599,6 +1563,88 @@ $accent-primary: #00d4aa;
 
     color:
       $accent-primary;
+  }
+
+}
+
+// =====================================================
+// MOBILE LAYOUT
+// =====================================================
+
+@media (max-width: 600px) {
+
+  .dashboard-container {
+    height: auto;
+    min-height: 100vh;
+
+    overflow: visible;
+  }
+
+  .topbar {
+    min-height: 52px;
+    height: auto;
+
+    flex-wrap: wrap;
+
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .topbar-right {
+    width: 100%;
+
+    margin-left: 0;
+
+    justify-content: space-between;
+
+    flex-wrap: wrap;
+  }
+
+  .main-content {
+    flex-direction: column;
+
+    overflow: visible;
+  }
+
+  .chart-area {
+    min-height: 500px;
+
+    overflow: visible;
+  }
+
+  .right-panel {
+    width: 100%;
+
+    flex-shrink: 0;
+
+    border-left: none;
+    border-top: 1px solid $border-color;
+
+    overflow: visible;
+  }
+
+  .account-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-number {
+    display: none;
+  }
+
+  .selected-market {
+    align-items: flex-start;
+
+    gap: 12px;
+
+    flex-direction: column;
+  }
+
+  .market-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .market-table {
+    min-width: 620px;
   }
 
 }
