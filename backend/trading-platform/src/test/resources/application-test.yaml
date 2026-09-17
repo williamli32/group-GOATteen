@@ -1,30 +1,32 @@
 spring:
- 
-  datasource:
- 
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/leap_trading}
- 
-    username: ${DB_USERNAME:postgres}
- 
-    password: ${DB_PASSWORD:n3u3da!}
 
+  datasource:
+
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/leap_trading}
+
+    username: ${DB_USERNAME:postgres}
+
+    password: ${DB_PASSWORD:n3u3da!}
+    
     driver-class-name: org.postgresql.Driver
- 
- 
+
+
   jpa:
- 
+
     hibernate:
       ddl-auto: validate
- 
+
     show-sql: true
- 
- 
+
+
   flyway:
     enabled: true
- 
+
 app:
   jwt:
     secret: VGhpcy1pcy1hLXRlc3Qtb25seS1zZWNyZXQta2V5LWZvci1MRUFQLWF1dGhlbnRpY2F0aW9uLXRlc3Rpbmc=
     access-token-expiration-minutes: 15
   auth:
     refresh-token-expiration-days: 7
+  market-simulator:
+    enabled: false

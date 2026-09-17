@@ -15,8 +15,6 @@ import com.goatteen.trading.auth.security.JwtAuthenticationFilter;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.goatteen.trading.auth.security.AuthProperties;
-
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -40,11 +38,6 @@ public class SecurityConfig {
         @Bean
         public PasswordEncoder passwordEncoder() {
                 return new BCryptPasswordEncoder(12);
-        }
-
-        @Bean
-        public RestTemplate restTemplate() {
-                return new RestTemplate();
         }
 
         @Bean
