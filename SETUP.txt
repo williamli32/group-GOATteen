@@ -1,0 +1,265 @@
+================================================================================
+                    LEAP TRADING PLATFORM - SETUP GUIDE
+================================================================================
+
+This guide provides step-by-step instructions for teammates to run the 
+complete application locally after pulling the code.
+
+================================================================================
+                              PREREQUISITES
+================================================================================
+
+Before getting started, ensure you have the following installed:
+
+  • Node.js 18+ (for Angular frontend)
+    Download: https://nodejs.org/
+    
+  • Java 21 (for Spring Boot backend)
+    Download: https://www.oracle.com/java/technologies/downloads/
+    
+  • Maven (auto-included via ./mvnw wrapper)
+    
+  • Docker & Docker Compose (for PostgreSQL database)
+    Download: https://www.docker.com/products/docker-desktop
+    
+  • Git (for version control)
+    Download: https://git-scm.com/
+
+================================================================================
+                        STEP 1: CLONE & INSTALL
+================================================================================
+
+1. Clone the repository:
+   $ git clone <your-repo-url>
+   $ cd group-GOATteen
+
+2. Install frontend dependencies:
+   $ cd frontend
+   $ npm install
+   $ cd ..
+
+   Note: The backend will auto-download Maven dependencies on first build.
+
+================================================================================
+                      STEP 2: START THE DATABASE
+================================================================================
+
+1. From the project root directory, start PostgreSQL:
+   $ docker compose up -d
+
+2. Verify the database is running:
+   $ docker compose ps
+
+   Expected output:
+   - Container: leap-postgres
+   - Status: Up (healthy)
+
+3. Check logs if needed:
+   $ docker compose logs postgres
+
+4. To stop the database later:
+   $ docker compose down
+
+================================================================================
+                   STEP 3: START BACKEND SERVICES
+================================================================================
+
+You need to start TWO backend services in separate terminals.
+
+--- Terminal 1: Trading Platform API (Port 8080) ---
+
+  $ cd backend/trading-platform
+  $ ./mvnw spring-boot:run
+  
+  On Windows:
+  $ mvnw.cmd spring-boot:run
+
+  Wait for startup message:
+  "Started TradeApplication in X seconds"
+
+--- Terminal 2: Market Data Microservice (Port 8081) ---
+
+  $ cd backend/market-data-service
+  $ ./mvnw spring-boot:run
+  
+  On Windows:
+  $ mvnw.cmd spring-boot:run
+
+  Wait for startup message:
+  "Started MarketDataApplication in X seconds"
+
+  This service will:
+  - Load 655+ market records from CSV
+  - Include 6 FOREX pairs (EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CHF, USD/CAD)
+  - Include 7 CRYPTO assets (BTC, ETH, SOL, XRP, ADA, DOGE, AAPL-CRYPTO)
+  - Simulate live price updates
+
+Startup time: ~5-10 seconds each
+
+================================================================================
+                      STEP 4: START THE FRONTEND
+================================================================================
+
+--- Terminal 3: Angular Development Server (Port 4200) ---
+
+  $ cd frontend
+  $ ng serve
+
+  Or alternatively:
+  $ npm start
+
+  Wait for message:
+  "Local: http://localhost:4200/"
+  
+  The application will hot-reload when you modify source files.
+
+================================================================================
+                    STEP 5: ACCESS THE APPLICATION
+================================================================================
+
+Open your browser and navigate to:
+
+  Dashboard:           http://localhost:4200/dashboard
+  API Swagger Docs:    http://localhost:8080/swagger-ui/index.html
+  API OpenAPI JSON:    http://localhost:8080/v3/api-docs
+  Market Data API:     http://localhost:8081/api/market-data
+
+================================================================================
+                      QUICK REFERENCE TABLE
+================================================================================
+
+Service                     Port    Command                    Location
+─────────────────────────────────────────────────────────────────────────────
+Frontend (Angular)          4200    ng serve                   frontend/
+
+Trading Platform API        8080    ./mvnw spring-boot:run     backend/trading-platform/
+
+Market Data Microservice    8081    ./mvnw spring-boot:run     backend/market-data-service/
+
+PostgreSQL Database         5432    docker compose up -d       (Root directory)
+
+─────────────────────────────────────────────────────────────────────────────
+
+================================================================================
+                       VERIFICATION CHECKLIST
+================================================================================
+
+After all services are started, verify everything works:
+
+  ✓ Frontend:        Navigate to http://localhost:4200
+                     Should see login page or dashboard
+                     
+  ✓ Tab Filtering:   Dashboard shows three tabs:
+                     - ALL MARKETS
+                     - FOREX
+                     - CRYPTO
+                     
+  ✓ Live Updates:    Watch the price values update every 3 seconds
+                     No manual refresh needed
+                     
+  ✓ Market Data API: Visit http://localhost:8081/api/market-data
+                     Should return JSON with 655+ records
+
+================================================================================
+                      ENVIRONMENT VARIABLES
+================================================================================
+
+If you need to customize database credentials, create a .env file in the 
+root directory:
+
+  POSTGRES_DB=leap_trading
+  POSTGRES_USER=postgres
+  POSTGRES_PASSWORD=postgres
+
+Note: These are default values. Docker Compose will use them if the .env
+file is present.
+
+================================================================================
+                         TROUBLESHOOTING
+================================================================================
+
+Port Already in Use:
+  If port 8080, 8081, or 4200 is already in use, stop the conflicting
+  process or configure a different port.
+
+  Check port usage:
+  - Windows: netstat -ano | findstr :PORT
+  - Mac/Linux: lsof -i :PORT
+
+Database Connection Issues:
+  Verify Docker is running:
+  $ docker ps
+  
+  Check database logs:
+  $ docker compose logs postgres
+  
+  Restart database:
+  $ docker compose down
+  $ docker compose up -d
+
+Maven Build Issues:
+  Clear Maven cache:
+  $ ./mvnw clean install
+  
+  Or use:
+  $ rm -rf ~/.m2/repository
+
+Angular Build Issues:
+  Clear npm cache:
+  $ npm cache clean --force
+  $ npm install
+
+Ports Not Responding:
+  Allow ~10 seconds for services to fully start
+  Check terminal output for error messages
+  Verify Java version: java -version (should be 21)
+  Verify Node version: node -v (should be 18+)
+
+================================================================================
+                          USEFUL COMMANDS
+================================================================================
+
+Build without running:
+  Backend:  ./mvnw clean package
+  Frontend: npm run build
+
+Run tests:
+  Backend:  ./mvnw test
+  Frontend: ng test
+
+Format/lint code:
+  Frontend: npm run lint
+
+View database:
+  $ docker exec -it leap-postgres psql -U postgres -d leap_trading
+
+Stop all services:
+  Docker:   docker compose down
+  Services: Ctrl+C in each terminal
+
+================================================================================
+                            SUPPORT
+================================================================================
+
+If you encounter issues:
+  1. Check the troubleshooting section above
+  2. Review terminal output for error messages
+  3. Verify all prerequisites are installed
+  4. Contact the development team
+
+Happy coding! 🚀
+
+================================================================================
+                          QUICK START RECAP
+================================================================================
+
+In four separate terminals, run:
+
+  Terminal 1: docker compose up -d
+  Terminal 2: cd backend/trading-platform && ./mvnw spring-boot:run
+  Terminal 3: cd backend/market-data-service && ./mvnw spring-boot:run
+  Terminal 4: cd frontend && ng serve
+
+Then open: http://localhost:4200
+
+================================================================================
