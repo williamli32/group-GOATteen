@@ -9,7 +9,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/market-data")
-@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:54565"})
 public class MarketDataController {
 
     @Autowired

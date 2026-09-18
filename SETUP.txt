@@ -43,21 +43,23 @@ Before getting started, ensure you have the following installed:
 ================================================================================
                       STEP 2: START THE DATABASE
 ================================================================================
+1. Connect to Linux Docker from Windows using an SSH Tunnel:
+  ssh -L 5433:localhost:5432 ec2-user@<your_linux_ip_address>
 
-1. From the project root directory, start PostgreSQL:
+2. From the project root directory, start PostgreSQL:
    $ docker compose up -d
 
-2. Verify the database is running:
+3. Verify the database is running:
    $ docker compose ps
 
    Expected output:
    - Container: leap-postgres
    - Status: Up (healthy)
 
-3. Check logs if needed:
+4. Check logs if needed:
    $ docker compose logs postgres
 
-4. To stop the database later:
+5. To stop the database later:
    $ docker compose down
 
 ================================================================================
@@ -77,7 +79,7 @@ You need to start TWO backend services in separate terminals.
   Wait for startup message:
   "Started TradeApplication in X seconds"
 
---- Terminal 2: Market Data Microservice (Port 8081) ---
+--- Terminal 2: Simulated Market Data Microservice (Port 8081) ---
 
   $ cd backend/market-data-service
   $ ./mvnw spring-boot:run
@@ -88,11 +90,15 @@ You need to start TWO backend services in separate terminals.
   Wait for startup message:
   "Started MarketDataApplication in X seconds"
 
-  This service will:
-  - Load 655+ market records from CSV
-  - Include 6 FOREX pairs (EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CHF, USD/CAD)
-  - Include 7 CRYPTO assets (BTC, ETH, SOL, XRP, ADA, DOGE, AAPL-CRYPTO)
-  - Simulate live price updates
+  This internal service will:
+- Load synthetic market records from CSV
+- Maintain simulated prices in memory
+- Update simulated prices automatically every few seconds
+- Provide the simulated feed to the Trading Platform API
+- Include the canonical Sprint 3 trading symbols used by the dashboard and order-validation flow
+
+The Angular frontend does NOT call this service directly.
+The Trading Platform API consumes the simulated feed and persists the latest quotes.
 
 Startup time: ~5-10 seconds each
 
@@ -149,16 +155,22 @@ After all services are started, verify everything works:
   ✓ Frontend:        Navigate to http://localhost:4200
                      Should see login page or dashboard
                      
-  ✓ Tab Filtering:   Dashboard shows three tabs:
-                     - ALL MARKETS
-                     - FOREX
-                     - CRYPTO
-                     
-  ✓ Live Updates:    Watch the price values update every 3 seconds
-                     No manual refresh needed
-                     
-  ✓ Market Data API: Visit http://localhost:8081/api/market-data
-                     Should return JSON with 655+ records
+  ✓ Simulated Prices:
+                   Dashboard market prices refresh automatically
+                   every few seconds through the Trading Platform API
+
+✓ Trading API:
+                   Dashboard reads authenticated market data from
+                   the Trading Platform API on port 8080
+
+✓ Simulator:
+                   http://localhost:8081/api/market-data
+                   is an internal simulated data source used by
+                   the Trading Platform API
+
+✓ Consistency:
+                   Dashboard prices and order validation use the
+                   same persisted quote source
 
 ================================================================================
                       ENVIRONMENT VARIABLES
