@@ -6,10 +6,12 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InstrumentRepository
-        extends JpaRepository<Instrument, Long> {
+                extends JpaRepository<Instrument, Long> {
 
-    Optional<Instrument> findBySymbol(
-            String symbol);
+        Optional<Instrument> findBySymbolIgnoreCaseAndExchangeIgnoreCase(
+                        String symbol,
+                        String exchange);
 
-    List<Instrument> findByTradableTrueOrderBySymbolAsc();
+        List<Instrument> findByTradableTrueOrderBySymbolAscExchangeAsc();
+
 }

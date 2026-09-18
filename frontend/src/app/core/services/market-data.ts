@@ -31,6 +31,8 @@ export interface MarketInstrumentResponse {
     symbol: string;
     name: string;
     instrumentClass: string;
+    exchange: string;
+    countryCode: string;
     currency: string;
     tradable: boolean;
     latestQuote: LatestQuoteResponse | null;
