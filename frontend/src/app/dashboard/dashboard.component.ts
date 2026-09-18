@@ -1,7 +1,8 @@
 import {
   Component,
   OnInit,
-  signal
+  signal,
+  OnDestroy
 } from '@angular/core';
 
 import {
@@ -57,7 +58,7 @@ import {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   marketInstruments =
     signal<MarketInstrumentResponse[]>([]);
 
@@ -103,6 +104,9 @@ export class DashboardComponent implements OnInit {
   orderErrorMessage =
     signal('');
 
+  private marketRefreshInterval: number | null = null;
+
+  private marketRefreshInProgress = false;
 
   constructor(
     private accountService: AccountService,
@@ -118,6 +122,11 @@ export class DashboardComponent implements OnInit {
     this.loadDashboard();
 
     this.loadMarketData();
+
+    this.marketRefreshInterval = window.setInterval(
+      () => this.loadMarketData(false),
+      3000
+    );
 
   }
 
@@ -248,11 +257,24 @@ export class DashboardComponent implements OnInit {
 
   }
 
-  loadMarketData(): void {
+  loadMarketData(
+    showLoading = true
+  ): void {
 
-    this.marketLoading.set(true);
+    if (this.marketRefreshInProgress) {
+      return;
+    }
 
-    this.marketErrorMessage.set('');
+    this.marketRefreshInProgress = true;
+
+
+    if (showLoading) {
+
+      this.marketLoading.set(true);
+
+      this.marketErrorMessage.set('');
+
+    }
 
 
     this.marketDataService
@@ -261,7 +283,13 @@ export class DashboardComponent implements OnInit {
 
         finalize(() => {
 
-          this.marketLoading.set(false);
+          this.marketRefreshInProgress = false;
+
+          if (showLoading) {
+
+            this.marketLoading.set(false);
+
+          }
 
         })
 
@@ -274,16 +302,49 @@ export class DashboardComponent implements OnInit {
             instruments
           );
 
-          if (
-            instruments.length > 0 &&
-            !this.selectedInstrument()
-          ) {
+
+          const currentSelected =
+            this.selectedInstrument();
+
+
+          if (currentSelected) {
+
+            const refreshedSelected =
+              instruments.find(
+                instrument =>
+                  instrument.instrumentId ===
+                  currentSelected.instrumentId
+              );
+
+
+            if (refreshedSelected) {
+
+              this.selectedInstrument.set(
+                refreshedSelected
+              );
+
+            } else {
+
+              this.selectedInstrument.set(
+                instruments[0] ?? null
+              );
+
+            }
+
+          } else {
 
             this.selectedInstrument.set(
-              instruments[0]
+              instruments[0] ?? null
             );
 
           }
+
+
+          /*
+           * A successful refresh clears any previous
+           * market-data error.
+           */
+          this.marketErrorMessage.set('');
 
         },
 
@@ -305,9 +366,20 @@ export class DashboardComponent implements OnInit {
           }
 
 
-          this.marketErrorMessage.set(
-            'Unable to load market data.'
-          );
+          /*
+           * Only replace the visible market area with
+           * an error during the initial/manual load.
+           *
+           * A failed background refresh leaves the most
+           * recently loaded prices visible.
+           */
+          if (showLoading) {
+
+            this.marketErrorMessage.set(
+              'Unable to load market data.'
+            );
+
+          }
 
         }
 
@@ -564,6 +636,20 @@ export class DashboardComponent implements OnInit {
 
       ]
     );
+
+  }
+
+  ngOnDestroy(): void {
+
+    if (this.marketRefreshInterval !== null) {
+
+      window.clearInterval(
+        this.marketRefreshInterval
+      );
+
+      this.marketRefreshInterval = null;
+
+    }
 
   }
 

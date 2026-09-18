@@ -28,3 +28,5 @@ app:
     access-token-expiration-minutes: 15
   auth:
     refresh-token-expiration-days: 7
+  market-simulator:
+    enabled: false
