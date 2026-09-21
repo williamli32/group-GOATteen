@@ -1,0 +1,134 @@
+<div class="trading-container">
+  <div class="status-bar">
+    <div class="symbol-selector">
+      <label for="stock-select">Select Stock:</label>
+      <select 
+        id="stock-select"
+        [(ngModel)]="symbol" 
+        (change)="onSymbolChange()"
+        class="symbol-dropdown">
+        <optgroup *ngFor="let group of getGroupedSymbols()" [label]="group.category">
+          <option *ngFor="let stock of group.stocks" [value]="stock.symbol">
+            {{ stock.symbol }} - {{ stock.name }}
+          </option>
+        </optgroup>
+      </select>
+    </div>
+    <span *ngIf="connected" class="status-connected">🟢 Connected</span>
+    <span *ngIf="!connected" class="status-disconnected">🔴 Disconnected</span>
+  </div>
+
+  <div class="price-display" *ngIf="currentPrice">
+    <h1>{{ symbol }} Live Price</h1>
+    
+    <div class="price-grid">
+      <div class="price-item">
+        <label>Bid Price</label>
+        <span class="price-value bid">{{ currentPrice.bidPrice | currency }}</span>
+      </div>
+
+      <div class="price-item">
+        <label>Mid Price</label>
+        <span class="price-value mid">{{ currentPrice.midPrice | currency }}</span>
+      </div>
+
+      <div class="price-item">
+        <label>Ask Price</label>
+        <span class="price-value ask">{{ currentPrice.askPrice | currency }}</span>
+      </div>
+
+      <div class="price-item">
+        <label>Last Trade</label>
+        <span class="price-value last">{{ currentPrice.lastPrice | currency }}</span>
+      </div>
+    </div>
+
+    <div class="timestamp">
+      Updated: {{ currentPrice.timestamp | date:'HH:mm:ss.SSS' }}
+      (Sequence: {{ currentPrice.sequenceNumber }})
+    </div>
+  </div>
+
+  <div class="trading-section">
+    <div class="order-form">
+      <h2>Buy Order</h2>
+      <div class="form-group">
+        <label>Quantity:</label>
+        <input type="number" [(ngModel)]="buyQuantity" min="1" />
+      </div>
+      <div class="form-group">
+        <label>Account ID:</label>
+        <input type="number" [(ngModel)]="selectedAccountId" min="1" />
+      </div>
+      <button 
+        (click)="placeBuyOrder()" 
+        [disabled]="!connected || !currentPrice"
+        class="btn-buy">
+        Buy @ {{ currentPrice?.askPrice | currency }}
+      </button>
+    </div>
+
+    <div class="order-form">
+      <h2>Sell Order</h2>
+      <div class="form-group">
+        <label>Quantity:</label>
+        <input type="number" [(ngModel)]="sellQuantity" min="1" />
+      </div>
+      <div class="form-group">
+        <label>Account ID:</label>
+        <input type="number" [(ngModel)]="selectedAccountId" min="1" />
+      </div>
+      <button 
+        (click)="placeSellOrder()" 
+        [disabled]="!connected || !currentPrice"
+        class="btn-sell">
+        Sell @ {{ currentPrice?.bidPrice | currency }}
+      </button>
+    </div>
+  </div>
+
+  <div class="stocks-dashboard">
+    <h2>Market Data - All Stocks</h2>
+    <div class="stocks-table-wrapper">
+      <table class="stocks-table">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Company Name</th>
+            <th>Bid Price</th>
+            <th>Mid Price</th>
+            <th>Ask Price</th>
+            <th>Last Price</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let stock of getStocksWithPrices()" [class.selected]="stock.symbol === symbol">
+            <td class="symbol-cell">{{ stock.symbol }}</td>
+            <td>{{ stock.name }}</td>
+            <td class="price-bid">{{ stock.price?.bidPrice | currency }}</td>
+            <td class="price-mid">{{ stock.price?.midPrice | currency }}</td>
+            <td class="price-ask">{{ stock.price?.askPrice | currency }}</td>
+            <td class="price-last">{{ stock.price?.lastPrice | currency }}</td>
+            <td class="timestamp">{{ stock.price?.timestamp | date:'HH:mm:ss' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <h3>Architecture Notes:</h3>
+    <ul>
+      <li>✅ Real-time price updates via WebSocket (/topic/prices/{{ '{symbol}' }})</li>
+      <li>✅ Multi-symbol support - 50 major stocks across diverse industries</li>
+      <li>✅ Industry categories: Technology, Finance, Healthcare, Consumer, Energy, Transportation, Aerospace & Defense</li>
+      <li>✅ Randomized initial seed prices per symbol with realistic market ranges</li>
+      <li>✅ Live scrollable dashboard displaying all 50 stocks with real-time prices</li>
+      <li>✅ Symbol selector dropdown for easy switching</li>
+      <li>✅ Order messaging framework ready (/app/order/buy, /app/order/sell)</li>
+      <li>✅ Order confirmation feedback (/topic/orders/confirmation)</li>
+      <li>📝 Order execution logic ready for implementation in OrderWebSocketController</li>
+    </ul>
+  </div>
+</div>
