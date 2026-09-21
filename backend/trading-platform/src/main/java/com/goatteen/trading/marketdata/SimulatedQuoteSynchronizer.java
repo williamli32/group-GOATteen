@@ -3,6 +3,7 @@ package com.goatteen.trading.marketdata;
 import com.goatteen.trading.instrument.Instrument;
 import com.goatteen.trading.instrument.InstrumentClass;
 import com.goatteen.trading.instrument.InstrumentRepository;
+import com.goatteen.trading.instrument.TradableMarketUniverse;
 
 import com.goatteen.trading.marketdata.dto.SimulatedMarketData;
 
@@ -95,6 +96,12 @@ public class SimulatedQuoteSynchronizer {
                 for (SimulatedMarketData marketData : feed) {
 
                         if (!isValidInstrument(marketData)) {
+                                continue;
+                        }
+
+                        if (!TradableMarketUniverse.contains(
+                                        marketData.symbol(),
+                                        marketData.exchange())) {
                                 continue;
                         }
 

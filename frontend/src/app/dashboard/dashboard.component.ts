@@ -653,4 +653,78 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   }
 
+  currencyName(
+    currency: string | null | undefined
+  ): string {
+
+    switch (
+    currency?.toUpperCase()
+    ) {
+
+      case 'USD':
+        return 'US Dollar';
+
+      case 'GBP':
+        return 'British Pound';
+
+      case 'INR':
+        return 'Indian Rupee';
+
+      case 'EUR':
+        return 'Euro';
+
+      case 'CHF':
+        return 'Swiss Franc';
+
+      case 'CAD':
+        return 'Canadian Dollar';
+
+      case 'AUD':
+        return 'Australian Dollar';
+
+      default:
+        return currency ?? '—';
+
+    }
+
+  }
+
+  marketName(
+    exchange: string | null | undefined
+  ): string {
+
+    switch (
+    exchange?.toUpperCase()
+    ) {
+
+      case 'NASDAQ':
+        return 'Nasdaq Stock Market';
+
+      case 'NYSE':
+        return 'New York Stock Exchange';
+
+      case 'NSE_IN':
+        return 'National Stock Exchange of India';
+
+      case 'LSE':
+        return 'London Stock Exchange';
+
+      case 'XETRA':
+        return 'Xetra';
+
+      case 'SIX':
+        return 'SIX Swiss Exchange';
+
+      case 'TSX':
+        return 'Toronto Stock Exchange';
+
+      case 'ASX':
+        return 'Australian Securities Exchange';
+
+      default:
+        return exchange ?? '—';
+
+    }
+
+  }
 }
