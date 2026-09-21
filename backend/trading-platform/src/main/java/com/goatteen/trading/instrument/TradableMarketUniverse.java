@@ -74,14 +74,19 @@ public final class TradableMarketUniverse {
             "LLOY|LSE",
 
             // =========================
-            // INTERNATIONAL — 5
+            // FOREIGN EXCHANGE — 3
             // =========================
 
-            "SAP|XETRA",
-            "NOVN|SIX",
-            "SHOP|TSX",
-            "BHP|ASX",
-            "RY|TSX");
+            "GBPUSD|FOREX",
+            "EURUSD|FOREX",
+            "USDJPY|FOREX",
+
+            // =========================
+            // CRYPTO — 2
+            // =========================
+
+            "BTCUSD|CRYPTO",
+            "ETHUSD|CRYPTO");
 
     private TradableMarketUniverse() {
     }

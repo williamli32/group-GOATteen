@@ -682,6 +682,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       case 'AUD':
         return 'Australian Dollar';
 
+      case 'JPY':
+        return 'Japanese Yen';
+
       default:
         return currency ?? '—';
 
@@ -720,6 +723,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       case 'ASX':
         return 'Australian Securities Exchange';
+
+      case 'FOREX':
+        return 'Foreign Exchange Market';
+
+      case 'CRYPTO':
+        return 'Cryptocurrency Market';
 
       default:
         return exchange ?? '—';
