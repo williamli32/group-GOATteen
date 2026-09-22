@@ -550,8 +550,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
             order
           );
 
+          this.loadDashboard();
+
           this.orderMessage.set(
-            `Order #${order.id} accepted.`
+            `Order #${order.id} filled.`
           );
 
           this.orderQuantity =

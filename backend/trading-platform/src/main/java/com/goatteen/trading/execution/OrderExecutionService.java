@@ -94,8 +94,8 @@ public class OrderExecutionService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderExecutionException("Order not found"));
 
-        if (order.getStatus() != OrderStatus.SUBMITTED) {
-            throw new OrderExecutionException("Order is not in SUBMITTED state");
+        if (order.getStatus() != OrderStatus.ACCEPTED) {
+            throw new OrderExecutionException("Order is not in ACCEPTED state");
         }
 
         // Fetch current quote (BR-08: price against current market quote)
@@ -206,9 +206,9 @@ public class OrderExecutionService {
         orderStatusHistoryRepository.save(history);
     }
 
-    public static class OrderExecutionException extends Exception {
-        public OrderExecutionException(String message) {
-            super(message);
-        }
+public static class OrderExecutionException extends RuntimeException {
+    public OrderExecutionException(String message) {
+        super(message);
     }
+}
 }
