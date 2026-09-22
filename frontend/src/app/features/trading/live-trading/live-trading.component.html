@@ -120,15 +120,15 @@
   <div class="info-box">
     <h3>Architecture Notes:</h3>
     <ul>
-      <li>✅ Real-time price updates via WebSocket (/topic/prices/{{ '{symbol}' }})</li>
-      <li>✅ Multi-symbol support - 50 major stocks across diverse industries</li>
+      <li>✅ Real-time price updates via REST API polling (every 2 seconds)</li>
+      <li>✅ Multi-symbol support - 50 major US stocks across diverse industries</li>
       <li>✅ Industry categories: Technology, Finance, Healthcare, Consumer, Energy, Transportation, Aerospace & Defense</li>
       <li>✅ Randomized initial seed prices per symbol with realistic market ranges</li>
       <li>✅ Live scrollable dashboard displaying all 50 stocks with real-time prices</li>
       <li>✅ Symbol selector dropdown for easy switching</li>
-      <li>✅ Order messaging framework ready (/app/order/buy, /app/order/sell)</li>
-      <li>✅ Order confirmation feedback (/topic/orders/confirmation)</li>
-      <li>📝 Order execution logic ready for implementation in OrderWebSocketController</li>
+      <li>✅ Order messaging framework ready (POST /api/orders/buy, POST /api/orders/sell)</li>
+      <li>✅ Order confirmation feedback via REST API</li>
+      <li>📝 Order execution logic ready for implementation in REST API OrderController</li>
     </ul>
   </div>
 </div>

@@ -1,0 +1,57 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< com.goatteen:trading-platform >--------------------
+[INFO] Building trading-platform 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.4.1:clean (default-clean) @ trading-platform ---
+[INFO] Deleting C:\Users\Administrator\Projects\group-GOATteen\backend\trading-platform\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ trading-platform ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 8 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ trading-platform ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 75 source files with javac [debug parameters release 21] to target\classes
+mvnw.cmd : WARNING: A terminally deprecated method in sun.misc.Unsafe has been 
+called
+At line:1 char:90
++ ... en\backend\trading-platform"; & .\mvnw.cmd clean compile 2>&1 | Out-F ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: A term...has been called 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by 
+lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class 
+lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/Users/Administrator/Projects/group-GOATteen/backend/trading-platform/src/main/java/com/goatteen/trading/marketdata/PriceGeneratorService.java:[216,21] cannot find symbol
+  symbol:   method findBySymbol(java.lang.String)
+  location: variable instrumentRepository of type com.goatteen.trading.instrument.InstrumentRepository
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  10.668 s
+[INFO] Finished at: 2026-09-18T20:14:53Z
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile (default-compile) on project trading-platform: Compilation failure
+[ERROR] /C:/Users/Administrator/Projects/group-GOATteen/backend/trading-platform/src/main/java/com/goatteen/trading/marketdata/PriceGeneratorService.java:[216,21] cannot find symbol
+[ERROR]   symbol:   method findBySymbol(java.lang.String)
+[ERROR]   location: variable instrumentRepository of type com.goatteen.trading.instrument.InstrumentRepository
+[ERROR] 
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

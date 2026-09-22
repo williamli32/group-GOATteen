@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Real-time price update message sent via WebSocket
+ * Real-time price update message returned via REST API
  * Used for live price streaming to frontend
  */
 public class PriceUpdateMessage {

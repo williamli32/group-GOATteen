@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * Message sent from frontend to place a trading order
- * Used with WebSocket /app/order/buy or /app/order/sell
+ * Used with REST API POST /api/orders/buy or /api/orders/sell
  */
 public class OrderMessage {
 

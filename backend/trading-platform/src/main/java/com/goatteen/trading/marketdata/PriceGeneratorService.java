@@ -2,6 +2,7 @@ package com.goatteen.trading.marketdata;
 
 import com.goatteen.trading.instrument.Instrument;
 import com.goatteen.trading.instrument.InstrumentRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,8 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Service to generate simulated stock prices using Monte Carlo random walk.
- * Supports multiple stock symbols with randomized initial seed prices.
- * Generates price data every 2 seconds for all tracked instruments.
+ * Loads tradable instruments from the database and generates prices every 2 seconds.
+ * Instruments can be loaded from CSV via Flyway migrations.
  */
 @Service
 public class PriceGeneratorService {
@@ -23,31 +24,6 @@ public class PriceGeneratorService {
     private static final double DRIFT = 0.0001;           // Daily drift (0.01%)
     private static final double VOLATILITY = 0.025;       // Daily volatility (2.5%)
     private static final double SPREAD_PERCENTAGE = 0.002; // Bid-ask spread (0.2%)
-    
-    // 50 large, well-known stocks spanning diverse industries
-    private static final List<String> DEFAULT_SYMBOLS = Arrays.asList(
-        // Technology (15 stocks)
-        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "INTEL", "AMD", "CRM",
-        "IBM", "ORCL", "ADBE", "NFLX", "AVGO",
-        
-        // Finance & Banking (8 stocks)
-        "JPM", "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "COIN",
-        
-        // Healthcare & Pharma (10 stocks)
-        "JNJ", "UNH", "PFE", "ABBV", "TMO", "CVS", "LLY", "AZN", "MRK", "GILD",
-        
-        // Consumer & Retail (8 stocks)
-        "KO", "MCD", "SBUX", "WMT", "TJX", "NKE", "HD", "COST",
-        
-        // Industrial & Energy (5 stocks)
-        "EXC", "NEE", "DUK", "SO", "CSX",
-        
-        // Airlines & Transportation (3 stocks)
-        "DAL", "UAL", "BA",
-        
-        // Aerospace & Defense (2 stocks)
-        "LMT", "RTX"
-    );
 
     private final InstrumentRepository instrumentRepository;
     private final QuoteRepository quoteRepository;
@@ -64,11 +40,24 @@ public class PriceGeneratorService {
             QuoteRepository quoteRepository) {
         this.instrumentRepository = instrumentRepository;
         this.quoteRepository = quoteRepository;
+    }
+
+    /**
+     * Initialize prices for all tradable instruments loaded from database on startup
+     */
+    @PostConstruct
+    public void initializePrices() {
+        List<Instrument> tradableInstruments = instrumentRepository
+                .findByTradableTrueOrderBySymbolAscExchangeAsc();
         
-        // Initialize prices for default symbols on startup
-        for (String symbol : DEFAULT_SYMBOLS) {
-            initializeSymbol(symbol);
+        for (Instrument instrument : tradableInstruments) {
+            BigDecimal seedPrice = generateRandomSeedPrice(instrument.getSymbol());
+            currentPrices.put(instrument.getSymbol(), seedPrice);
+            instrumentIds.put(instrument.getSymbol(), instrument.getId());
+            System.out.println("Initialized " + instrument.getSymbol() + " with seed price: $" + seedPrice);
         }
+        
+        System.out.println("Price generator initialized for " + tradableInstruments.size() + " instruments");
     }
     
     /**
