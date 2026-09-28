@@ -54,7 +54,7 @@ $accent-primary: #00d4aa;
 
   .symbol-btn {
     padding: 4px 10px;
-    font-size: 11px;
+    font-size: 18px;
     font-family: 'JetBrains Mono', monospace;
     border-radius: 4px;
     border: none;
@@ -80,7 +80,7 @@ $accent-primary: #00d4aa;
     align-items: center;
     gap: 14px;
     margin-left: auto;
-    font-size: 11px;
+    font-size: 18px;
     font-family: 'JetBrains Mono', monospace;
 
     .label {
@@ -194,7 +194,7 @@ $accent-primary: #00d4aa;
   overflow-y: auto;
 
   .section-title {
-    font-size: 11px;
+    font-size: 18px;
     font-weight: 500;
     color: $text-muted;
     margin: 0 0 8px 0;
@@ -209,7 +209,7 @@ $accent-primary: #00d4aa;
   .positions-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 11px;
+    font-size: 18px;
     font-family: 'JetBrains Mono', monospace;
 
     thead {
@@ -282,7 +282,7 @@ $accent-primary: #00d4aa;
   flex-shrink: 0;
 
   .section-title {
-    font-size: 11px;
+    font-size: 18px;
     font-weight: 500;
     color: $text-muted;
     margin: 0 0 8px 0;
@@ -302,7 +302,7 @@ $accent-primary: #00d4aa;
     .side-btn {
       flex: 1;
       padding: 6px;
-      font-size: 11px;
+      font-size: 18px;
       font-weight: 600;
       border: none;
       background: transparent;
@@ -354,7 +354,7 @@ $accent-primary: #00d4aa;
         border: 1px solid $border-color;
         border-radius: 4px;
         padding: 6px 8px;
-        font-size: 11px;
+        font-size: 18px;
         font-family: 'JetBrains Mono', monospace;
         color: $text-primary;
         transition: border-color 0.2s ease;
@@ -380,7 +380,7 @@ $accent-primary: #00d4aa;
       .summary-row {
         display: flex;
         justify-content: space-between;
-        font-size: 10px;
+        font-size: 14px;
         color: $text-muted;
         margin-bottom: 3px;
 
@@ -399,7 +399,7 @@ $accent-primary: #00d4aa;
       padding: 8px;
       border-radius: 4px;
       border: none;
-      font-size: 11px;
+      font-size: 18px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -443,7 +443,7 @@ $accent-primary: #00d4aa;
   flex-direction: column;
 
   .section-title {
-    font-size: 11px;
+    font-size: 18px;
     font-weight: 500;
     color: $text-muted;
     margin: 0 0 8px 0;
@@ -473,14 +473,14 @@ $accent-primary: #00d4aa;
 
       .order-symbol {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 11px;
+        font-size: 18px;
         font-weight: 600;
         color: $text-primary;
       }
 
       .order-status {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 9px;
+        font-size: 13px;
         padding: 2px 4px;
         border-radius: 2px;
       }
@@ -491,7 +491,7 @@ $accent-primary: #00d4aa;
       justify-content: space-between;
       font-family: 'JetBrains Mono', monospace;
       color: $text-muted;
-      font-size: 9px;
+      font-size: 13px;
       margin-bottom: 2px;
 
       .side-buy {
@@ -504,7 +504,7 @@ $accent-primary: #00d4aa;
     }
 
     .order-time {
-      font-size: 9px;
+      font-size: 13px;
       color: #2a3f5f;
       margin: 0;
       font-family: 'JetBrains Mono', monospace;
@@ -695,7 +695,7 @@ $accent-primary: #00d4aa;
 
   color: $text-muted;
 
-  font-size: 11px;
+  font-size: 18px;
 
   line-height: 1.7;
 
@@ -741,7 +741,7 @@ $accent-primary: #00d4aa;
 
   color: $text-muted;
 
-  font-size: 9px;
+  font-size: 13px;
 
   letter-spacing: 0.6px;
 
@@ -790,7 +790,7 @@ $accent-primary: #00d4aa;
 
   color: $text-muted;
 
-  font-size: 9px;
+  font-size: 13px;
 
   gap: 10px;
 
@@ -863,7 +863,7 @@ $accent-primary: #00d4aa;
 
   color: $accent-negative;
 
-  font-size: 9px;
+  font-size: 13px;
 
 }
 
@@ -1036,7 +1036,7 @@ $accent-primary: #00d4aa;
 .currency-label {
   color: $text-muted;
 
-  font-size: 9px;
+  font-size: 13px;
 
   letter-spacing: 0.5px;
 }
@@ -1058,7 +1058,7 @@ $accent-primary: #00d4aa;
     'JetBrains Mono',
     monospace;
 
-  font-size: 10px;
+  font-size: 15px;
 
   th {
     position: sticky;
@@ -1164,7 +1164,7 @@ $accent-primary: #00d4aa;
     'JetBrains Mono',
     monospace;
 
-  font-size: 9px;
+  font-size: 13px;
 
   cursor: pointer;
 }
@@ -1182,7 +1182,7 @@ $accent-primary: #00d4aa;
 
   border-radius: 4px;
 
-  font-size: 9px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
