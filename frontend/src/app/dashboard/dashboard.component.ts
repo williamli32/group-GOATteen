@@ -108,6 +108,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   orderErrorMessage =
     signal('');
 
+  quantityError =
+    signal('');
+
   private marketRefreshInterval: number | null = null;
 
   private marketRefreshInProgress = false;
@@ -393,6 +396,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
 
+  isQuantityValid(): boolean {
+    const quantity = Number(this.orderQuantity);
+    return Number.isFinite(quantity) && quantity > 0;
+  }
+
+  validateQuantity(): void {
+    if (this.orderQuantity === null || this.orderQuantity === undefined) {
+      this.quantityError.set('');
+      return;
+    }
+
+    const quantity = Number(this.orderQuantity);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      this.quantityError.set('Enter a valid quantity greater than 0.');
+    } else {
+      this.quantityError.set('');
+    }
+  }
+
   selectInstrument(
     instrument: MarketInstrumentResponse
   ): void {
@@ -404,6 +427,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.orderMessage.set('');
 
     this.orderErrorMessage.set('');
+
+    this.quantityError.set('');
 
   }
 
@@ -476,6 +501,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.orderErrorMessage.set('');
 
+    this.quantityError.set('');
+
 
     const instrument =
       this.selectedInstrument();
@@ -512,8 +539,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       quantity <= 0
     ) {
 
-      this.orderErrorMessage.set(
-        'Quantity must be greater than zero.'
+      this.quantityError.set(
+        'Enter a valid quantity greater than 0.'
       );
 
       return;

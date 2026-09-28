@@ -509,7 +509,15 @@
             </label>
 
             <input id="orderQuantity" name="orderQuantity" type="number" class="form-input" min="0" step="any"
-              placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderSubmitting()" />
+              placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderSubmitting()" (change)="validateQuantity()"
+              [attr.aria-invalid]="quantityError() ? 'true' : 'false'"
+              aria-describedby="quantityErrorMessage" />
+
+            @if (quantityError()) {
+            <p id="quantityErrorMessage" class="quantity-error">
+              {{ quantityError() }}
+            </p>
+            }
 
           </div>
 
