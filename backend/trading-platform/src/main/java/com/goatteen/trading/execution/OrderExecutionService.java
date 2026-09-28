@@ -181,7 +181,8 @@ public class OrderExecutionService {
         cashTransactionRepository.save(transaction);
     }
 
-    private void updatePosition(Account account, Order order, BigDecimal executionPrice) {
+    private void updatePosition(Account account, Order order, BigDecimal executionPrice) 
+            throws OrderExecutionException {
         Position position = positionRepository
                 .findByAccountIdAndInstrumentId(account.getId(), order.getInstrument().getId())
                 .orElse(new Position());
@@ -192,12 +193,19 @@ public class OrderExecutionService {
             position.setQuantity(BigDecimal.ZERO);
         }
 
+        BigDecimal newQuantity;
         if (order.getSide() == OrderSide.BUY) {
-            position.setQuantity(position.getQuantity().add(order.getQuantity()));
+            newQuantity = position.getQuantity().add(order.getQuantity());
         } else {
-            position.setQuantity(position.getQuantity().subtract(order.getQuantity()));
+            newQuantity = position.getQuantity().subtract(order.getQuantity());
         }
 
+        // Ensure holdings never go negative (similar to line 167 for cash balance)
+        if (newQuantity.compareTo(BigDecimal.ZERO) < 0) {
+            throw new OrderExecutionException("Fatal: Position holdings would be negative - operation aborted");
+        }
+
+        position.setQuantity(newQuantity);
         position.setUpdatedAt(LocalDateTime.now());
         positionRepository.save(position);
     }
