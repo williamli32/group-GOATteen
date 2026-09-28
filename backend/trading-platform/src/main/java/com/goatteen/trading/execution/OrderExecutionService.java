@@ -164,6 +164,11 @@ public class OrderExecutionService {
             account.setCashBalance(account.getCashBalance().add(totalCost));
         }
 
+        // Final execution check: ensure balance never goes negative before persisting
+        if (account.getCashBalance().compareTo(BigDecimal.ZERO) < 0) {
+            throw new OrderExecutionException("Fatal: Account balance would be negative - operation aborted");
+        }
+
         accountRepository.save(account);
 
         // Record cash transaction (BR-09, BR-14)
