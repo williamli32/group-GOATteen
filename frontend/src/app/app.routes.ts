@@ -15,6 +15,10 @@ import {
 } from './dashboard/dashboard.component';
 
 import {
+  HistoryComponent
+} from './features/history/history.component';
+
+import {
   authGuard
 } from './core/guards/auth-guard';
 
@@ -34,6 +38,14 @@ export const routes: Routes = [
   {
     path: 'dashboard',
     component: DashboardComponent,
+    canActivate: [
+      authGuard
+    ]
+  },
+
+  {
+    path: 'history/:symbol',
+    component: HistoryComponent,
     canActivate: [
       authGuard
     ]

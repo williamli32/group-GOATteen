@@ -32,13 +32,40 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const isAuthRequest =
     req.url.includes('/api/auth/');
 
+  /*
+   * Market-data-service is a public, read-only service
+   * for historical CSV data. Don't include JWT credentials
+   * or withCredentials flag.
+   */
+  const isMarketDataServiceRequest =
+    req.url.includes('localhost:8081') ||
+    req.url.includes(':8081') ||
+    req.url.includes('/market-data');
 
-  let request = req.clone({
-    withCredentials: true
-  });
 
+  let request = req;
 
-  if (token && !isAuthRequest) {
+  /*
+   * Only set withCredentials for trading-platform API.
+   * Market-data-service is public and doesn't use cookies.
+   */
+  if (!isMarketDataServiceRequest) {
+
+    request = request.clone({
+      withCredentials: true
+    });
+
+  }
+
+  /*
+   * Add JWT only to trading-platform API requests.
+   * Market-data-service is public and doesn't require auth.
+   */
+  if (
+    token &&
+    !isAuthRequest &&
+    !isMarketDataServiceRequest
+  ) {
 
     request = request.clone({
       setHeaders: {

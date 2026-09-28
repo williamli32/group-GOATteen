@@ -1,324 +1,299 @@
 package com.goatteen.market.service;
 
+import com.goatteen.market.dto.HistoricalPrice;
 import com.goatteen.market.dto.MarketData;
+import com.goatteen.market.loader.HistoricalDataCsvLoader;
 import com.goatteen.market.loader.MarketDataCsvLoader;
-
-import java.util.Locale;
-
 import jakarta.annotation.PostConstruct;
-
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class MockMarketDataService {
 
-        /*
-         * Current simulated market state.
-         *
-         * ConcurrentHashMap is used because scheduled
-         * price updates and HTTP requests may access
-         * market data at the same time.
-         */
-        private final Map<String, MarketData> marketDataCache = new ConcurrentHashMap<>();
+    /*
+     * Current simulated market state.
+     *
+     * ConcurrentHashMap is used because scheduled price updates
+     * and HTTP requests may access market data at the same time.
+     */
+    private final Map<String, MarketData> marketDataCache =
+            new ConcurrentHashMap<>();
 
-        private final MarketDataCsvLoader csvLoader;
+    /*
+     * Historical prices grouped by symbol.
+     *
+     * Example:
+     * AAPL -> [AAPL record 1, AAPL record 2, ...]
+     */
+    private final Map<String, List<HistoricalPrice>> historicalDataCache =
+            new ConcurrentHashMap<>();
 
-        public MockMarketDataService(
-                        MarketDataCsvLoader csvLoader) {
+    private final MarketDataCsvLoader csvLoader;
+    private final HistoricalDataCsvLoader historicalDataCsvLoader;
 
-                this.csvLoader = csvLoader;
+    public MockMarketDataService(
+            MarketDataCsvLoader csvLoader,
+            HistoricalDataCsvLoader historicalDataCsvLoader) {
+
+        this.csvLoader = csvLoader;
+        this.historicalDataCsvLoader = historicalDataCsvLoader;
+    }
+
+    /*
+     * Load both CSV files when the service starts.
+     */
+    @PostConstruct
+    public void loadData() {
+
+        List<MarketData> data = csvLoader.loadMarketData();
+
+        for (MarketData marketData : data) {
+            marketDataCache.put(
+                    cacheKey(marketData),
+                    marketData);
         }
 
-        /*
-         * Load deterministic starting prices from the
-         * CSV when the service starts.
-         */
-        @PostConstruct
-        public void loadData() {
+        List<HistoricalPrice> historicalPrices =
+                historicalDataCsvLoader.loadHistoricalData();
 
-                List<MarketData> data = csvLoader.loadMarketData();
+        for (HistoricalPrice historicalPrice : historicalPrices) {
 
-                for (MarketData marketData : data) {
+            String symbol = historicalPrice
+                    .getSymbol()
+                    .toUpperCase(Locale.ROOT);
 
-                        marketDataCache.put(
-                                        cacheKey(marketData),
-                                        marketData);
-                }
-
-                System.out.println(
-                                "Simulated market initialized with "
-                                                + marketDataCache.size()
-                                                + " instruments");
+            historicalDataCache
+                    .computeIfAbsent(
+                            symbol,
+                            key -> new CopyOnWriteArrayList<>())
+                    .add(historicalPrice);
         }
 
-        /*
-         * Advance the simulated market every 3 seconds.
-         *
-         * The next price is calculated from the CURRENT
-         * price, not from the original CSV price.
-         *
-         * This creates an evolving random walk:
-         *
-         * 100.00
-         * 100.12
-         * 100.05
-         * 100.23
-         * ...
-         */
-        @Scheduled(fixedRate = 3000)
-        public void updateMarketPrices() {
+        historicalDataCache.values()
+                .forEach(list -> list.sort(
+                        Comparator.comparing(
+                                HistoricalPrice::getDate)));
 
-                marketDataCache.replaceAll(
-                                (
-                                                symbol,
-                                                current) -> generateNextPrice(
-                                                                current));
+        System.out.println(
+                "Simulated market initialized with "
+                        + marketDataCache.size()
+                        + " instruments");
+
+        System.out.println(
+                "Historical market initialized with "
+                        + historicalPrices.size()
+                        + " price records");
+    }
+
+    /*
+     * Advance the simulated market every 3 seconds.
+     */
+    @Scheduled(fixedRate = 3000)
+    public void updateMarketPrices() {
+
+        marketDataCache.replaceAll(
+                (
+                        symbol,
+                        current) -> generateNextPrice(current));
+    }
+
+    public MarketData getMarketData(
+            String symbol) {
+
+        MarketData data = marketDataCache
+                .values()
+                .stream()
+                .filter(item -> item.getSymbol()
+                        .equalsIgnoreCase(symbol))
+                .findFirst()
+                .orElse(null);
+
+        if (data == null) {
+            return null;
         }
 
-        public MarketData getMarketData(
-                        String symbol) {
+        return copyMarketData(data);
+    }
 
-                MarketData data = marketDataCache
-                                .values()
-                                .stream()
-                                .filter(item -> item.getSymbol()
-                                                .equalsIgnoreCase(symbol))
-                                .findFirst()
-                                .orElse(null);
+    public List<MarketData> getMarketDataByMarket(
+            String market) {
 
-                if (data == null) {
-                        return null;
-                }
+        return marketDataCache
+                .values()
+                .stream()
+                .filter(
+                        data -> data.getAssetType()
+                                .equalsIgnoreCase(market)
+                                || data.getCountryCode()
+                                .equalsIgnoreCase(market)
+                                || data.getMarket()
+                                .equalsIgnoreCase(market))
+                .sorted(
+                        Comparator.comparing(
+                                MarketData::getSymbol))
+                .map(this::copyMarketData)
+                .toList();
+    }
 
-                return copyMarketData(
-                                data);
+    public List<MarketData> getAllMarketData() {
+
+        return marketDataCache
+                .values()
+                .stream()
+                .sorted(
+                        Comparator.comparing(
+                                MarketData::getSymbol))
+                .map(this::copyMarketData)
+                .toList();
+    }
+
+    /*
+     * Return historical prices for one symbol.
+     *
+     * Symbols are matched case-insensitively.
+     * An unknown symbol returns an empty list.
+     */
+    public List<HistoricalPrice> getHistoricalData(
+            String symbol) {
+
+        if (symbol == null || symbol.isBlank()) {
+            return List.of();
         }
 
-        public List<MarketData> getMarketDataByMarket(
-                        String market) {
+        return historicalDataCache.getOrDefault(
+                symbol.toUpperCase(Locale.ROOT),
+                List.of());
+    }
 
-                return marketDataCache
-                                .values()
-                                .stream()
-
-                                .filter(
-                                                data -> data
-                                                                .getAssetType()
-                                                                .equalsIgnoreCase(
-                                                                                market)
-                                                                ||
-                                                                data
-                                                                                .getCountryCode()
-                                                                                .equalsIgnoreCase(
-                                                                                                market)
-                                                                ||
-                                                                data
-                                                                                .getMarket()
-                                                                                .equalsIgnoreCase(
-                                                                                                market))
-
-                                .sorted(
-                                                Comparator.comparing(
-                                                                MarketData::getSymbol))
-
-                                .map(
-                                                this::copyMarketData)
-
-                                .toList();
-        }
-
-        public List<MarketData> getAllMarketData() {
-
-                return marketDataCache
-                                .values()
-                                .stream()
-
-                                .sorted(
-                                                Comparator.comparing(
-                                                                MarketData::getSymbol))
-
-                                .map(
-                                                this::copyMarketData)
-
-                                .toList();
-        }
-
-        private MarketData generateNextPrice(
-                        MarketData current) {
-
-                /*
-                 * Maximum simulated movement for one tick:
-                 *
-                 * +/- 0.25%
-                 *
-                 * This is intentionally modest so the UI
-                 * looks live without prices jumping wildly.
-                 */
-                double movementPercent = ThreadLocalRandom
-                                .current()
-                                .nextDouble(
-                                                -0.0025,
-                                                0.0025);
-
-                BigDecimal currentPrice = current.getPrice();
-
-                BigDecimal movement = currentPrice
-                                .multiply(
-                                                BigDecimal.valueOf(
-                                                                movementPercent));
-
-                BigDecimal nextPrice = currentPrice
-                                .add(
-                                                movement)
-                                .max(
-                                                new BigDecimal(
-                                                                "0.00000001"))
-                                .setScale(
-                                                8,
-                                                RoundingMode.HALF_UP);
-
-                BigDecimal actualChange = nextPrice
-                                .subtract(
-                                                currentPrice)
-                                .setScale(
-                                                8,
-                                                RoundingMode.HALF_UP);
-
-                BigDecimal actualChangePercent;
-
-                if (currentPrice.compareTo(
-                                BigDecimal.ZERO) == 0) {
-
-                        actualChangePercent = BigDecimal.ZERO;
-
-                } else {
-
-                        actualChangePercent = actualChange
-                                        .divide(
-                                                        currentPrice,
-                                                        10,
-                                                        RoundingMode.HALF_UP)
-                                        .multiply(
-                                                        BigDecimal.valueOf(
-                                                                        100))
-                                        .setScale(
-                                                        6,
-                                                        RoundingMode.HALF_UP);
-                }
-
-                MarketData updated = copyMarketData(
-                                current);
-
-                updated.setPrice(
-                                nextPrice);
-
-                updated.setChange(
-                                actualChange);
-
-                updated.setChangePercent(
-                                actualChangePercent);
-
-                updated.setHigh(
-                                current
-                                                .getHigh()
-                                                .max(
-                                                                nextPrice));
-
-                updated.setLow(
-                                current
-                                                .getLow()
-                                                .min(
-                                                                nextPrice));
-
-                updated.setTimestamp(
-                                LocalDateTime.now());
-
-                return updated;
-        }
+    private MarketData generateNextPrice(
+            MarketData current) {
 
         /*
-         * Return snapshots rather than exposing the
-         * mutable objects stored inside the simulator.
+         * Maximum simulated movement for one tick:
+         *
+         * +/- 0.25%
          */
-        private MarketData copyMarketData(
-                        MarketData source) {
+        double movementPercent = ThreadLocalRandom
+                .current()
+                .nextDouble(
+                        -0.0025,
+                        0.0025);
 
-                MarketData copy = new MarketData();
+        BigDecimal currentPrice = current.getPrice();
 
-                copy.setAssetType(
-                                source.getAssetType());
+        BigDecimal movement = currentPrice
+                .multiply(
+                        BigDecimal.valueOf(
+                                movementPercent));
 
-                copy.setSymbol(
-                                source.getSymbol());
+        BigDecimal nextPrice = currentPrice
+                .add(movement)
+                .max(
+                        new BigDecimal(
+                                "0.00000001"))
+                .setScale(
+                        8,
+                        RoundingMode.HALF_UP);
 
-                copy.setExchange(
-                                source.getExchange());
+        BigDecimal actualChange = nextPrice
+                .subtract(currentPrice)
+                .setScale(
+                        8,
+                        RoundingMode.HALF_UP);
 
-                copy.setCountryCode(
-                                source.getCountryCode());
+        BigDecimal actualChangePercent;
 
-                copy.setCurrency(
-                                source.getCurrency());
+        if (currentPrice.compareTo(
+                BigDecimal.ZERO) == 0) {
 
-                copy.setMarket(
-                                source.getMarket());
+            actualChangePercent = BigDecimal.ZERO;
 
-                copy.setName(
-                                source.getName());
+        } else {
 
-                copy.setPrice(
-                                source.getPrice());
-
-                copy.setChange(
-                                source.getChange());
-
-                copy.setChangePercent(
-                                source.getChangePercent());
-
-                copy.setHigh(
-                                source.getHigh());
-
-                copy.setLow(
-                                source.getLow());
-
-                copy.setVolume(
-                                source.getVolume());
-
-                copy.setTimestamp(
-                                source.getTimestamp());
-
-                return copy;
+            actualChangePercent = actualChange
+                    .divide(
+                            currentPrice,
+                            10,
+                            RoundingMode.HALF_UP)
+                    .multiply(
+                            BigDecimal.valueOf(
+                                    100))
+                    .setScale(
+                            6,
+                            RoundingMode.HALF_UP);
         }
 
-        private String cacheKey(
-                        MarketData data) {
+        MarketData updated = copyMarketData(current);
 
-                return cacheKey(
-                                data.getSymbol(),
-                                data.getExchange());
+        updated.setPrice(nextPrice);
+        updated.setChange(actualChange);
+        updated.setChangePercent(actualChangePercent);
+        updated.setHigh(
+                current.getHigh()
+                        .max(nextPrice));
+        updated.setLow(
+                current.getLow()
+                        .min(nextPrice));
+        updated.setTimestamp(LocalDateTime.now());
 
-        }
+        return updated;
+    }
 
-        private String cacheKey(
-                        String symbol,
-                        String exchange) {
+    /*
+     * Return snapshots rather than exposing mutable objects
+     * stored inside the simulator.
+     */
+    private MarketData copyMarketData(
+            MarketData source) {
 
-                return (symbol
-                                + "|"
-                                + exchange).toUpperCase(
-                                                Locale.ROOT);
+        MarketData copy = new MarketData();
 
-        }
+        copy.setAssetType(source.getAssetType());
+        copy.setSymbol(source.getSymbol());
+        copy.setExchange(source.getExchange());
+        copy.setCountryCode(source.getCountryCode());
+        copy.setCurrency(source.getCurrency());
+        copy.setMarket(source.getMarket());
+        copy.setName(source.getName());
+        copy.setPrice(source.getPrice());
+        copy.setChange(source.getChange());
+        copy.setChangePercent(source.getChangePercent());
+        copy.setHigh(source.getHigh());
+        copy.setLow(source.getLow());
+        copy.setVolume(source.getVolume());
+        copy.setTimestamp(source.getTimestamp());
+
+        return copy;
+    }
+
+    private String cacheKey(
+            MarketData data) {
+
+        return cacheKey(
+                data.getSymbol(),
+                data.getExchange());
+    }
+
+    private String cacheKey(
+            String symbol,
+            String exchange) {
+
+        return (
+                symbol
+                        + "|"
+                        + exchange)
+                .toUpperCase(Locale.ROOT);
+    }
 }

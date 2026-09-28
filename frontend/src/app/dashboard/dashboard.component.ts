@@ -7,7 +7,8 @@ import {
 
 import {
   MarketDataService,
-  MarketInstrumentResponse
+  MarketInstrumentResponse,
+  HistoricalPrice
 } from '../core/services/market-data';
 
 import {
@@ -59,6 +60,7 @@ import {
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+
   marketInstruments =
     signal<MarketInstrumentResponse[]>([]);
 
@@ -69,6 +71,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     signal(true);
 
   marketErrorMessage =
+    signal('');
+
+  historicalPrices =
+    signal<HistoricalPrice[]>([]);
+
+  historicalLoading =
+    signal(false);
+
+  historicalErrorMessage =
     signal('');
 
   account =
@@ -104,9 +115,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   orderErrorMessage =
     signal('');
 
-  private marketRefreshInterval: number | null = null;
+  private marketRefreshInterval:
+    number | null = null;
 
-  private marketRefreshInProgress = false;
+  private marketRefreshInProgress =
+    false;
 
   constructor(
     private accountService: AccountService,
@@ -123,11 +136,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.loadMarketData();
 
-    this.marketRefreshInterval = window.setInterval(
-      () => this.loadMarketData(false),
-      3000
-    );
-
+    this.marketRefreshInterval =
+      window.setInterval(
+        () => this.loadMarketData(false),
+        3000
+      );
   }
 
 
@@ -136,7 +149,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loading.set(true);
 
     this.errorMessage.set('');
-
 
     forkJoin({
 
@@ -174,11 +186,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.orders.set(
             result.orders
           );
-
         },
 
 
-        error: (error: HttpErrorResponse) => {
+        error: (
+          error: HttpErrorResponse
+        ) => {
 
           if (error.status === 401) {
 
@@ -191,15 +204,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
           }
 
-
           this.errorMessage.set(
             'Unable to load your account dashboard. Please try again.'
           );
-
         }
 
       });
-
   }
 
 
@@ -209,9 +219,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-
     this.loggingOut.set(true);
-
 
     this.auth.logoutSession()
       .pipe(
@@ -243,7 +251,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
       });
-
   }
 
 
@@ -254,8 +261,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.router.navigate([
       '/login'
     ]);
-
   }
+
 
   loadMarketData(
     showLoading = true
@@ -267,7 +274,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.marketRefreshInProgress = true;
 
-
     if (showLoading) {
 
       this.marketLoading.set(true);
@@ -275,7 +281,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.marketErrorMessage.set('');
 
     }
-
 
     this.marketDataService
       .getInstruments()
@@ -302,50 +307,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
             instruments
           );
 
-
           const currentSelected =
             this.selectedInstrument();
 
+          let selectedInstrument:
+            MarketInstrumentResponse | null;
 
           if (currentSelected) {
 
-            const refreshedSelected =
+            selectedInstrument =
               instruments.find(
                 instrument =>
                   instrument.instrumentId ===
                   currentSelected.instrumentId
-              );
-
-
-            if (refreshedSelected) {
-
-              this.selectedInstrument.set(
-                refreshedSelected
-              );
-
-            } else {
-
-              this.selectedInstrument.set(
-                instruments[0] ?? null
-              );
-
-            }
+              ) ?? instruments[0] ?? null;
 
           } else {
 
-            this.selectedInstrument.set(
-              instruments[0] ?? null
-            );
-
+            selectedInstrument =
+              instruments[0] ?? null;
           }
 
+          this.selectedInstrument.set(
+            selectedInstrument
+          );
 
           /*
            * A successful refresh clears any previous
            * market-data error.
            */
           this.marketErrorMessage.set('');
-
         },
 
 
@@ -365,7 +356,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           }
 
-
           /*
            * Only replace the visible market area with
            * an error during the initial/manual load.
@@ -378,19 +368,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.marketErrorMessage.set(
               'Unable to load market data.'
             );
-
           }
-
         }
 
       });
-
   }
 
 
   selectInstrument(
     instrument: MarketInstrumentResponse
   ): void {
+
+    console.log(
+      'Selected instrument:',
+      instrument.symbol
+  );
 
     this.selectedInstrument.set(
       instrument
@@ -400,7 +392,72 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.orderErrorMessage.set('');
 
+    this.router.navigate(['/history', instrument.symbol]);
   }
+
+
+  loadHistoricalData(): void {
+
+    const instrument =
+      this.selectedInstrument();
+
+    this.historicalPrices.set([]);
+
+    this.historicalErrorMessage.set('');
+
+    if (!instrument) {
+
+      this.historicalErrorMessage.set(
+        'Select an instrument to view historical data.'
+      );
+
+      return;
+    }
+
+    this.historicalLoading.set(true);
+
+    this.marketDataService
+      .getHistoricalData(
+        instrument.symbol
+      )
+      .pipe(
+
+        finalize(() => {
+
+          this.historicalLoading.set(false);
+
+        })
+
+      )
+      .subscribe({
+
+        next: prices => {
+
+          this.historicalPrices.set(
+            prices
+          );
+
+          if (prices.length === 0) {
+
+            this.historicalErrorMessage.set(
+              'No historical data available for this symbol.'
+            );
+          }
+        },
+
+
+        error: () => {
+
+          this.historicalPrices.set([]);
+
+          this.historicalErrorMessage.set(
+            'Unable to load historical data.'
+          );
+        }
+
+      });
+  }
+
 
   setOrderSide(
     side: OrderSide
@@ -430,7 +487,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.orderSide === 'BUY'
       ? quote.askPrice
       : quote.bidPrice;
-
   }
 
 
@@ -443,7 +499,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const quantity =
       Number(this.orderQuantity);
 
-
     if (
       price === null ||
       !Number.isFinite(quantity) ||
@@ -454,9 +509,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     }
 
-
     return price * quantity;
-
   }
 
 
@@ -466,15 +519,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-
     this.orderMessage.set('');
 
     this.orderErrorMessage.set('');
 
-
     const instrument =
       this.selectedInstrument();
-
 
     if (!instrument) {
 
@@ -483,9 +533,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       );
 
       return;
-
     }
-
 
     if (!instrument.latestQuote) {
 
@@ -494,13 +542,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       );
 
       return;
-
     }
-
 
     const quantity =
       Number(this.orderQuantity);
-
 
     if (
       !Number.isFinite(quantity) ||
@@ -512,12 +557,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       );
 
       return;
-
     }
 
-
     this.orderSubmitting.set(true);
-
 
     this.orderService
       .placeOrder({
@@ -556,7 +598,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           this.orderQuantity =
             null;
-
         },
 
 
@@ -573,9 +614,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             ]);
 
             return;
-
           }
-
 
           /*
            * Business-rule rejection from the
@@ -584,7 +623,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
            */
           const rejectedOrder =
             error.error as OrderResponse;
-
 
           if (
             error.status === 400 &&
@@ -598,25 +636,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
             );
 
             this.orderErrorMessage.set(
-              rejectedOrder
-                .rejectionReason
+              rejectedOrder.rejectionReason
               ??
               'Order rejected.'
             );
 
             return;
-
           }
-
 
           this.orderErrorMessage.set(
             'Unable to submit the order.'
           );
-
         }
 
       });
-
   }
 
 
@@ -636,29 +669,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       ]
     );
-
   }
+
 
   ngOnDestroy(): void {
 
-    if (this.marketRefreshInterval !== null) {
+    if (
+      this.marketRefreshInterval !== null
+    ) {
 
       window.clearInterval(
         this.marketRefreshInterval
       );
 
       this.marketRefreshInterval = null;
-
     }
-
   }
+
 
   currencyName(
     currency: string | null | undefined
   ): string {
 
     switch (
-    currency?.toUpperCase()
+      currency?.toUpperCase()
     ) {
 
       case 'USD':
@@ -684,17 +718,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       default:
         return currency ?? '—';
-
     }
-
   }
+
 
   marketName(
     exchange: string | null | undefined
   ): string {
 
     switch (
-    exchange?.toUpperCase()
+      exchange?.toUpperCase()
     ) {
 
       case 'NASDAQ':
@@ -723,8 +756,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       default:
         return exchange ?? '—';
-
     }
-
   }
 }
