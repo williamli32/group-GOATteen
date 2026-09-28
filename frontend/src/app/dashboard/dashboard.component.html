@@ -142,7 +142,13 @@
 
     <!-- LEFT / MAIN AREA -->
 
-    <div class="chart-area">
+    <div appResizable
+    [resizeEdges]="{ right: true }"
+    [minWidth]="200"
+    [maxWidth]="800"
+    [ngStyle]="{ width: chartAreaWidth() + 'px' }"
+    (resizeEnd)="onResizeEnd($event)"
+    class="chart-area resizable-panel">
 
 
       <!-- Account / market area -->
@@ -334,7 +340,13 @@
       <!-- REAL POSITIONS            -->
       <!-- ========================= -->
 
-      <div class="positions-section">
+      <div appResizable
+      [resizeEdges]="{ top: true }"
+      [minHeight]="150"
+      [maxHeight]="400"
+      [ngStyle]="{ height: positionsPanelHeight() + 'px' }"
+      (resizeEnd)="onResizePositionsPanel($event)"
+      class="positions-section resizable-panel">
 
         <p class="section-title">
           POSITIONS
@@ -426,12 +438,18 @@
     <!-- RIGHT PANEL               -->
     <!-- ========================= -->
 
-    <div class="right-panel">
+    <div class="right-panel resizable-panel">
 
 
       <!-- ORDER PANEL -->
 
-      <div class="order-panel">
+      <div appResizable
+      [resizeEdges]="{ bottom: true }"
+      [minHeight]="150"
+      [maxHeight]="600"
+      [ngStyle]="{ height: orderPanelHeight() + 'px' }"
+      (resizeEnd)="onResizeOrderPanel($event)"
+      class="order-panel">
 
         <p class="section-title">
           ORDER TICKET

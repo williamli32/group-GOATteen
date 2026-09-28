@@ -14,6 +14,10 @@ import {
   CommonModule
 } from '@angular/common';
 
+
+import { AppResizableDirective } from './resizable.directive';
+
+
 import {
   HttpErrorResponse
 } from '@angular/common/http';
@@ -57,12 +61,37 @@ import {
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule
+    FormsModule,
+    AppResizableDirective
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+
+  chartAreaWidth = signal(600);
+  orderPanelHeight = signal(300);
+  positionsPanelHeight = signal(250);
+
+  onResizeEnd(event: any) {
+    if (event.edges.right) {
+      this.chartAreaWidth.set(event.edges.right);
+    }
+  }
+
+  onResizeOrderPanel(event: any) {
+    if (event.edges.bottom) {
+      this.orderPanelHeight.set(event.edges.bottom);
+    }
+  }
+
+  onResizePositionsPanel(event: any) {
+    if (event.edges.top) {
+      this.positionsPanelHeight.set(event.edges.top);
+    }
+  }
+
+
   marketInstruments =
     signal<MarketInstrumentResponse[]>([]);
 
