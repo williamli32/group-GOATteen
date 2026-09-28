@@ -1,5 +1,22 @@
 <div class="dashboard-container">
 
+  <!-- ========================= -->
+  <!-- NOTIFICATION POPUP        -->
+  <!-- ========================= -->
+
+  <div class="notification-container">
+    @for (notification of notificationService.notifications(); track notification.id) {
+      <div class="notification" [class]="'notification-' + notification.type" [class.fade-out]="false">
+        <div class="notification-content">
+          <span class="notification-message">{{ notification.message }}</span>
+          <button type="button" class="notification-close" (click)="notificationService.dismiss(notification.id)">
+            ×
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
   @if (loading()) {
 
   <div class="dashboard-state">
@@ -584,47 +601,6 @@
             </div>
 
           </div>
-
-
-          @if (
-          orderSide === 'BUY' &&
-          account()?.currency !== selected.currency
-          ) {
-
-          <p class="order-warning">
-
-            Account currency is
-            {{ account()?.currency }},
-            while this instrument trades in
-            {{ selected.currency }}.
-            Currency conversion is not
-            currently supported.
-
-          </p>
-
-          }
-
-
-          @if (orderMessage()) {
-
-          <p class="order-success">
-
-            {{ orderMessage() }}
-
-          </p>
-
-          }
-
-
-          @if (orderErrorMessage()) {
-
-          <p class="order-error">
-
-            {{ orderErrorMessage() }}
-
-          </p>
-
-          }
 
 
           <button type="button" class="submit-btn" [class.buy]="

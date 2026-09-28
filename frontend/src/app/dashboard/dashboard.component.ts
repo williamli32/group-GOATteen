@@ -47,6 +47,10 @@ import {
   OrderSide
 } from '../core/services/order';
 
+import {
+  NotificationService
+} from '../core/services/notification';
+
 
 @Component({
   selector: 'app-dashboard',
@@ -113,7 +117,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private marketDataService: MarketDataService,
     private orderService: OrderService,
     private auth: Auth,
-    private router: Router
+    private router: Router,
+    public notificationService: NotificationService
   ) { }
 
 
@@ -556,6 +561,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
             `Order #${order.id} filled.`
           );
 
+          this.notificationService.show(
+            `✓ Order #${order.id} filled - ${this.orderSide} ${this.orderQuantity} units`,
+            'success',
+            5000
+          );
+
           this.orderQuantity =
             null;
 
@@ -599,11 +610,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
               rejectedOrder
             );
 
+            const rejectionMsg = rejectedOrder.rejectionReason ?? 'Order rejected.';
+
             this.orderErrorMessage.set(
-              rejectedOrder
-                .rejectionReason
-              ??
-              'Order rejected.'
+              rejectionMsg
+            );
+
+            this.notificationService.show(
+              `✗ Order rejected: ${rejectionMsg}`,
+              'error',
+              5000
             );
 
             return;
@@ -613,6 +629,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           this.orderErrorMessage.set(
             'Unable to submit the order.'
+          );
+
+          this.notificationService.show(
+            '✗ Unable to submit the order. Please try again.',
+            'error',
+            5000
           );
 
         }
