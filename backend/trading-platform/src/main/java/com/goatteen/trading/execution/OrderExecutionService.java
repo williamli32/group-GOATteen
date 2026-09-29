@@ -130,7 +130,7 @@ public class OrderExecutionService {
          * Cash and position mutations happen inside the
          * executeOrder transaction.
          */
-        updateCashBalance(
+        CashTransaction cashTransaction = updateCashBalance(
                 account,
                 order,
                 executionPrice);
@@ -147,6 +147,7 @@ public class OrderExecutionService {
         fill.setFillQuantity(order.getQuantity());
         fill.setExecutedAt(LocalDateTime.now());
         fillRepository.save(fill);
+        cashTransaction.setFill(fill);
 
         // Update order status to FILLED (BR-06, BR-14)
         order.setStatus(OrderStatus.FILLED);
@@ -171,7 +172,7 @@ public class OrderExecutionService {
         recordStatusChange(order, OrderStatus.REJECTED, reason);
     }
 
-    private void updateCashBalance(Account account, Order order, BigDecimal executionPrice)
+    private CashTransaction updateCashBalance(Account account, Order order, BigDecimal executionPrice)
             throws OrderExecutionException {
         BigDecimal totalCost = executionPrice.multiply(order.getQuantity());
 
@@ -197,6 +198,7 @@ public class OrderExecutionService {
         transaction.setCreatedAt(LocalDateTime.now());
         transaction.setDescription(order.getSide() + " " + order.getQuantity() + " @ " + executionPrice);
         cashTransactionRepository.save(transaction);
+        return transaction;
     }
 
     private void updatePosition(
