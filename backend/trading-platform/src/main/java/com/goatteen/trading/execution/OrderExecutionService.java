@@ -113,8 +113,31 @@ public class OrderExecutionService {
         account = accountRepository.findById(account.getId()).orElseThrow();
 
         // Update cash and positions atomically
-        updateCashBalance(account, order, executionPrice);
-        updatePosition(account, order, executionPrice);
+        /*
+         * Re-check currency at execution time as well.
+         * Validation may have happened earlier and LEAP does
+         * not support FX conversion yet.
+         */
+        if (!account.getCurrency()
+                .equalsIgnoreCase(
+                        order.getInstrument().getCurrency())) {
+
+            throw new OrderExecutionException(
+                    "Currency conversion is not supported yet");
+        }
+
+        /*
+         * Cash and position mutations happen inside the
+         * executeOrder transaction.
+         */
+        updateCashBalance(
+                account,
+                order,
+                executionPrice);
+
+        updatePosition(
+                account,
+                order);
 
         // Record the fill (BR-08, BR-09, BR-14)
         Fill fill = new Fill();
@@ -176,25 +199,85 @@ public class OrderExecutionService {
         cashTransactionRepository.save(transaction);
     }
 
-    private void updatePosition(Account account, Order order, BigDecimal executionPrice) {
+    private void updatePosition(
+            Account account,
+            Order order)
+            throws OrderExecutionException {
+
         Position position = positionRepository
-                .findByAccountIdAndInstrumentId(account.getId(), order.getInstrument().getId())
-                .orElse(new Position());
+                .findByAccountIdAndInstrumentId(
+                        account.getId(),
+                        order.getInstrument().getId())
+                .orElse(null);
 
-        if (position.getId() == null) {
-            position.setAccount(account);
-            position.setInstrument(order.getInstrument());
-            position.setQuantity(BigDecimal.ZERO);
-        }
-
+        /*
+         * BUY:
+         * Create a position when the account does not
+         * already own the instrument.
+         */
         if (order.getSide() == OrderSide.BUY) {
-            position.setQuantity(position.getQuantity().add(order.getQuantity()));
-        } else {
-            position.setQuantity(position.getQuantity().subtract(order.getQuantity()));
+
+            if (position == null) {
+
+                position = new Position();
+
+                position.setAccount(
+                        account);
+
+                position.setInstrument(
+                        order.getInstrument());
+
+                position.setQuantity(
+                        BigDecimal.ZERO);
+            }
+
+            position.setQuantity(
+                    position.getQuantity()
+                            .add(
+                                    order.getQuantity()));
         }
 
-        position.setUpdatedAt(LocalDateTime.now());
-        positionRepository.save(position);
+        /*
+         * SELL:
+         * Re-check the holding at execution time.
+         *
+         * Validation occurred before acceptance, so the
+         * position may have changed before execution.
+         */
+        else {
+
+            if (position == null ||
+                    position.getQuantity()
+                            .compareTo(
+                                    order.getQuantity()) < 0) {
+
+                throw new OrderExecutionException(
+                        "Insufficient holding at execution time");
+            }
+
+            position.setQuantity(
+                    position.getQuantity()
+                            .subtract(
+                                    order.getQuantity()));
+        }
+
+        /*
+         * Defensive check in addition to the database
+         * CHECK constraint.
+         */
+        if (position.getQuantity()
+                .compareTo(
+                        BigDecimal.ZERO) < 0) {
+
+            throw new OrderExecutionException(
+                    "Position cannot become negative");
+        }
+
+        position.setUpdatedAt(
+                LocalDateTime.now());
+
+        positionRepository.save(
+                position);
     }
 
     private void recordStatusChange(Order order, OrderStatus status, String note) {
@@ -206,9 +289,9 @@ public class OrderExecutionService {
         orderStatusHistoryRepository.save(history);
     }
 
-public static class OrderExecutionException extends RuntimeException {
-    public OrderExecutionException(String message) {
-        super(message);
+    public static class OrderExecutionException extends RuntimeException {
+        public OrderExecutionException(String message) {
+            super(message);
+        }
     }
-}
 }
