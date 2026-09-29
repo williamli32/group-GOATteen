@@ -1,5 +1,22 @@
 <div class="dashboard-container">
 
+  <!-- ========================= -->
+  <!-- NOTIFICATION POPUP        -->
+  <!-- ========================= -->
+
+  <div class="notification-container">
+    @for (notification of notificationService.notifications(); track notification.id) {
+    <div class="notification" [class]="'notification-' + notification.type" [class.fade-out]="false">
+      <div class="notification-content">
+        <span class="notification-message">{{ notification.message }}</span>
+        <button type="button" class="notification-close" (click)="notificationService.dismiss(notification.id)">
+          ×
+        </button>
+      </div>
+    </div>
+    }
+  </div>
+
   @if (loading()) {
 
   <div class="dashboard-state">
@@ -125,7 +142,9 @@
 
     <!-- LEFT / MAIN AREA -->
 
-    <div class="chart-area">
+    <div appResizable [resizeEdges]="{ right: true }" [minWidth]="200" [maxWidth]="800"
+      [ngStyle]="{ width: chartAreaWidth() + 'px' }" (resizeEnd)="onResizeEnd($event)"
+      class="chart-area resizable-panel">
 
 
       <!-- Account / market area -->
@@ -317,7 +336,9 @@
       <!-- REAL POSITIONS            -->
       <!-- ========================= -->
 
-      <div class="positions-section">
+      <div appResizable [resizeEdges]="{ top: true }" [minHeight]="150" [maxHeight]="400"
+        [ngStyle]="{ height: positionsPanelHeight() + 'px' }" (resizeEnd)="onResizePositionsPanel($event)"
+        class="positions-section resizable-panel">
 
         <p class="section-title">
           POSITIONS
@@ -409,12 +430,13 @@
     <!-- RIGHT PANEL               -->
     <!-- ========================= -->
 
-    <div class="right-panel">
+    <div class="right-panel resizable-panel">
 
 
       <!-- ORDER PANEL -->
 
-      <div class="order-panel">
+      <div appResizable [resizeEdges]="{ bottom: true }" [minHeight]="150" [maxHeight]="600"
+        [ngStyle]="{ height: orderPanelHeight() + 'px' }" (resizeEnd)="onResizeOrderPanel($event)" class="order-panel">
 
         <p class="section-title">
           ORDER TICKET
@@ -492,7 +514,14 @@
             </label>
 
             <input id="orderQuantity" name="orderQuantity" type="number" class="form-input" min="0" step="any"
-              placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderSubmitting()" />
+              placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderSubmitting()" (change)="validateQuantity()"
+              [attr.aria-invalid]="quantityError() ? 'true' : 'false'" aria-describedby="quantityErrorMessage" />
+
+            @if (quantityError()) {
+            <p id="quantityErrorMessage" class="quantity-error">
+              {{ quantityError() }}
+            </p>
+            }
 
           </div>
 
@@ -584,47 +613,6 @@
             </div>
 
           </div>
-
-
-          @if (
-          orderSide === 'BUY' &&
-          account()?.currency !== selected.currency
-          ) {
-
-          <p class="order-warning">
-
-            Account currency is
-            {{ account()?.currency }},
-            while this instrument trades in
-            {{ selected.currency }}.
-            Currency conversion is not
-            currently supported.
-
-          </p>
-
-          }
-
-
-          @if (orderMessage()) {
-
-          <p class="order-success">
-
-            {{ orderMessage() }}
-
-          </p>
-
-          }
-
-
-          @if (orderErrorMessage()) {
-
-          <p class="order-error">
-
-            {{ orderErrorMessage() }}
-
-          </p>
-
-          }
 
 
           <button type="button" class="submit-btn" [class.buy]="
@@ -749,6 +737,8 @@
 
             <p class="order-time">
 
+              Submitted:
+
               {{
               order.submittedAt
               |
@@ -756,6 +746,26 @@
               }}
 
             </p>
+
+
+            @if (
+            order.status === 'FILLED' &&
+            order.filledAt
+            ) {
+
+            <p class="order-time">
+
+              Filled:
+
+              {{
+              order.filledAt
+              |
+              date:'medium'
+              }}
+
+            </p>
+
+            }
 
 
             @if (order.rejectionReason) {

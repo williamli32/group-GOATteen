@@ -14,6 +14,10 @@ import {
   CommonModule
 } from '@angular/common';
 
+
+import { AppResizableDirective } from './resizable.directive';
+
+
 import {
   HttpErrorResponse
 } from '@angular/common/http';
@@ -47,18 +51,47 @@ import {
   OrderSide
 } from '../core/services/order';
 
+import {
+  NotificationService
+} from '../core/services/notification';
+
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule
+    FormsModule,
+    AppResizableDirective
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+
+  chartAreaWidth = signal(600);
+  orderPanelHeight = signal(300);
+  positionsPanelHeight = signal(250);
+
+  onResizeEnd(event: any) {
+    if (event.edges.right) {
+      this.chartAreaWidth.set(event.edges.right);
+    }
+  }
+
+  onResizeOrderPanel(event: any) {
+    if (event.edges.bottom) {
+      this.orderPanelHeight.set(event.edges.bottom);
+    }
+  }
+
+  onResizePositionsPanel(event: any) {
+    if (event.edges.top) {
+      this.positionsPanelHeight.set(event.edges.top);
+    }
+  }
+
+
   marketInstruments =
     signal<MarketInstrumentResponse[]>([]);
 
@@ -104,38 +137,99 @@ export class DashboardComponent implements OnInit, OnDestroy {
   orderErrorMessage =
     signal('');
 
+  quantityError =
+    signal('');
+
   private marketRefreshInterval: number | null = null;
 
   private marketRefreshInProgress = false;
+
+  private dashboardRefreshInterval:
+    number | null = null;
+
+  private dashboardRefreshInProgress =
+    false;
 
   constructor(
     private accountService: AccountService,
     private marketDataService: MarketDataService,
     private orderService: OrderService,
     private auth: Auth,
-    private router: Router
+    private router: Router,
+    public notificationService: NotificationService
   ) { }
 
 
   ngOnInit(): void {
 
+    /*
+     * Initial account/portfolio state.
+     */
     this.loadDashboard();
 
+    /*
+     * Initial market state.
+     */
     this.loadMarketData();
 
-    this.marketRefreshInterval = window.setInterval(
-      () => this.loadMarketData(false),
-      3000
-    );
+
+    /*
+     * Quotes refresh independently.
+     */
+    this.marketRefreshInterval =
+      window.setInterval(
+        () => this.loadMarketData(false),
+        3000
+      );
+
+
+    /*
+     * Sprint 4:
+     *
+     * Continuously refresh account cash,
+     * positions and the order blotter so that
+     * execution changes appear without logout
+     * or a manual browser refresh.
+     */
+    this.dashboardRefreshInterval =
+      window.setInterval(
+        () => this.loadDashboard(false),
+        3000
+      );
 
   }
 
 
-  loadDashboard(): void {
+  loadDashboard(
+    showLoading: boolean = true
+  ): void {
 
-    this.loading.set(true);
+    /*
+     * Prevent overlapping account refreshes.
+     */
+    if (this.dashboardRefreshInProgress) {
+      return;
+    }
 
-    this.errorMessage.set('');
+
+    this.dashboardRefreshInProgress =
+      true;
+
+
+    /*
+     * Only show the large loading state during
+     * the initial/manual dashboard load.
+     *
+     * Background polling must not make the
+     * dashboard flash every three seconds.
+     */
+    if (showLoading) {
+
+      this.loading.set(true);
+
+      this.errorMessage.set('');
+
+    }
 
 
     forkJoin({
@@ -154,7 +248,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         finalize(() => {
 
-          this.loading.set(false);
+          this.dashboardRefreshInProgress =
+            false;
+
+
+          if (showLoading) {
+
+            this.loading.set(false);
+
+          }
 
         })
 
@@ -163,6 +265,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         next: result => {
 
+          /*
+           * All client-visible Sprint 4 state is
+           * refreshed together.
+           */
           this.account.set(
             result.account
           );
@@ -175,10 +281,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
             result.orders
           );
 
+
+          /*
+           * A successful refresh means any previous
+           * temporary dashboard error is no longer
+           * relevant.
+           */
+          if (showLoading) {
+
+            this.errorMessage.set('');
+
+          }
+
         },
 
 
-        error: (error: HttpErrorResponse) => {
+        error: (
+          error: HttpErrorResponse
+        ) => {
 
           if (error.status === 401) {
 
@@ -192,9 +312,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
 
 
-          this.errorMessage.set(
-            'Unable to load your account dashboard. Please try again.'
-          );
+          /*
+           * Background polling should retain the
+           * last successful account state rather
+           * than replacing the UI with an error.
+           */
+          if (showLoading) {
+
+            this.errorMessage.set(
+              'Unable to load your account dashboard. Please try again.'
+            );
+
+          }
 
         }
 
@@ -388,6 +517,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
 
+  isQuantityValid(): boolean {
+    const quantity = Number(this.orderQuantity);
+    return Number.isFinite(quantity) && quantity > 0;
+  }
+
+  validateQuantity(): void {
+    if (this.orderQuantity === null || this.orderQuantity === undefined) {
+      this.quantityError.set('');
+      return;
+    }
+
+    const quantity = Number(this.orderQuantity);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      this.quantityError.set('Enter a valid quantity greater than 0.');
+    } else {
+      this.quantityError.set('');
+    }
+  }
+
   selectInstrument(
     instrument: MarketInstrumentResponse
   ): void {
@@ -399,6 +548,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.orderMessage.set('');
 
     this.orderErrorMessage.set('');
+
+    this.quantityError.set('');
 
   }
 
@@ -471,6 +622,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.orderErrorMessage.set('');
 
+    this.quantityError.set('');
+
 
     const instrument =
       this.selectedInstrument();
@@ -507,8 +660,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       quantity <= 0
     ) {
 
-      this.orderErrorMessage.set(
-        'Quantity must be greater than zero.'
+      this.quantityError.set(
+        'Enter a valid quantity greater than 0.'
       );
 
       return;
@@ -550,10 +703,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
             order
           );
 
-          this.loadDashboard();
+          /*
+ * Refresh cash, positions and orders immediately
+ * after execution without displaying the main
+ * loading state.
+ */
+          this.loadDashboard(false);
 
           this.orderMessage.set(
             `Order #${order.id} filled.`
+          );
+
+          this.notificationService.show(
+            `✓ Order #${order.id} filled - ${this.orderSide} ${this.orderQuantity} units`,
+            'success',
+            5000
           );
 
           this.orderQuantity =
@@ -599,11 +763,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
               rejectedOrder
             );
 
+            const rejectionMsg = rejectedOrder.rejectionReason ?? 'Order rejected.';
+
             this.orderErrorMessage.set(
-              rejectedOrder
-                .rejectionReason
-              ??
-              'Order rejected.'
+              rejectionMsg
+            );
+
+            this.notificationService.show(
+              `✗ Order rejected: ${rejectionMsg}`,
+              'error',
+              5000
             );
 
             return;
@@ -613,6 +782,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           this.orderErrorMessage.set(
             'Unable to submit the order.'
+          );
+
+          this.notificationService.show(
+            '✗ Unable to submit the order. Please try again.',
+            'error',
+            5000
           );
 
         }
@@ -649,7 +824,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.marketRefreshInterval
       );
 
-      this.marketRefreshInterval = null;
+      this.marketRefreshInterval =
+        null;
+
+    }
+
+
+    if (
+      this.dashboardRefreshInterval !== null
+    ) {
+
+      window.clearInterval(
+        this.dashboardRefreshInterval
+      );
+
+      this.dashboardRefreshInterval =
+        null;
 
     }
 

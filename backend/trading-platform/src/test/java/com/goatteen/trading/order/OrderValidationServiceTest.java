@@ -1,3 +1,4 @@
+
 package com.goatteen.trading.order;
 
 import com.goatteen.trading.account.Account;
@@ -21,245 +22,217 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OrderValidationServiceTest {
 
-    @Mock
-    private PositionRepository positionRepository;
+        @Mock
+        private PositionRepository positionRepository;
 
-    @Mock
-    private QuoteRepository quoteRepository;
+        @Mock
+        private QuoteRepository quoteRepository;
 
-    @Mock
-    private Account account;
+        @Mock
+        private Account account;
 
-    @Mock
-    private Instrument instrument;
+        @Mock
+        private Instrument instrument;
 
-    @Mock
-    private Quote quote;
+        @Mock
+        private Quote quote;
 
-    @Mock
-    private Position position;
+        @Mock
+        private Position position;
 
-    private OrderValidationService service;
+        private OrderValidationService service;
 
-    @BeforeEach
-    void setUp() {
+        @BeforeEach
+        void setUp() {
 
-        service = new OrderValidationService(
-                positionRepository,
-                quoteRepository);
+                service = new OrderValidationService(
+                                positionRepository,
+                                quoteRepository);
 
-        when(instrument.getId())
-                .thenReturn(1L);
+                when(instrument.getId())
+                                .thenReturn(1L);
 
-        when(instrument.isTradable())
-                .thenReturn(true);
+                when(instrument.isTradable())
+                                .thenReturn(true);
+        }
 
-    }
+        @Test
+        void shouldRejectBuyWhenQuoteIsMissing() {
 
-    @Test
-    void shouldRejectBuyWhenQuoteIsMissing() {
+                when(quoteRepository
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                                .thenReturn(Optional.empty());
 
-        when(
-                quoteRepository
-                        .findTopByInstrumentIdOrderByQuotedAtDesc(
-                                1L))
-                .thenReturn(
-                        Optional.empty());
+                OrderValidationService.ValidationResult result = service.validate(
+                                account,
+                                instrument,
+                                OrderSide.BUY,
+                                BigDecimal.ONE);
 
-        OrderValidationService.ValidationResult result = service.validate(
-                account,
-                instrument,
-                OrderSide.BUY,
-                BigDecimal.ONE);
+                assertFalse(result.isAccepted());
 
-        assertFalse(
-                result.isAccepted());
+                assertEquals(
+                                "No market quote available for instrument",
+                                result.getRejectionReason());
+        }
 
-        assertEquals(
-                "No market quote available for instrument",
-                result.getRejectionReason());
-    }
+        @Test
+        void shouldRejectBuyWhenCurrencyDoesNotMatch() {
 
-    @Test
-    void shouldRejectBuyWhenCurrencyDoesNotMatch() {
+                when(quoteRepository
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                                .thenReturn(Optional.of(quote));
 
-        when(
-                quoteRepository
-                        .findTopByInstrumentIdOrderByQuotedAtDesc(
-                                1L))
-                .thenReturn(
-                        Optional.of(quote));
+                when(account.getCurrency())
+                                .thenReturn("GBP");
 
-        when(account.getCurrency())
-                .thenReturn("GBP");
+                when(instrument.getCurrency())
+                                .thenReturn("USD");
 
-        when(instrument.getCurrency())
-                .thenReturn("USD");
+                OrderValidationService.ValidationResult result = service.validate(
+                                account,
+                                instrument,
+                                OrderSide.BUY,
+                                BigDecimal.ONE);
 
-        OrderValidationService.ValidationResult result = service.validate(
-                account,
-                instrument,
-                OrderSide.BUY,
-                BigDecimal.ONE);
+                assertFalse(result.isAccepted());
 
-        assertFalse(
-                result.isAccepted());
+                assertEquals(
+                                "Currency conversion is not supported yet",
+                                result.getRejectionReason());
+        }
 
-        assertEquals(
-                "Currency conversion is not supported yet",
-                result.getRejectionReason());
-    }
+        @Test
+        void shouldRejectBuyWhenCashIsInsufficient() {
 
-    @Test
-    void shouldRejectBuyWhenCashIsInsufficient() {
+                when(quoteRepository
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                                .thenReturn(Optional.of(quote));
 
-        when(
-                quoteRepository
-                        .findTopByInstrumentIdOrderByQuotedAtDesc(
-                                1L))
-                .thenReturn(
-                        Optional.of(quote));
+                when(account.getCurrency())
+                                .thenReturn("GBP");
 
-        when(account.getCurrency())
-                .thenReturn("GBP");
+                when(instrument.getCurrency())
+                                .thenReturn("GBP");
 
-        when(instrument.getCurrency())
-                .thenReturn("GBP");
+                when(account.getCashBalance())
+                                .thenReturn(new BigDecimal("100.00"));
 
-        when(account.getCashBalance())
-                .thenReturn(
-                        new BigDecimal("100.00"));
+                when(quote.getAskPrice())
+                                .thenReturn(new BigDecimal("75.10"));
 
-        when(quote.getAskPrice())
-                .thenReturn(
-                        new BigDecimal("75.10"));
+                OrderValidationService.ValidationResult result = service.validate(
+                                account,
+                                instrument,
+                                OrderSide.BUY,
+                                new BigDecimal("2"));
 
-        OrderValidationService.ValidationResult result = service.validate(
-                account,
-                instrument,
-                OrderSide.BUY,
-                new BigDecimal("2"));
+                assertFalse(result.isAccepted());
 
-        assertFalse(
-                result.isAccepted());
+                assertEquals(
+                                "Insufficient cash balance",
+                                result.getRejectionReason());
+        }
 
-        assertEquals(
-                "Insufficient cash balance",
-                result.getRejectionReason());
-    }
+        @Test
+        void shouldAcceptBuyWhenCashCoversAskPriceTimesQuantity() {
 
-    @Test
-    void shouldAcceptBuyWhenCashCoversAskPriceTimesQuantity() {
+                when(quoteRepository
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                                .thenReturn(Optional.of(quote));
 
-        when(
-                quoteRepository
-                        .findTopByInstrumentIdOrderByQuotedAtDesc(
-                                1L))
-                .thenReturn(
-                        Optional.of(quote));
+                when(account.getCurrency())
+                                .thenReturn("GBP");
 
-        when(account.getCurrency())
-                .thenReturn("GBP");
+                when(instrument.getCurrency())
+                                .thenReturn("GBP");
 
-        when(instrument.getCurrency())
-                .thenReturn("GBP");
+                when(account.getCashBalance())
+                                .thenReturn(new BigDecimal("1000.00"));
 
-        when(account.getCashBalance())
-                .thenReturn(
-                        new BigDecimal("1000.00"));
+                when(quote.getAskPrice())
+                                .thenReturn(new BigDecimal("75.10"));
 
-        when(quote.getAskPrice())
-                .thenReturn(
-                        new BigDecimal("75.10"));
+                OrderValidationService.ValidationResult result = service.validate(
+                                account,
+                                instrument,
+                                OrderSide.BUY,
+                                new BigDecimal("2"));
 
-        OrderValidationService.ValidationResult result = service.validate(
-                account,
-                instrument,
-                OrderSide.BUY,
-                new BigDecimal("2"));
+                assertTrue(result.isAccepted());
 
-        assertTrue(
-                result.isAccepted());
+                assertNull(result.getRejectionReason());
+        }
 
-        assertNull(
-                result.getRejectionReason());
-    }
+        @Test
+        void shouldRejectSellWhenHoldingIsInsufficient() {
 
-    @Test
-    void shouldRejectSellWhenHoldingIsInsufficient() {
+                when(quoteRepository
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                                .thenReturn(Optional.of(quote));
 
-        when(
-                quoteRepository
-                        .findTopByInstrumentIdOrderByQuotedAtDesc(
-                                1L))
-                .thenReturn(
-                        Optional.of(quote));
+                // The currencies must match before holdings are checked.
+                when(account.getCurrency())
+                                .thenReturn("GBP");
 
-        when(account.getId())
-                .thenReturn(10L);
+                when(instrument.getCurrency())
+                                .thenReturn("GBP");
 
-        when(
-                positionRepository
-                        .findByAccountIdAndInstrumentId(
-                                10L,
-                                1L))
-                .thenReturn(
-                        Optional.of(position));
+                when(account.getId())
+                                .thenReturn(10L);
 
-        when(position.getQuantity())
-                .thenReturn(
-                        new BigDecimal("1"));
+                when(positionRepository
+                                .findByAccountIdAndInstrumentId(10L, 1L))
+                                .thenReturn(Optional.of(position));
 
-        OrderValidationService.ValidationResult result = service.validate(
-                account,
-                instrument,
-                OrderSide.SELL,
-                new BigDecimal("2"));
+                when(position.getQuantity())
+                                .thenReturn(new BigDecimal("1"));
 
-        assertFalse(
-                result.isAccepted());
+                OrderValidationService.ValidationResult result = service.validate(
+                                account,
+                                instrument,
+                                OrderSide.SELL,
+                                new BigDecimal("2"));
 
-        assertEquals(
-                "Insufficient holding of this instrument",
-                result.getRejectionReason());
-    }
+                assertFalse(result.isAccepted());
 
-    @Test
-    void shouldAcceptSellWhenHoldingIsSufficient() {
+                assertEquals(
+                                "Insufficient holding of this instrument",
+                                result.getRejectionReason());
+        }
 
-        when(
-                quoteRepository
-                        .findTopByInstrumentIdOrderByQuotedAtDesc(
-                                1L))
-                .thenReturn(
-                        Optional.of(quote));
+        @Test
+        void shouldAcceptSellWhenHoldingIsSufficient() {
 
-        when(account.getId())
-                .thenReturn(10L);
+                when(quoteRepository
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                                .thenReturn(Optional.of(quote));
 
-        when(
-                positionRepository
-                        .findByAccountIdAndInstrumentId(
-                                10L,
-                                1L))
-                .thenReturn(
-                        Optional.of(position));
+                // The currencies must match before holdings are checked.
+                when(account.getCurrency())
+                                .thenReturn("GBP");
 
-        when(position.getQuantity())
-                .thenReturn(
-                        new BigDecimal("5"));
+                when(instrument.getCurrency())
+                                .thenReturn("GBP");
 
-        OrderValidationService.ValidationResult result = service.validate(
-                account,
-                instrument,
-                OrderSide.SELL,
-                new BigDecimal("2"));
+                when(account.getId())
+                                .thenReturn(10L);
 
-        assertTrue(
-                result.isAccepted());
+                when(positionRepository
+                                .findByAccountIdAndInstrumentId(10L, 1L))
+                                .thenReturn(Optional.of(position));
 
-        assertNull(
-                result.getRejectionReason());
-    }
+                when(position.getQuantity())
+                                .thenReturn(new BigDecimal("5"));
 
+                OrderValidationService.ValidationResult result = service.validate(
+                                account,
+                                instrument,
+                                OrderSide.SELL,
+                                new BigDecimal("2"));
+
+                assertTrue(result.isAccepted());
+
+                assertNull(result.getRejectionReason());
+        }
 }

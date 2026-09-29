@@ -1,7 +1,10 @@
+
 import {
     ComponentFixture,
     TestBed
 } from '@angular/core/testing';
+
+import { vi } from 'vitest';
 
 import {
     HttpErrorResponse
@@ -23,6 +26,8 @@ import {
 
 import {
     AccountService,
+    AccountResponse,
+    HoldingsResponse,
     OrderResponse
 } from '../core/services/account';
 
@@ -42,60 +47,39 @@ import {
 
 describe('DashboardComponent', () => {
 
-    let component:
-        DashboardComponent;
+    let component: DashboardComponent;
 
-    let fixture:
-        ComponentFixture<DashboardComponent>;
+    let fixture: ComponentFixture<DashboardComponent>;
 
+    let placeOrderCallCount: number;
 
-    let placeOrderCallCount:
-        number;
+    let lastPlaceOrderRequest: PlaceOrderRequest | null;
 
-    let lastPlaceOrderRequest:
-        PlaceOrderRequest | null;
+    let placeOrderResult: Observable<OrderResponse>;
 
-    let placeOrderResult:
-        Observable<OrderResponse>;
+    let filledOrder: OrderResponse;
+
+    /*
+     * Mutable backend responses let tests simulate
+     * account and portfolio changes after execution.
+     */
+    let mockAccount: AccountResponse;
+
+    let mockHoldings: HoldingsResponse;
+
+    let mockBlotter: OrderResponse[];
 
 
     const accountServiceMock = {
 
         getMyAccount: () =>
-            of({
-
-                accountId: 1,
-
-                accountNumber:
-                    'LEAP-TEST123',
-
-                cashBalance: 2000,
-
-                currency: 'GBP',
-
-                firstName: 'Test',
-
-                lastName: 'Trader'
-
-            }),
-
+            of(mockAccount),
 
         getHoldings: () =>
-            of({
-
-                accountId: 1,
-
-                cashBalance: 2000,
-
-                currency: 'GBP',
-
-                positions: []
-
-            }),
-
+            of(mockHoldings),
 
         getBlotter: () =>
-            of([])
+            of(mockBlotter)
 
     };
 
@@ -104,25 +88,20 @@ describe('DashboardComponent', () => {
 
         getInstruments: () =>
             of([
-
                 {
-
                     instrumentId: 1,
 
                     symbol: 'VOD.L',
 
-                    name:
-                        'Vodafone Group Plc',
+                    name: 'Vodafone Group Plc',
 
-                    instrumentClass:
-                        'EQUITY_UK',
+                    instrumentClass: 'EQUITY_UK',
 
                     currency: 'GBP',
 
                     tradable: true,
 
                     latestQuote: {
-
                         quoteId: 100,
 
                         instrumentId: 1,
@@ -137,12 +116,11 @@ describe('DashboardComponent', () => {
 
                         quotedAt:
                             '2026-09-15T14:00:00'
-
                     }
-
                 }
-
             ])
+
+
 
     };
 
@@ -155,8 +133,7 @@ describe('DashboardComponent', () => {
 
             placeOrderCallCount++;
 
-            lastPlaceOrderRequest =
-                request;
+            lastPlaceOrderRequest = request;
 
             return placeOrderResult;
 
@@ -179,31 +156,68 @@ describe('DashboardComponent', () => {
 
         placeOrderCallCount = 0;
 
-        lastPlaceOrderRequest =
-            null;
+        lastPlaceOrderRequest = null;
 
 
-        placeOrderResult =
-            of({
+        /*
+         * Initial account state before trading.
+         */
+        mockAccount = {
+            accountId: 1,
 
-                id: 20,
+            accountNumber: 'LEAP-TEST123',
 
-                side: 'BUY',
+            cashBalance: 2000,
 
-                quantity: 2,
+            currency: 'GBP',
 
-                status: 'ACCEPTED',
+            firstName: 'Test',
 
-                rejectionReason: null,
+            lastName: 'Trader'
+        };
 
-                fillPrice: null,
 
-                submittedAt:
-                    '2026-09-15T14:00:00',
+        mockHoldings = {
+            accountId: 1,
 
-                filledAt: null
+            cashBalance: 2000,
 
-            });
+            currency: 'GBP',
+
+            positions: []
+        };
+
+
+        mockBlotter = [];
+
+
+        /*
+         * Sprint 4 successful execution response.
+         *
+         * BUY 2 shares at an ask price of £75.10.
+         */
+        filledOrder = {
+            id: 20,
+
+            side: 'BUY',
+
+            quantity: 2,
+
+            status: 'FILLED',
+
+            rejectionReason: null,
+
+            fillPrice: 75.1,
+
+            submittedAt:
+                '2026-09-15T14:00:00',
+
+            filledAt:
+                '2026-09-15T14:00:01'
+        };
+
+
+        placeOrderResult = of(filledOrder);
 
 
         await TestBed
@@ -218,35 +232,23 @@ describe('DashboardComponent', () => {
                     provideRouter([]),
 
                     {
-                        provide:
-                            AccountService,
-
-                        useValue:
-                            accountServiceMock
+                        provide: AccountService,
+                        useValue: accountServiceMock
                     },
 
                     {
-                        provide:
-                            MarketDataService,
-
-                        useValue:
-                            marketDataServiceMock
+                        provide: MarketDataService,
+                        useValue: marketDataServiceMock
                     },
 
                     {
-                        provide:
-                            OrderService,
-
-                        useValue:
-                            orderServiceMock
+                        provide: OrderService,
+                        useValue: orderServiceMock
                     },
 
                     {
-                        provide:
-                            Auth,
-
-                        useValue:
-                            authMock
+                        provide: Auth,
+                        useValue: authMock
                     }
 
                 ]
@@ -255,14 +257,11 @@ describe('DashboardComponent', () => {
             .compileComponents();
 
 
-        fixture =
-            TestBed.createComponent(
-                DashboardComponent
-            );
+        fixture = TestBed.createComponent(
+            DashboardComponent
+        );
 
-        component =
-            fixture.componentInstance;
-
+        component = fixture.componentInstance;
 
         fixture.detectChanges();
 
@@ -274,9 +273,7 @@ describe('DashboardComponent', () => {
         () => {
 
             expect(
-                component
-                    .selectedInstrument()
-                    ?.symbol
+                component.selectedInstrument()?.symbol
             ).toBe('VOD.L');
 
         }
@@ -287,16 +284,14 @@ describe('DashboardComponent', () => {
         'should use ask price for buy orders and bid price for sell orders',
         () => {
 
-            component.orderSide =
-                'BUY';
+            component.orderSide = 'BUY';
 
             expect(
                 component.currentOrderPrice()
             ).toBe(75.1);
 
 
-            component.orderSide =
-                'SELL';
+            component.orderSide = 'SELL';
 
             expect(
                 component.currentOrderPrice()
@@ -307,14 +302,111 @@ describe('DashboardComponent', () => {
 
 
     it(
-        'should submit the selected instrument order',
+        'should automatically refresh cash, holdings and orders every three seconds',
         () => {
 
-            component.orderSide =
-                'BUY';
+            // Stop the real polling intervals created by beforeEach.
+            component.ngOnDestroy();
 
-            component.orderQuantity =
-                2;
+            // Use a simulated clock so the test runs immediately.
+            vi.useFakeTimers();
+
+            try {
+
+                // Restart the component with fake timers.
+                component.ngOnInit();
+
+                expect(component.account()?.cashBalance)
+                    .toBe(2000);
+
+                expect(component.holdings()?.positions)
+                    .toEqual([]);
+
+                expect(component.orders())
+                    .toEqual([]);
+
+                // Simulate a trade completed elsewhere.
+                mockAccount = {
+                    ...mockAccount,
+                    cashBalance: 1849.8
+                };
+
+                mockHoldings = {
+                    ...mockHoldings,
+                    cashBalance: 1849.8,
+                    positions: [{
+                        instrumentId: 1,
+                        symbol: 'VOD.L',
+                        instrumentName: 'Vodafone Group Plc',
+                        quantity: 2
+                    }]
+                };
+
+                mockBlotter = [filledOrder];
+
+                // The dashboard should not update before
+                // the three-second polling interval expires.
+                vi.advanceTimersByTime(2999);
+
+                expect(component.account()?.cashBalance)
+                    .toBe(2000);
+
+                expect(component.orders())
+                    .toEqual([]);
+
+                // Trigger the scheduled automatic refresh.
+                vi.advanceTimersByTime(1);
+
+                // Updated account balance.
+                expect(component.account()?.cashBalance)
+                    .toBe(1849.8);
+
+                // Updated position.
+                expect(component.holdings()?.positions[0].quantity)
+                    .toBe(2);
+
+                // Updated order status, price and time.
+                expect(component.orders()[0].status)
+                    .toBe('FILLED');
+
+                expect(component.orders()[0].fillPrice)
+                    .toBe(75.1);
+
+                expect(component.orders()[0].filledAt)
+                    .toBe('2026-09-15T14:00:01');
+
+                // No new order was submitted to trigger
+                // these updates.
+                expect(placeOrderCallCount).toBe(0);
+
+                // Silent polling must not activate the
+                // dashboard's main loading indicator.
+                expect(component.loading()).toBe(false);
+
+            } finally {
+
+                component.ngOnDestroy();
+                vi.useRealTimers();
+
+            }
+        }
+    );
+
+
+
+    it(
+        'should submit the selected instrument order and display FILLED status',
+        () => {
+
+            component.orderSide = 'BUY';
+
+            component.orderQuantity = 2;
+
+
+            /*
+             * Simulate the refreshed server blotter.
+             */
+            mockBlotter = [filledOrder];
 
 
             component.submitOrder();
@@ -328,26 +420,32 @@ describe('DashboardComponent', () => {
             expect(
                 lastPlaceOrderRequest
             ).toEqual({
-
                 instrumentId: 1,
-
                 side: 'BUY',
-
                 quantity: 2
-
             });
 
 
             expect(
                 component.orders()[0].status
-            ).toBe('ACCEPTED');
+            ).toBe('FILLED');
+
+
+            expect(
+                component.orders()[0].fillPrice
+            ).toBe(75.1);
+
+
+            expect(
+                component.orders()[0].filledAt
+            ).toBe(
+                '2026-09-15T14:00:01'
+            );
 
 
             expect(
                 component.orderMessage()
-            ).toBe(
-                'Order #20 accepted.'
-            );
+            ).toBe('Order #20 filled.');
 
 
             expect(
@@ -358,12 +456,207 @@ describe('DashboardComponent', () => {
     );
 
 
+    /*
+     * NEW SPRINT 4 TEST
+     *
+     * Verify that a successful BUY refreshes:
+     *
+     * 1. Account cash balance
+     * 2. Portfolio holdings
+     * 3. Recent orders
+     */
+    it(
+        'should refresh cash, holdings and recent orders after a filled BUY',
+        () => {
+
+            /*
+             * Initial dashboard state.
+             */
+            expect(
+                component.account()?.cashBalance
+            ).toBe(2000);
+
+
+            expect(
+                component.holdings()?.positions
+            ).toEqual([]);
+
+
+            expect(
+                component.orders()
+            ).toEqual([]);
+
+
+            /*
+             * Simulate the server state after buying
+             * two shares at £75.10 each.
+             *
+             * Total cost = £150.20
+             * Remaining cash = £1849.80
+             */
+            mockAccount = {
+                ...mockAccount,
+
+                cashBalance: 1849.8
+            };
+
+
+            mockHoldings = {
+                ...mockHoldings,
+
+                cashBalance: 1849.8,
+
+                positions: [
+                    {
+                        instrumentId: 1,
+
+                        symbol: 'VOD.L',
+
+                        instrumentName:
+                            'Vodafone Group Plc',
+
+                        quantity: 2
+                    }
+                ]
+            };
+
+
+            mockBlotter = [filledOrder];
+
+
+            /*
+             * Submit the BUY order.
+             *
+             * The mocked backend immediately returns
+             * FILLED, after which the dashboard
+             * reloads account, holdings and blotter.
+             */
+            component.orderSide = 'BUY';
+
+            component.orderQuantity = 2;
+
+            component.submitOrder();
+
+
+            /*
+             * Verify the submitted order.
+             */
+            expect(
+                lastPlaceOrderRequest
+            ).toEqual({
+                instrumentId: 1,
+
+                side: 'BUY',
+
+                quantity: 2
+            });
+
+
+            /*
+             * Verify updated cash.
+             */
+            expect(
+                component.account()?.cashBalance
+            ).toBe(1849.8);
+
+
+            /*
+             * Verify new position creation.
+             */
+            const positions =
+                component.holdings()?.positions ?? [];
+
+
+            expect(
+                positions.length
+            ).toBe(1);
+
+
+            expect(
+                positions[0].instrumentId
+            ).toBe(1);
+
+
+            expect(
+                positions[0].symbol
+            ).toBe('VOD.L');
+
+
+            expect(
+                positions[0].quantity
+            ).toBe(2);
+
+
+            /*
+             * Verify that the holdings response
+             * also reflects the updated balance.
+             */
+            expect(
+                component.holdings()?.cashBalance
+            ).toBe(1849.8);
+
+
+            /*
+             * Verify the completed trade appears
+             * in recent orders.
+             */
+            expect(
+                component.orders().length
+            ).toBe(1);
+
+
+            expect(
+                component.orders()[0].id
+            ).toBe(20);
+
+
+            expect(
+                component.orders()[0].status
+            ).toBe('FILLED');
+
+
+            expect(
+                component.orders()[0].fillPrice
+            ).toBe(75.1);
+
+
+            expect(
+                component.orders()[0].filledAt
+            ).toBe(
+                '2026-09-15T14:00:01'
+            );
+
+
+            /*
+             * Update Angular's rendered template
+             * and verify the completed order
+             * is visible to the client.
+             */
+            fixture.detectChanges();
+
+
+            const displayedText: string =
+                fixture.nativeElement.textContent;
+
+
+            expect(
+                displayedText
+            ).toContain('FILLED');
+
+
+            expect(
+                displayedText
+            ).toContain('Filled:');
+
+        }
+    );
+
+
     it(
         'should not submit a zero quantity',
         () => {
 
-            component.orderQuantity =
-                0;
+            component.orderQuantity = 0;
 
 
             component.submitOrder();
@@ -375,9 +668,9 @@ describe('DashboardComponent', () => {
 
 
             expect(
-                component.orderErrorMessage()
+                component.quantityError()
             ).toBe(
-                'Quantity must be greater than zero.'
+                'Enter a valid quantity greater than 0.'
             );
 
         }
@@ -388,9 +681,7 @@ describe('DashboardComponent', () => {
         'should add a rejected order to the blotter',
         () => {
 
-            const rejectedOrder:
-                OrderResponse = {
-
+            const rejectedOrder: OrderResponse = {
                 id: 21,
 
                 side: 'BUY',
@@ -408,29 +699,22 @@ describe('DashboardComponent', () => {
                     '2026-09-15T14:00:00',
 
                 filledAt: null
-
             };
 
 
-            placeOrderResult =
-                throwError(
-                    () =>
-                        new HttpErrorResponse({
+            placeOrderResult = throwError(
+                () =>
+                    new HttpErrorResponse({
+                        status: 400,
 
-                            status: 400,
-
-                            error:
-                                rejectedOrder
-
-                        })
-                );
+                        error: rejectedOrder
+                    })
+            );
 
 
-            component.orderSide =
-                'BUY';
+            component.orderSide = 'BUY';
 
-            component.orderQuantity =
-                1;
+            component.orderQuantity = 1;
 
 
             component.submitOrder();

@@ -113,8 +113,31 @@ public class OrderExecutionService {
         account = accountRepository.findById(account.getId()).orElseThrow();
 
         // Update cash and positions atomically
-        updateCashBalance(account, order, executionPrice);
-        updatePosition(account, order, executionPrice);
+        /*
+         * Re-check currency at execution time as well.
+         * Validation may have happened earlier and LEAP does
+         * not support FX conversion yet.
+         */
+        if (!account.getCurrency()
+                .equalsIgnoreCase(
+                        order.getInstrument().getCurrency())) {
+
+            throw new OrderExecutionException(
+                    "Currency conversion is not supported yet");
+        }
+
+        /*
+         * Cash and position mutations happen inside the
+         * executeOrder transaction.
+         */
+        CashTransaction cashTransaction = updateCashBalance(
+                account,
+                order,
+                executionPrice);
+
+        updatePosition(
+                account,
+                order);
 
         // Record the fill (BR-08, BR-09, BR-14)
         Fill fill = new Fill();
@@ -124,6 +147,7 @@ public class OrderExecutionService {
         fill.setFillQuantity(order.getQuantity());
         fill.setExecutedAt(LocalDateTime.now());
         fillRepository.save(fill);
+        cashTransaction.setFill(fill);
 
         // Update order status to FILLED (BR-06, BR-14)
         order.setStatus(OrderStatus.FILLED);
@@ -148,7 +172,7 @@ public class OrderExecutionService {
         recordStatusChange(order, OrderStatus.REJECTED, reason);
     }
 
-    private void updateCashBalance(Account account, Order order, BigDecimal executionPrice)
+    private CashTransaction updateCashBalance(Account account, Order order, BigDecimal executionPrice)
             throws OrderExecutionException {
         BigDecimal totalCost = executionPrice.multiply(order.getQuantity());
 
@@ -179,13 +203,16 @@ public class OrderExecutionService {
         transaction.setCreatedAt(LocalDateTime.now());
         transaction.setDescription(order.getSide() + " " + order.getQuantity() + " @ " + executionPrice);
         cashTransactionRepository.save(transaction);
+        return transaction;
     }
 
     private void updatePosition(Account account, Order order, BigDecimal executionPrice) 
             throws OrderExecutionException {
         Position position = positionRepository
-                .findByAccountIdAndInstrumentId(account.getId(), order.getInstrument().getId())
-                .orElse(new Position());
+                .findByAccountIdAndInstrumentId(
+                        account.getId(),
+                        order.getInstrument().getId())
+                .orElse(null);
 
         if (position.getId() == null) {
             position.setAccount(account);
@@ -219,9 +246,9 @@ public class OrderExecutionService {
         orderStatusHistoryRepository.save(history);
     }
 
-public static class OrderExecutionException extends RuntimeException {
-    public OrderExecutionException(String message) {
-        super(message);
+    public static class OrderExecutionException extends RuntimeException {
+        public OrderExecutionException(String message) {
+            super(message);
+        }
     }
-}
 }

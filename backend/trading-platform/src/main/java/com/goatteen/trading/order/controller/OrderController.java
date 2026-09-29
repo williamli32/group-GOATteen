@@ -204,13 +204,14 @@ public class OrderController {
                 response.setStatus(order.getStatus());
                 response.setRejectionReason(order.getRejectionReason());
                 response.setSubmittedAt(order.getSubmittedAt());
-                response.setFilledAt(order.getCompletedAt());
+                
 
                 // Fetch fill price if order is filled
                 if (order.getStatus() == com.goatteen.trading.order.OrderStatus.FILLED) {
                         Fill fill = fillRepository.findByOrderId(order.getId()).orElse(null);
                         if (fill != null) {
                                 response.setFillPrice(fill.getFillPrice());
+                                response.setFilledAt(fill.getExecutedAt());
                         }
                 }
 
