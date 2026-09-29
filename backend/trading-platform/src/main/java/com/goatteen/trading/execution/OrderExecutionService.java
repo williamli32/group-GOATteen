@@ -200,7 +200,7 @@ public class OrderExecutionService {
             newQuantity = position.getQuantity().subtract(order.getQuantity());
         }
 
-        // Ensure holdings never go negative (similar to line 167 for cash balance)
+        // Ensure holdings never go negative 
         if (newQuantity.compareTo(BigDecimal.ZERO) < 0) {
             throw new OrderExecutionException("Fatal: Position holdings would be negative - operation aborted");
         }
