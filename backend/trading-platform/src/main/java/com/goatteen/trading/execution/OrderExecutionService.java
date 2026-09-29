@@ -4,6 +4,8 @@ import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.audit.OrderStatusHistory;
 import com.goatteen.trading.audit.OrderStatusHistoryRepository;
+import com.goatteen.trading.audit.PositionHistory;
+import com.goatteen.trading.audit.PositionHistoryRepository;
 import com.goatteen.trading.instrument.Instrument;
 import com.goatteen.trading.marketdata.Quote;
 import com.goatteen.trading.marketdata.QuoteRepository;
@@ -31,11 +33,13 @@ public class OrderExecutionService {
     private final PositionRepository positionRepository;
     private final CashTransactionRepository cashTransactionRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final PositionHistoryRepository positionHistoryRepository;
 
     public OrderExecutionService(OrderRepository orderRepository, FillRepository fillRepository,
             QuoteRepository quoteRepository, AccountRepository accountRepository,
             PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
-            OrderStatusHistoryRepository orderStatusHistoryRepository) {
+            OrderStatusHistoryRepository orderStatusHistoryRepository,
+            PositionHistoryRepository positionHistoryRepository) {
         this.orderRepository = orderRepository;
         this.fillRepository = fillRepository;
         this.quoteRepository = quoteRepository;
@@ -43,6 +47,7 @@ public class OrderExecutionService {
         this.positionRepository = positionRepository;
         this.cashTransactionRepository = cashTransactionRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
+        this.positionHistoryRepository = positionHistoryRepository;
     }
 
     @Transactional
@@ -135,10 +140,6 @@ public class OrderExecutionService {
                 order,
                 executionPrice);
 
-        updatePosition(
-                account,
-                order);
-
         // Record the fill (BR-08, BR-09, BR-14)
         Fill fill = new Fill();
         fill.setOrder(order);
@@ -148,6 +149,13 @@ public class OrderExecutionService {
         fill.setExecutedAt(LocalDateTime.now());
         fillRepository.save(fill);
         cashTransaction.setFill(fill);
+
+        // Update position AFTER fill is created so we can record position history
+        // with fill reference for complete audit trail reconstructability
+        updatePosition(
+                account,
+                order,
+                fill);
 
         // Update order status to FILLED (BR-06, BR-14)
         order.setStatus(OrderStatus.FILLED);
@@ -206,7 +214,7 @@ public class OrderExecutionService {
         return transaction;
     }
 
-    private void updatePosition(Account account, Order order, BigDecimal executionPrice) 
+    private void updatePosition(Account account, Order order, Fill fill) 
             throws OrderExecutionException {
         Position position = positionRepository
                 .findByAccountIdAndInstrumentId(
@@ -214,11 +222,15 @@ public class OrderExecutionService {
                         order.getInstrument().getId())
                 .orElse(null);
 
-        if (position.getId() == null) {
+        if (position == null || position.getId() == null) {
+            position = new Position();
             position.setAccount(account);
             position.setInstrument(order.getInstrument());
             position.setQuantity(BigDecimal.ZERO);
         }
+
+        // Capture position BEFORE for audit trail
+        BigDecimal quantityBefore = position.getQuantity();
 
         BigDecimal newQuantity;
         if (order.getSide() == OrderSide.BUY) {
@@ -235,6 +247,17 @@ public class OrderExecutionService {
         position.setQuantity(newQuantity);
         position.setUpdatedAt(LocalDateTime.now());
         positionRepository.save(position);
+
+        // Record position change for audit trail (Requirement: Make trade fully reconstructable)
+        // This enables operations to determine position change from persisted data
+        PositionHistory positionHistory = new PositionHistory(
+                account,
+                order.getInstrument(),
+                fill,
+                quantityBefore,
+                newQuantity
+        );
+        positionHistoryRepository.save(positionHistory);
     }
 
     private void recordStatusChange(Order order, OrderStatus status, String note) {
