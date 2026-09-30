@@ -30,4 +30,14 @@ public interface OrderRepository
     @Query("SELECT o FROM Order o WHERE o.id = :id")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Order> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Find all orders by status
+     * 
+     * Used by RecoveryService on startup to find incomplete orders.
+     * 
+     * @param status The order status to search for
+     * @return List of orders with that status
+     */
+    List<Order> findByStatus(OrderStatus status);
 }
