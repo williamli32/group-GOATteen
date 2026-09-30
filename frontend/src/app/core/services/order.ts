@@ -55,4 +55,15 @@ export class OrderService {
 
     }
 
+    /**
+     * Executes a pending order (transitions from ACCEPTED to FILLED)
+     * Includes idempotency protection via Idempotency-Key header
+     */
+    executeOrder(orderId: number): Observable<OrderResponse> {
+        return this.http.post<OrderResponse>(
+            `${this.apiUrl}/execute/${orderId}`,
+            {}
+        );
+    }
+
 }
