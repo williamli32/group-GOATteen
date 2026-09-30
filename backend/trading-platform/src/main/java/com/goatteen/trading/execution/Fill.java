@@ -45,10 +45,10 @@ public class Fill {
 
     /**
      * Idempotency key for duplicate request detection.
-     * Not persisted to database (transient field).
-     * Used to detect and prevent duplicate fill execution.
+     * Persisted to database to enable idempotent execution across application restarts.
+     * Unique constraint ensures only one fill per idempotency key.
      */
-    @Transient
+    @Column(name = "idempotency_key", unique = true)
     private String idempotencyKey;
 
 
