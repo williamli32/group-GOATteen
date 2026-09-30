@@ -17,6 +17,9 @@ import com.goatteen.trading.portfolio.Position;
 import com.goatteen.trading.portfolio.PositionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.goatteen.trading.audit.PositionHistory;
+import com.goatteen.trading.audit.PositionHistoryRepository;
+import java.util.Optional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,276 +27,324 @@ import java.time.LocalDateTime;
 @Service
 public class OrderExecutionService {
 
-    private final OrderRepository orderRepository;
-    private final FillRepository fillRepository;
-    private final QuoteRepository quoteRepository;
-    private final AccountRepository accountRepository;
-    private final PositionRepository positionRepository;
-    private final CashTransactionRepository cashTransactionRepository;
-    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+        private final OrderRepository orderRepository;
+        private final FillRepository fillRepository;
+        private final QuoteRepository quoteRepository;
+        private final AccountRepository accountRepository;
+        private final PositionRepository positionRepository;
+        private final CashTransactionRepository cashTransactionRepository;
+        private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+        private final PositionHistoryRepository positionHistoryRepository;
 
-    public OrderExecutionService(OrderRepository orderRepository, FillRepository fillRepository,
-            QuoteRepository quoteRepository, AccountRepository accountRepository,
-            PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
-            OrderStatusHistoryRepository orderStatusHistoryRepository) {
-        this.orderRepository = orderRepository;
-        this.fillRepository = fillRepository;
-        this.quoteRepository = quoteRepository;
-        this.accountRepository = accountRepository;
-        this.positionRepository = positionRepository;
-        this.cashTransactionRepository = cashTransactionRepository;
-        this.orderStatusHistoryRepository = orderStatusHistoryRepository;
-    }
-
-    @Transactional
-    public void submitOrder(Order order) {
-
-        order.setStatus(
-                OrderStatus.SUBMITTED);
-
-        order.setSubmittedAt(
-                LocalDateTime.now());
-
-        Order saved = orderRepository.save(order);
-
-        recordStatusChange(
-                saved,
-                OrderStatus.SUBMITTED,
-                "Order submitted");
-    }
-
-    @Transactional
-    public void acceptOrder(
-            Long orderId) throws OrderExecutionException {
-
-        Order order = orderRepository
-                .findById(orderId)
-                .orElseThrow(
-                        () -> new OrderExecutionException(
-                                "Order not found"));
-
-        if (order.getStatus() != OrderStatus.SUBMITTED) {
-
-            throw new OrderExecutionException(
-                    "Order is not in SUBMITTED state");
+        public OrderExecutionService(OrderRepository orderRepository, FillRepository fillRepository,
+                        QuoteRepository quoteRepository, AccountRepository accountRepository,
+                        PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
+                        OrderStatusHistoryRepository orderStatusHistoryRepository,
+                        PositionHistoryRepository positionHistoryRepository) {
+                this.orderRepository = orderRepository;
+                this.fillRepository = fillRepository;
+                this.quoteRepository = quoteRepository;
+                this.accountRepository = accountRepository;
+                this.positionRepository = positionRepository;
+                this.cashTransactionRepository = cashTransactionRepository;
+                this.orderStatusHistoryRepository = orderStatusHistoryRepository;
+                this.positionHistoryRepository = positionHistoryRepository;
         }
 
-        order.setStatus(
-                OrderStatus.ACCEPTED);
+        @Transactional
+        public void submitOrder(Order order) {
 
-        orderRepository.save(order);
+                order.setStatus(
+                                OrderStatus.SUBMITTED);
 
-        recordStatusChange(
-                order,
-                OrderStatus.ACCEPTED,
-                "Order accepted");
-    }
+                order.setSubmittedAt(
+                                LocalDateTime.now());
 
-    @Transactional
-    public void executeOrder(Long orderId) throws OrderExecutionException {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderExecutionException("Order not found"));
+                Order saved = orderRepository.save(order);
 
-        if (order.getStatus() != OrderStatus.ACCEPTED) {
-            throw new OrderExecutionException("Order is not in ACCEPTED state");
+                recordStatusChange(
+                                saved,
+                                OrderStatus.SUBMITTED,
+                                "Order submitted");
         }
 
-        // Fetch current quote (BR-08: price against current market quote)
-        Quote quote = quoteRepository.findTopByInstrumentIdOrderByQuotedAtDesc(order.getInstrument().getId())
-                .orElseThrow(() -> new OrderExecutionException("No market quote available for instrument"));
+        @Transactional
+        public void acceptOrder(
+                        Long orderId) throws OrderExecutionException {
 
-        // Determine execution price based on side (BR-08)
-        BigDecimal executionPrice = order.getSide() == OrderSide.BUY ? quote.getAskPrice() : quote.getBidPrice();
+                Order order = orderRepository
+                                .findByIdForUpdate(orderId)
+                                .orElseThrow(
+                                                () -> new OrderExecutionException(
+                                                                "Order not found"));
 
-        // Atomically update account, position, and record fill (BR-09)
-        Account account = accountRepository.findById(order.getAccount().getId())
-                .orElseThrow(() -> new OrderExecutionException("Account not found"));
+                if (order.getStatus() != OrderStatus.SUBMITTED) {
 
-        // Refresh to get latest version for optimistic locking
-        account = accountRepository.findById(account.getId()).orElseThrow();
+                        throw new OrderExecutionException(
+                                        "Order is not in SUBMITTED state");
+                }
 
-        // Update cash and positions atomically
-        /*
-         * Re-check currency at execution time as well.
-         * Validation may have happened earlier and LEAP does
-         * not support FX conversion yet.
-         */
-        if (!account.getCurrency()
-                .equalsIgnoreCase(
-                        order.getInstrument().getCurrency())) {
+                order.setStatus(
+                                OrderStatus.ACCEPTED);
 
-            throw new OrderExecutionException(
-                    "Currency conversion is not supported yet");
+                orderRepository.save(order);
+
+                recordStatusChange(
+                                order,
+                                OrderStatus.ACCEPTED,
+                                "Order accepted");
         }
 
-        /*
-         * Cash and position mutations happen inside the
-         * executeOrder transaction.
-         */
-        CashTransaction cashTransaction = updateCashBalance(
-                account,
-                order,
-                executionPrice);
+        @Transactional
+        public void executeOrder(Long orderId) throws OrderExecutionException {
 
-        updatePosition(
-                account,
-                order);
+                Order order = orderRepository
+                                .findByIdForUpdate(orderId)
 
-        // Record the fill (BR-08, BR-09, BR-14)
-        Fill fill = new Fill();
-        fill.setOrder(order);
-        fill.setQuote(quote);
-        fill.setFillPrice(executionPrice);
-        fill.setFillQuantity(order.getQuantity());
-        fill.setExecutedAt(LocalDateTime.now());
-        fillRepository.save(fill);
-        cashTransaction.setFill(fill);
+                                .orElseThrow(() -> new OrderExecutionException("Order not found"));
 
-        // Update order status to FILLED (BR-06, BR-14)
-        order.setStatus(OrderStatus.FILLED);
-        order.setCompletedAt(LocalDateTime.now());
-        orderRepository.save(order);
-        recordStatusChange(order, OrderStatus.FILLED, "Order filled at " + executionPrice);
-    }
+                if (order.getStatus() != OrderStatus.ACCEPTED) {
+                        throw new OrderExecutionException("Order is not in ACCEPTED state");
+                }
 
-    @Transactional
-    public void rejectOrder(Long orderId, String reason) throws OrderExecutionException {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderExecutionException("Order not found"));
+                Optional<Fill> existingFill = fillRepository.findByOrderId(
+                                orderId);
 
-        if (order.getStatus() != OrderStatus.SUBMITTED) {
-            throw new OrderExecutionException("Order is not in SUBMITTED state");
+                if (existingFill.isPresent()) {
+
+                        throw new OrderExecutionException(
+                                        "Order has already been executed");
+                }
+
+                // Fetch current quote (BR-08: price against current market quote)
+                Quote quote = quoteRepository.findTopByInstrumentIdOrderByQuotedAtDesc(order.getInstrument().getId())
+                                .orElseThrow(() -> new OrderExecutionException(
+                                                "No market quote available for instrument"));
+
+                // Determine execution price based on side (BR-08)
+                BigDecimal executionPrice = order.getSide() == OrderSide.BUY ? quote.getAskPrice()
+                                : quote.getBidPrice();
+
+                // Atomically update account, position, and record fill (BR-09)
+                Account account = accountRepository.findById(order.getAccount().getId())
+                                .orElseThrow(() -> new OrderExecutionException("Account not found"));
+
+                // Refresh to get latest version for optimistic locking
+                account = accountRepository.findById(account.getId()).orElseThrow();
+
+                // Update cash and positions atomically
+                /*
+                 * Re-check currency at execution time as well.
+                 * Validation may have happened earlier and LEAP does
+                 * not support FX conversion yet.
+                 */
+                if (!account.getCurrency()
+                                .equalsIgnoreCase(
+                                                order.getInstrument().getCurrency())) {
+
+                        throw new OrderExecutionException(
+                                        "Currency conversion is not supported yet");
+                }
+
+                /*
+                 * Cash and position mutations happen inside the
+                 * executeOrder transaction.
+                 */
+                CashTransaction cashTransaction = updateCashBalance(
+                                account,
+                                order,
+                                executionPrice);
+
+                // Record the fill (BR-08, BR-09, BR-14, BR-15)
+                Fill fill = new Fill();
+
+                fill.setOrder(order);
+                fill.setQuote(quote);
+                fill.setFillPrice(executionPrice);
+                fill.setFillQuantity(order.getQuantity());
+                fill.setExecutedAt(LocalDateTime.now());
+
+                fillRepository.save(fill);
+
+                // Link cash movement to the Fill
+                cashTransaction.setFill(fill);
+
+                cashTransactionRepository.save(
+                                cashTransaction);
+
+                updatePosition(
+                                account,
+                                order,
+                                fill);
+
+                // Update order status to FILLED (BR-06, BR-14)
+                order.setStatus(OrderStatus.FILLED);
+                order.setCompletedAt(LocalDateTime.now());
+                orderRepository.save(order);
+                recordStatusChange(order, OrderStatus.FILLED, "Order filled at " + executionPrice);
         }
 
-        order.setStatus(OrderStatus.REJECTED);
-        order.setRejectionReason(reason);
-        order.setCompletedAt(LocalDateTime.now());
-        orderRepository.save(order);
-        recordStatusChange(order, OrderStatus.REJECTED, reason);
-    }
+        @Transactional
+        public Fill executeOrder(
+                        Long orderId,
+                        String idempotencyKey)
+                        throws OrderExecutionException {
 
-    private CashTransaction updateCashBalance(Account account, Order order, BigDecimal executionPrice)
-            throws OrderExecutionException {
-        BigDecimal totalCost = executionPrice.multiply(order.getQuantity());
-
-        if (order.getSide() == OrderSide.BUY) {
-            // Deduct cash
-            BigDecimal newBalance = account.getCashBalance().subtract(totalCost);
-            if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
-                throw new OrderExecutionException("Insufficient cash after fill");
-            }
-            account.setCashBalance(newBalance);
-        } else {
-            // Add cash
-            account.setCashBalance(account.getCashBalance().add(totalCost));
+                return executeOrderWithKey(
+                                orderId,
+                                idempotencyKey);
         }
 
-        accountRepository.save(account);
+        @Transactional
+        public void rejectOrder(Long orderId, String reason) throws OrderExecutionException {
+                Order order = orderRepository.findByIdForUpdate(orderId)
+                                .orElseThrow(() -> new OrderExecutionException("Order not found"));
 
-        // Record cash transaction (BR-09, BR-14)
-        CashTransaction transaction = new CashTransaction();
-        transaction.setAccount(account);
-        transaction.setAmount(order.getSide() == OrderSide.BUY ? totalCost.negate() : totalCost);
-        transaction.setBalanceAfter(account.getCashBalance());
-        transaction.setCreatedAt(LocalDateTime.now());
-        transaction.setDescription(order.getSide() + " " + order.getQuantity() + " @ " + executionPrice);
-        cashTransactionRepository.save(transaction);
-        return transaction;
-    }
+                if (order.getStatus() != OrderStatus.SUBMITTED) {
+                        throw new OrderExecutionException("Order is not in SUBMITTED state");
+                }
 
-    private void updatePosition(
-            Account account,
-            Order order)
-            throws OrderExecutionException {
-
-        Position position = positionRepository
-                .findByAccountIdAndInstrumentId(
-                        account.getId(),
-                        order.getInstrument().getId())
-                .orElse(null);
-
-        /*
-         * BUY:
-         * Create a position when the account does not
-         * already own the instrument.
-         */
-        if (order.getSide() == OrderSide.BUY) {
-
-            if (position == null) {
-
-                position = new Position();
-
-                position.setAccount(
-                        account);
-
-                position.setInstrument(
-                        order.getInstrument());
-
-                position.setQuantity(
-                        BigDecimal.ZERO);
-            }
-
-            position.setQuantity(
-                    position.getQuantity()
-                            .add(
-                                    order.getQuantity()));
+                order.setStatus(OrderStatus.REJECTED);
+                order.setRejectionReason(reason);
+                order.setCompletedAt(LocalDateTime.now());
+                orderRepository.save(order);
+                recordStatusChange(order, OrderStatus.REJECTED, reason);
         }
 
-        /*
-         * SELL:
-         * Re-check the holding at execution time.
-         *
-         * Validation occurred before acceptance, so the
-         * position may have changed before execution.
-         */
-        else {
+        private CashTransaction updateCashBalance(Account account, Order order, BigDecimal executionPrice)
+                        throws OrderExecutionException {
+                BigDecimal totalCost = executionPrice.multiply(order.getQuantity());
 
-            if (position == null ||
-                    position.getQuantity()
-                            .compareTo(
-                                    order.getQuantity()) < 0) {
+                if (order.getSide() == OrderSide.BUY) {
+                        // Deduct cash
+                        BigDecimal newBalance = account.getCashBalance().subtract(totalCost);
+                        if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
+                                throw new OrderExecutionException("Insufficient cash after fill");
+                        }
+                        account.setCashBalance(newBalance);
+                } else {
+                        // Add cash
+                        account.setCashBalance(account.getCashBalance().add(totalCost));
+                }
 
-                throw new OrderExecutionException(
-                        "Insufficient holding at execution time");
-            }
+                accountRepository.save(account);
 
-            position.setQuantity(
-                    position.getQuantity()
-                            .subtract(
-                                    order.getQuantity()));
+                // Record cash transaction (BR-09, BR-14)
+                CashTransaction transaction = new CashTransaction();
+                transaction.setAccount(account);
+                transaction.setAmount(order.getSide() == OrderSide.BUY ? totalCost.negate() : totalCost);
+                transaction.setBalanceAfter(account.getCashBalance());
+                transaction.setCreatedAt(LocalDateTime.now());
+                transaction.setDescription(order.getSide() + " " + order.getQuantity() + " @ " + executionPrice);
+                cashTransactionRepository.save(transaction);
+                return transaction;
         }
 
-        /*
-         * Defensive check in addition to the database
-         * CHECK constraint.
-         */
-        if (position.getQuantity()
-                .compareTo(
-                        BigDecimal.ZERO) < 0) {
+        private void updatePosition(
+                        Account account,
+                        Order order, Fill fill)
+                        throws OrderExecutionException {
 
-            throw new OrderExecutionException(
-                    "Position cannot become negative");
+                Position position = positionRepository
+                                .findByAccountIdAndInstrumentId(
+                                                account.getId(),
+                                                order.getInstrument().getId())
+                                .orElse(null);
+
+                BigDecimal quantityBefore;
+
+                /*
+                 * BUY:
+                 * Create a position when the account does not
+                 * already own the instrument.
+                 */
+                if (order.getSide() == OrderSide.BUY) {
+
+                        if (position == null) {
+
+                                position = new Position();
+
+                                position.setAccount(account);
+                                position.setInstrument(
+                                                order.getInstrument());
+
+                                position.setQuantity(
+                                                BigDecimal.ZERO);
+                        }
+
+                        quantityBefore = position.getQuantity();
+
+                        position.setQuantity(
+                                        quantityBefore.add(
+                                                        order.getQuantity()));
+                }
+
+                /*
+                 * SELL:
+                 * Re-check the holding at execution time.
+                 *
+                 * Validation occurred before acceptance, so the
+                 * position may have changed before execution.
+                 */
+                else {
+
+                        if (position == null ||
+                                        position.getQuantity()
+                                                        .compareTo(
+                                                                        order.getQuantity()) < 0) {
+
+                                throw new OrderExecutionException(
+                                                "Insufficient holding at execution time");
+                        }
+
+                        quantityBefore = position.getQuantity();
+
+                        position.setQuantity(
+                                        quantityBefore.subtract(
+                                                        order.getQuantity()));
+                }
+
+                /*
+                 * Defensive check in addition to the database
+                 * CHECK constraint.
+                 */
+                if (position.getQuantity()
+                                .compareTo(
+                                                BigDecimal.ZERO) < 0) {
+
+                        throw new OrderExecutionException(
+                                        "Position cannot become negative");
+                }
+
+                position.setUpdatedAt(
+                                LocalDateTime.now());
+
+                positionRepository.save(
+                                position);
+
+                PositionHistory history = new PositionHistory(
+                                account,
+                                order.getInstrument(),
+                                fill,
+                                quantityBefore,
+                                position.getQuantity());
+
+                positionHistoryRepository.save(
+                                history);
         }
 
-        position.setUpdatedAt(
-                LocalDateTime.now());
-
-        positionRepository.save(
-                position);
-    }
-
-    private void recordStatusChange(Order order, OrderStatus status, String note) {
-        OrderStatusHistory history = new OrderStatusHistory();
-        history.setOrder(order);
-        history.setStatus(status);
-        history.setChangedAt(LocalDateTime.now());
-        history.setNote(note);
-        orderStatusHistoryRepository.save(history);
-    }
-
-    public static class OrderExecutionException extends RuntimeException {
-        public OrderExecutionException(String message) {
-            super(message);
+        private void recordStatusChange(Order order, OrderStatus status, String note) {
+                OrderStatusHistory history = new OrderStatusHistory();
+                history.setOrder(order);
+                history.setStatus(status);
+                history.setChangedAt(LocalDateTime.now());
+                history.setNote(note);
+                orderStatusHistoryRepository.save(history);
         }
-    }
+
+        public static class OrderExecutionException extends RuntimeException {
+                public OrderExecutionException(String message) {
+                        super(message);
+                }
+        }
 }
