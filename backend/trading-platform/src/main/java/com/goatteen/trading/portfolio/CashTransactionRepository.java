@@ -12,4 +12,6 @@ public interface CashTransactionRepository
 
     List<CashTransaction> findByAccountIdOrderByCreatedAtDesc(Long accountId);
 
+    List<CashTransaction> findByFillIdOrderByCreatedAtAsc(Long fillId);
+
 }

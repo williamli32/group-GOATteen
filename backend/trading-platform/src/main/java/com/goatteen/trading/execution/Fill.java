@@ -43,6 +43,14 @@ public class Fill {
     @Column(name = "executed_at", nullable = false)
     private LocalDateTime executedAt;
 
+    /**
+     * Idempotency key for duplicate request detection.
+     * Not persisted to database (transient field).
+     * Used to detect and prevent duplicate fill execution.
+     */
+    @Transient
+    private String idempotencyKey;
+
 
     public Long getId() {
         return id;
@@ -96,5 +104,13 @@ public class Fill {
 
     public void setExecutedAt(LocalDateTime executedAt) {
         this.executedAt = executedAt;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 }

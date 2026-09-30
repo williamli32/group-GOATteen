@@ -34,12 +34,14 @@ public class OrderExecutionService {
     private final CashTransactionRepository cashTransactionRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final PositionHistoryRepository positionHistoryRepository;
+    private final IdempotencyService idempotencyService;
 
     public OrderExecutionService(OrderRepository orderRepository, FillRepository fillRepository,
             QuoteRepository quoteRepository, AccountRepository accountRepository,
             PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
             OrderStatusHistoryRepository orderStatusHistoryRepository,
-            PositionHistoryRepository positionHistoryRepository) {
+            PositionHistoryRepository positionHistoryRepository,
+            IdempotencyService idempotencyService) {
         this.orderRepository = orderRepository;
         this.fillRepository = fillRepository;
         this.quoteRepository = quoteRepository;
@@ -48,6 +50,7 @@ public class OrderExecutionService {
         this.cashTransactionRepository = cashTransactionRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
         this.positionHistoryRepository = positionHistoryRepository;
+        this.idempotencyService = idempotencyService;
     }
 
     @Transactional
@@ -71,8 +74,9 @@ public class OrderExecutionService {
     public void acceptOrder(
             Long orderId) throws OrderExecutionException {
 
+        // Use pessimistic locking to prevent concurrent state modifications
         Order order = orderRepository
-                .findById(orderId)
+                .findByIdForUpdate(orderId)
                 .orElseThrow(
                         () -> new OrderExecutionException(
                                 "Order not found"));
@@ -96,9 +100,19 @@ public class OrderExecutionService {
 
     @Transactional
     public void executeOrder(Long orderId) throws OrderExecutionException {
-        Order order = orderRepository.findById(orderId)
+        // Step 1: Acquire pessimistic write lock on order to prevent concurrent execution
+        Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new OrderExecutionException("Order not found"));
 
+        // Step 2: Check if fill already exists (duplicate execution protection)
+        if (fillRepository.findByOrderId(orderId).isPresent()) {
+            throw new OrderExecutionException(
+                "Duplicate execution detected: Fill already exists for this order. "
+                + "Order ID: " + orderId
+            );
+        }
+
+        // Step 3: Validate state before execution
         if (order.getStatus() != OrderStatus.ACCEPTED) {
             throw new OrderExecutionException("Order is not in ACCEPTED state");
         }
@@ -166,7 +180,8 @@ public class OrderExecutionService {
 
     @Transactional
     public void rejectOrder(Long orderId, String reason) throws OrderExecutionException {
-        Order order = orderRepository.findById(orderId)
+        // Use pessimistic locking to prevent concurrent state modifications
+        Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new OrderExecutionException("Order not found"));
 
         if (order.getStatus() != OrderStatus.SUBMITTED) {
