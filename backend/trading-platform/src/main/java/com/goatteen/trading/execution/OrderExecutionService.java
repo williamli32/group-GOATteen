@@ -100,11 +100,24 @@ public class OrderExecutionService {
 
     @Transactional
     public void executeOrder(Long orderId) throws OrderExecutionException {
-        // Step 1: Acquire pessimistic write lock on order to prevent concurrent execution
+        executeOrder(orderId, null);
+    }
+
+    @Transactional
+    public Fill executeOrder(Long orderId, String idempotencyKey) throws OrderExecutionException {
+        // Step 1: Check if already executed with this idempotency key (duplicate request protection)
+        if (idempotencyKey != null) {
+            var existingFill = fillRepository.findByIdempotencyKey(idempotencyKey);
+            if (existingFill.isPresent()) {
+                return existingFill.get();
+            }
+        }
+
+        // Step 2: Acquire pessimistic write lock on order to prevent concurrent execution
         Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new OrderExecutionException("Order not found"));
 
-        // Step 2: Check if fill already exists (duplicate execution protection)
+        // Step 3: Check if fill already exists (duplicate execution protection)
         if (fillRepository.findByOrderId(orderId).isPresent()) {
             throw new OrderExecutionException(
                 "Duplicate execution detected: Fill already exists for this order. "
@@ -112,7 +125,7 @@ public class OrderExecutionService {
             );
         }
 
-        // Step 3: Validate state before execution
+        // Step 4: Validate state before execution
         if (order.getStatus() != OrderStatus.ACCEPTED) {
             throw new OrderExecutionException("Order is not in ACCEPTED state");
         }
@@ -161,6 +174,7 @@ public class OrderExecutionService {
         fill.setFillPrice(executionPrice);
         fill.setFillQuantity(order.getQuantity());
         fill.setExecutedAt(LocalDateTime.now());
+        fill.setIdempotencyKey(idempotencyKey); // Persist idempotency key for duplicate detection
         fillRepository.save(fill);
         cashTransaction.setFill(fill);
 
@@ -176,6 +190,8 @@ public class OrderExecutionService {
         order.setCompletedAt(LocalDateTime.now());
         orderRepository.save(order);
         recordStatusChange(order, OrderStatus.FILLED, "Order filled at " + executionPrice);
+
+        return fill;
     }
 
     @Transactional

@@ -344,12 +344,15 @@ class OrderExecutionIdempotencyTest {
 
         assertEquals(key, fill.getIdempotencyKey());
 
-        // The field should exist but not be mapped to database column
-        // (verified by reflection - @Transient annotation)
+        // The field should be mapped to database column (persistent)
+        // verified by reflection - @Column annotation
         try {
             var field = Fill.class.getDeclaredField("idempotencyKey");
-            assertTrue(field.isAnnotationPresent(jakarta.persistence.Transient.class),
-                    "idempotencyKey should be @Transient");
+            assertTrue(field.isAnnotationPresent(jakarta.persistence.Column.class),
+                    "idempotencyKey should be @Column (persistent)");
+            // Verify it's NOT transient (it should be persisted)
+            assertFalse(field.isAnnotationPresent(jakarta.persistence.Transient.class),
+                    "idempotencyKey should NOT be @Transient (must be persistent)");
         } catch (NoSuchFieldException e) {
             fail("idempotencyKey field should exist in Fill class");
         }

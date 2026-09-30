@@ -9,7 +9,8 @@ import java.util.Optional;
 public interface FillRepository
         extends JpaRepository<Fill, Long> {
 
-
     Optional<Fill> findByOrderId(Long orderId);
+
+    Optional<Fill> findByIdempotencyKey(String idempotencyKey);
 
 }
