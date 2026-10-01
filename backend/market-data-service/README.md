@@ -12,6 +12,26 @@ The Market Data Service is responsible for:
 
 This is a **mock service** designed for development and testing. It loads static instrument definitions from CSV and simulates price movements in real-time without external API dependencies.
 
+## Table of Contents
+
+- [Project Structure](#project-structure)
+- [Folder & File Descriptions](#folder--file-descriptions)
+  - [/java/com/goatteen/market/](#javacomgoatteenmarket)
+  - [/controller](#controller)
+  - [/service](#service)
+  - [/loader](#loader)
+  - [/dto](#dto)
+  - [/resources](#resources)
+- [Core Workflows](#core-workflows)
+- [API Endpoints](#api-endpoints)
+- [Setup & Running](#setup--running)
+- [Configuration](#configuration)
+- [Architecture Decisions](#architecture-decisions)
+- [Integration with Trading Platform](#integration-with-trading-platform)
+- [Performance Notes](#performance-notes)
+- [Known Limitations](#known-limitations)
+- [Future Enhancements](#future-enhancements)
+
 ## Project Structure
 
 ```
