@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.goatteen.trading.audit.PositionHistory;
 import com.goatteen.trading.audit.PositionHistoryRepository;
-import java.util.Optional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -116,12 +115,14 @@ public class OrderExecutionService {
                 /*
                  * 1. Persistent idempotency-key lookup.
                  *
-                 * If this exact execution was already completed,
+                 * If this exact execution has already completed,
                  * return the original Fill.
+                 *
+                 * If the same key belongs to another order, fail safely.
                  */
                 if (normalizedKey != null) {
 
-                        Optional<Fill> existingByKey = fillRepository.findByIdempotencyKey(
+                        var existingByKey = fillRepository.findByIdempotencyKey(
                                         normalizedKey);
 
                         if (existingByKey.isPresent()) {
@@ -138,6 +139,13 @@ public class OrderExecutionService {
                                                         "Idempotency key has already been used for a different order");
                                 }
 
+                                /*
+                                 * Same key + same order means this is
+                                 * a retry of the same execution.
+                                 *
+                                 * Return the original result rather than
+                                 * settling the order again.
+                                 */
                                 return existingFill;
                         }
                 }
@@ -145,8 +153,7 @@ public class OrderExecutionService {
                 /*
                  * 2. Lock the order.
                  *
-                 * This prevents two execution attempts from
-                 * settling the same order concurrently.
+                 * This serializes execution attempts for the same order.
                  */
                 Order order = orderRepository
                                 .findByIdForUpdate(orderId)
@@ -155,35 +162,15 @@ public class OrderExecutionService {
                                                                 "Order not found"));
 
                 /*
-                 * 3. Check whether this order already has a Fill.
-                 */
-                Optional<Fill> existingByOrder = fillRepository.findByOrderId(orderId);
-
-                if (existingByOrder.isPresent()) {
-
-                        Fill existingFill = existingByOrder.get();
-
-                        /*
-                         * Same idempotency key:
-                         * return the original result.
-                         */
-                        if (normalizedKey != null &&
-                                        normalizedKey.equals(
-                                                        existingFill.getIdempotencyKey())) {
-
-                                return existingFill;
-                        }
-
-                        /*
-                         * Different key attempting to execute
-                         * an already-settled order.
-                         */
-                        throw new OrderExecutionException(
-                                        "Duplicate execution detected: Fill already exists for this order");
-                }
-
-                /*
-                 * 4. The only executable state is ACCEPTED.
+                 * 3. Check order state BEFORE touching Fill,
+                 * quote, cash or position repositories.
+                 *
+                 * This preserves the normal lifecycle:
+                 *
+                 * SUBMITTED -> ACCEPTED -> FILLED
+                 *
+                 * and prevents an already FILLED/REJECTED order
+                 * from entering the settlement path again.
                  */
                 if (order.getStatus() != OrderStatus.ACCEPTED) {
 
@@ -192,7 +179,7 @@ public class OrderExecutionService {
                 }
 
                 /*
-                 * 5. Get the current quote.
+                 * 4. Get the current quote.
                  */
                 Quote quote = quoteRepository
                                 .findTopByInstrumentIdOrderByQuotedAtDesc(
@@ -206,7 +193,7 @@ public class OrderExecutionService {
                                 : quote.getBidPrice();
 
                 /*
-                 * 6. Load account.
+                 * 5. Load account.
                  */
                 Account account = accountRepository
                                 .findById(
@@ -216,7 +203,7 @@ public class OrderExecutionService {
                                                                 "Account not found"));
 
                 /*
-                 * 7. Currency check.
+                 * 6. Currency check.
                  */
                 if (!account.getCurrency()
                                 .equalsIgnoreCase(
@@ -227,10 +214,28 @@ public class OrderExecutionService {
                 }
 
                 /*
-                 * 8. Create the Fill BEFORE modifying cash/position.
+                 * 7. Validate settlement prerequisites BEFORE creating
+                 * the Fill.
                  *
-                 * saveAndFlush() forces the database uniqueness
-                 * constraint to be checked immediately.
+                 * This ensures an order that cannot be settled does not
+                 * create a Fill first.
+                 */
+                validateCashAvailable(
+                                account,
+                                order,
+                                executionPrice);
+
+                validateSellHoldingAvailable(
+                                account,
+                                order);
+
+                /*
+                 * 8. Create the Fill.
+                 *
+                 * saveAndFlush() makes the Fill exist before the dependent
+                 * position-history record is created and also forces the
+                 * database to enforce the unique order/idempotency constraints
+                 * immediately.
                  */
                 Fill fill = new Fill();
 
@@ -250,21 +255,34 @@ public class OrderExecutionService {
                 fill.setIdempotencyKey(
                                 normalizedKey);
 
-                fill = fillRepository.saveAndFlush(
-                                fill);
+                fill = fillRepository.saveAndFlush(fill);
 
                 /*
                  * 9. Cash settlement.
+                 *
+                 * updateCashBalance() creates exactly one cash ledger
+                 * entry and returns it.
                  */
                 CashTransaction cashTransaction = updateCashBalance(
                                 account,
                                 order,
                                 executionPrice);
 
+                /*
+                 * The CashTransaction was already persisted by
+                 * updateCashBalance().
+                 *
+                 * It is still part of this transaction, so attaching the
+                 * Fill here will be persisted when the transaction flushes.
+                 */
                 cashTransaction.setFill(fill);
 
-                cashTransactionRepository.save(
-                                cashTransaction);
+                /*
+                 * DO NOT call cashTransactionRepository.save() here.
+                 *
+                 * That was causing two repository saves for one ledger
+                 * entry.
+                 */
 
                 /*
                  * 10. Position settlement.
@@ -287,7 +305,7 @@ public class OrderExecutionService {
                                 order);
 
                 /*
-                 * 12. Persist status history.
+                 * 12. Persist FILLED status history.
                  */
                 recordStatusChange(
                                 order,
@@ -311,6 +329,62 @@ public class OrderExecutionService {
                 order.setCompletedAt(LocalDateTime.now());
                 orderRepository.save(order);
                 recordStatusChange(order, OrderStatus.REJECTED, reason);
+        }
+
+        private void validateCashAvailable(
+                        Account account,
+                        Order order,
+                        BigDecimal executionPrice)
+                        throws OrderExecutionException {
+
+                /*
+                 * SELL orders receive cash, so there is no cash
+                 * sufficiency requirement here.
+                 */
+                if (order.getSide() != OrderSide.BUY) {
+                        return;
+                }
+
+                BigDecimal totalCost = executionPrice.multiply(
+                                order.getQuantity());
+
+                BigDecimal newBalance = account.getCashBalance()
+                                .subtract(totalCost);
+
+                if (newBalance.compareTo(
+                                BigDecimal.ZERO) < 0) {
+
+                        throw new OrderExecutionException(
+                                        "Insufficient cash after fill");
+                }
+        }
+
+        private void validateSellHoldingAvailable(
+                        Account account,
+                        Order order)
+                        throws OrderExecutionException {
+
+                /*
+                 * BUY orders do not require an existing position.
+                 */
+                if (order.getSide() != OrderSide.SELL) {
+                        return;
+                }
+
+                Position position = positionRepository
+                                .findByAccountIdAndInstrumentId(
+                                                account.getId(),
+                                                order.getInstrument().getId())
+                                .orElse(null);
+
+                if (position == null
+                                || position.getQuantity()
+                                                .compareTo(
+                                                                order.getQuantity()) < 0) {
+
+                        throw new OrderExecutionException(
+                                        "Insufficient holding at execution time");
+                }
         }
 
         private CashTransaction updateCashBalance(Account account, Order order, BigDecimal executionPrice)

@@ -10,19 +10,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Complete Audit Trail for a Trade
- * 
- * Contains all information necessary to reconstruct a trade from persisted data:
- * - Order: Original request (side, quantity, account, instrument)
- * - Status History: Complete state transition (SUBMITTED -> ACCEPTED -> FILLED or REJECTED)
- * - Quote: Market data used for execution
- * - Fill: Execution details (price, time)
- * - Cash Movements: All account balance changes
- * - Position Changes: Before/after holdings
+ * Complete persisted audit trail for a trade.
+ *
+ * Contains all information necessary to reconstruct a trade from
+ * database state without relying on application logs or frontend state.
  */
 public class TradeAuditTrail {
 
-    // Order Information
+    // Order information
     private final Long orderId;
     private final Long accountId;
     private final Long instrumentId;
@@ -30,30 +25,34 @@ public class TradeAuditTrail {
     private final BigDecimal orderQuantity;
     private final LocalDateTime submittedAt;
 
-    // Status Timeline
+    // Lifecycle
     private final OrderStatus currentStatus;
     private final List<OrderStatusHistory> statusHistory;
     private final String rejectionReason;
     private final LocalDateTime completedAt;
 
-    // Execution Details (if FILLED)
+    // Execution
     private final Long fillId;
     private final BigDecimal fillPrice;
     private final BigDecimal fillQuantity;
     private final LocalDateTime executedAt;
+
+    // Quote
     private final Long quoteId;
     private final BigDecimal bidPrice;
     private final BigDecimal askPrice;
     private final LocalDateTime quotedAt;
 
-    // Cash Impact
+    // Cash impact
     private final List<CashTransaction> cashTransactions;
     private final BigDecimal cashMovement;
     private final BigDecimal balanceAfter;
 
-    // Position Impact
+    // Position impact
     private final BigDecimal quantityBefore;
     private final BigDecimal quantityAfter;
+    private final BigDecimal quantityChange;
+    private final LocalDateTime positionRecordedAt;
 
     public TradeAuditTrail(
             Order order,
@@ -62,7 +61,7 @@ public class TradeAuditTrail {
             List<CashTransaction> cashTransactions,
             PositionHistory positionHistory) {
 
-        // Order details
+        // Order
         this.orderId = order.getId();
         this.accountId = order.getAccount().getId();
         this.instrumentId = order.getInstrument().getId();
@@ -70,99 +69,224 @@ public class TradeAuditTrail {
         this.orderQuantity = order.getQuantity();
         this.submittedAt = order.getSubmittedAt();
 
-        // Status
+        // Lifecycle
         this.currentStatus = order.getStatus();
         this.statusHistory = statusHistory;
         this.rejectionReason = order.getRejectionReason();
         this.completedAt = order.getCompletedAt();
 
-        // Fill details (if executed)
+        // Execution + quote
         if (fill != null) {
+
             this.fillId = fill.getId();
             this.fillPrice = fill.getFillPrice();
             this.fillQuantity = fill.getFillQuantity();
             this.executedAt = fill.getExecutedAt();
-            this.quoteId = fill.getQuote() != null ? fill.getQuote().getId() : null;
-            this.bidPrice = fill.getQuote() != null ? fill.getQuote().getBidPrice() : null;
-            this.askPrice = fill.getQuote() != null ? fill.getQuote().getAskPrice() : null;
-            this.quotedAt = fill.getQuote() != null ? fill.getQuote().getQuotedAt() : null;
+
+            if (fill.getQuote() != null) {
+                this.quoteId = fill.getQuote().getId();
+                this.bidPrice = fill.getQuote().getBidPrice();
+                this.askPrice = fill.getQuote().getAskPrice();
+                this.quotedAt = fill.getQuote().getQuotedAt();
+            } else {
+                this.quoteId = null;
+                this.bidPrice = null;
+                this.askPrice = null;
+                this.quotedAt = null;
+            }
+
         } else {
+
             this.fillId = null;
             this.fillPrice = null;
             this.fillQuantity = null;
             this.executedAt = null;
+
             this.quoteId = null;
             this.bidPrice = null;
             this.askPrice = null;
             this.quotedAt = null;
         }
 
-        // Cash movements
+        // Cash
         this.cashTransactions = cashTransactions;
-        this.cashMovement = calculateCashMovement(cashTransactions);
-        this.balanceAfter = !cashTransactions.isEmpty() ? 
-                cashTransactions.get(cashTransactions.size() - 1).getBalanceAfter() : 
-                null;
 
-        // Position changes
+        this.cashMovement = calculateCashMovement(
+                cashTransactions);
+
+        this.balanceAfter = !cashTransactions.isEmpty()
+                ? cashTransactions
+                        .get(cashTransactions.size() - 1)
+                        .getBalanceAfter()
+                : null;
+
+        // Position
         if (positionHistory != null) {
+
             this.quantityBefore = positionHistory.getQuantityBefore();
+
             this.quantityAfter = positionHistory.getQuantityAfter();
+
+            this.quantityChange = positionHistory.getQuantityChange();
+
+            this.positionRecordedAt = positionHistory.getRecordedAt();
+
         } else {
+
             this.quantityBefore = null;
             this.quantityAfter = null;
+            this.quantityChange = null;
+            this.positionRecordedAt = null;
         }
     }
 
-    private BigDecimal calculateCashMovement(List<CashTransaction> transactions) {
-        if (transactions.isEmpty()) return BigDecimal.ZERO;
+    private BigDecimal calculateCashMovement(
+            List<CashTransaction> transactions) {
+
+        if (transactions.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
         return transactions.stream()
                 .map(CashTransaction::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(
+                        BigDecimal.ZERO,
+                        BigDecimal::add);
     }
 
-    // ==================== Getters ====================
+    public Long getOrderId() {
+        return orderId;
+    }
 
-    public Long getOrderId() { return orderId; }
-    public Long getAccountId() { return accountId; }
-    public Long getInstrumentId() { return instrumentId; }
-    public String getOrderSide() { return orderSide; }
-    public BigDecimal getOrderQuantity() { return orderQuantity; }
-    public LocalDateTime getSubmittedAt() { return submittedAt; }
+    public Long getAccountId() {
+        return accountId;
+    }
 
-    public OrderStatus getCurrentStatus() { return currentStatus; }
-    public List<OrderStatusHistory> getStatusHistory() { return statusHistory; }
-    public String getRejectionReason() { return rejectionReason; }
-    public LocalDateTime getCompletedAt() { return completedAt; }
+    public Long getInstrumentId() {
+        return instrumentId;
+    }
 
-    public Long getFillId() { return fillId; }
-    public BigDecimal getFillPrice() { return fillPrice; }
-    public BigDecimal getFillQuantity() { return fillQuantity; }
-    public LocalDateTime getExecutedAt() { return executedAt; }
-    public Long getQuoteId() { return quoteId; }
-    public BigDecimal getBidPrice() { return bidPrice; }
-    public BigDecimal getAskPrice() { return askPrice; }
-    public LocalDateTime getQuotedAt() { return quotedAt; }
+    public String getOrderSide() {
+        return orderSide;
+    }
 
-    public List<CashTransaction> getCashTransactions() { return cashTransactions; }
-    public BigDecimal getCashMovement() { return cashMovement; }
-    public BigDecimal getBalanceAfter() { return balanceAfter; }
+    public BigDecimal getOrderQuantity() {
+        return orderQuantity;
+    }
 
-    public BigDecimal getQuantityBefore() { return quantityBefore; }
-    public BigDecimal getQuantityAfter() { return quantityAfter; }
+    public LocalDateTime getSubmittedAt() {
+        return submittedAt;
+    }
+
+    public OrderStatus getCurrentStatus() {
+        return currentStatus;
+    }
+
+    public List<OrderStatusHistory> getStatusHistory() {
+        return statusHistory;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public Long getFillId() {
+        return fillId;
+    }
+
+    public BigDecimal getFillPrice() {
+        return fillPrice;
+    }
+
+    public BigDecimal getFillQuantity() {
+        return fillQuantity;
+    }
+
+    public LocalDateTime getExecutedAt() {
+        return executedAt;
+    }
+
+    public Long getQuoteId() {
+        return quoteId;
+    }
+
+    public BigDecimal getBidPrice() {
+        return bidPrice;
+    }
+
+    public BigDecimal getAskPrice() {
+        return askPrice;
+    }
+
+    public LocalDateTime getQuotedAt() {
+        return quotedAt;
+    }
+
+    public List<CashTransaction> getCashTransactions() {
+        return cashTransactions;
+    }
+
+    public BigDecimal getCashMovement() {
+        return cashMovement;
+    }
+
+    public BigDecimal getBalanceAfter() {
+        return balanceAfter;
+    }
+
+    public BigDecimal getQuantityBefore() {
+        return quantityBefore;
+    }
+
+    public BigDecimal getQuantityAfter() {
+        return quantityAfter;
+    }
+
+    public BigDecimal getQuantityChange() {
+        return quantityChange;
+    }
+
+    public LocalDateTime getPositionRecordedAt() {
+        return positionRecordedAt;
+    }
 
     /**
-     * Check if this trade is fully reconstructable
+     * Determines whether all required persisted information exists.
      */
     public boolean isFullyReconstructable() {
+
         if (currentStatus == OrderStatus.FILLED) {
-            return fillId != null && 
-                    !cashTransactions.isEmpty() && 
-                    quantityBefore != null && 
-                    quantityAfter != null;
-        } else if (currentStatus == OrderStatus.REJECTED) {
-            return rejectionReason != null;
+
+            return fillId != null
+                    && fillPrice != null
+                    && fillQuantity != null
+                    && executedAt != null
+                    && quoteId != null
+                    && bidPrice != null
+                    && askPrice != null
+                    && quotedAt != null
+                    && !cashTransactions.isEmpty()
+                    && cashMovement != null
+                    && balanceAfter != null
+                    && quantityBefore != null
+                    && quantityAfter != null
+                    && quantityChange != null
+                    && positionRecordedAt != null
+                    && completedAt != null;
+
         }
-        return true;
+
+        if (currentStatus == OrderStatus.REJECTED) {
+
+            return rejectionReason != null
+                    && !rejectionReason.isBlank()
+                    && completedAt != null;
+        }
+
+        return false;
     }
 }

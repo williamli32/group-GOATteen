@@ -148,8 +148,6 @@ class OrderExecutionServiceTest {
                 order.setQuantity(new BigDecimal("2"));
 
                 order.setStatus(OrderStatus.ACCEPTED);
-                when(fillRepository.saveAndFlush(any(Fill.class)))
-                                .thenAnswer(invocation -> invocation.getArgument(0));
 
         }
 
@@ -192,6 +190,9 @@ class OrderExecutionServiceTest {
                                 .findByAccountIdAndInstrumentId(10L, 1L))
 
                                 .thenReturn(Optional.empty());
+
+                when(fillRepository.saveAndFlush(any(Fill.class)))
+                                .thenAnswer(invocation -> invocation.getArgument(0));
 
                 // Act
 
@@ -368,6 +369,8 @@ class OrderExecutionServiceTest {
 
                                 .thenReturn(Optional.of(existingPosition));
 
+                when(fillRepository.saveAndFlush(any(Fill.class)))
+                                .thenAnswer(invocation -> invocation.getArgument(0));
                 // Act
 
                 service.executeOrder(55L);
