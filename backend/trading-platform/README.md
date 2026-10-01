@@ -125,32 +125,24 @@ cd group-GOATteen/backend/trading-platform
 
 ### 2. Database Setup
 
-#### Option A: Remote Database (via SSH Tunnel)
+#### Remote Database (via SSH Tunnel)
+
+To establish connection to Docker from Neueda Windows VM
+
 ```bash
 # Establish SSH tunnel to remote PostgreSQL
 ssh -L 5433:localhost:5432 ec2-user@10.14.141.220
 
 # In another terminal, verify connection:
-psql -h localhost -p 5433 -U postgres -d leap_trading
-```
-
-#### Option B: Local Docker PostgreSQL
-```bash
-cd ../..  # Go to project root
-docker-compose up -d postgresql
-
-# Verify:
-docker ps  # Should show leap-postgres container
+docker-compose up -d
+docker exec -it leap-postgres psql -U postgres -d leap_trading
 ```
 
 ### 3. Build the Project
 ```bash
 cd backend/trading-platform
 
-# Clean build
-mvn clean package
-
-# With tests
+# Clean build, with tests
 mvn clean package  # Runs all tests (requires database)
 
 # Without tests
@@ -162,24 +154,9 @@ mvn clean package -DskipTests
 #### From Command Line
 ```bash
 mvn spring-boot:run
-```
 
-#### From IDE
-- Right-click `TradingPlatformApplication.java`
-- Select "Run" or "Debug"
-
-#### From JAR
-```bash
-java -jar target/trading-platform-0.0.1-SNAPSHOT.jar
-```
-
-### 5. Verify Application is Running
-```bash
-# Check health endpoint
-curl http://localhost:8080/actuator/health
-
-# Access Swagger UI
-open http://localhost:8080/swagger-ui.html
+# Equivalent command
+./mvnw spring-boot:run
 ```
 
 ---
@@ -188,26 +165,8 @@ open http://localhost:8080/swagger-ui.html
 
 ### Application Profiles
 
-The application uses Spring profiles for environment-specific configuration:
-
-```yaml
-# src/main/resources/application.yaml (active profile)
-spring:
-  profiles:
-    active: dev  # Can be: dev, test, prod
-
-  datasource:
-    url: jdbc:postgresql://localhost:5433/leap_trading
-    username: postgres
-```
-
-### Environment-Specific Configs
-
-| Profile | File | Use Case | Database |
-|---------|------|----------|----------|
-| **dev** | `application.yaml` | Local development | Remote (5433) |
-| **test** | `application-test.yaml` | Unit tests | In-memory/test DB |
-| **prod** | `application-prod.yaml` | Production | Remote secure DB |
+The application uses Spring profiles for 
+environment-specific configuration. There are application and application-dev YAML files with configuration for the database.
 
 ### Key Configuration Properties
 
@@ -239,7 +198,7 @@ app:
 
 ### Schema Overview
 
-The database consists of **6 main schemas** managed by **14 Flyway migrations**:
+The database consists of **6 main schemas** managed by **14 Flyway migrations** (for now):
 
 #### 1. Identity Schema (V1)
 ```sql
@@ -281,65 +240,6 @@ tradable_universe (instrument_id, is_tradable)
 | V11-13 | Performance & compliance improvements | ✅ Applied |
 | V14 | Add idempotency_key to fills (unique constraint) | ✅ Applied |
 
-### Key Tables
-
-#### `orders`
-```sql
-CREATE TABLE orders (
-    order_id BIGSERIAL PRIMARY KEY,
-    account_id BIGINT NOT NULL,
-    instrument_id BIGINT NOT NULL,
-    side VARCHAR(10),                  -- 'BUY' or 'SELL'
-    quantity BIGINT,
-    status VARCHAR(50),                -- SUBMITTED, ACCEPTED, FILLED, REJECTED
-    created_at TIMESTAMP,
-    version BIGINT,                    -- Optimistic locking
-    CONSTRAINT fk_account FOREIGN KEY (account_id) REFERENCES accounts(account_id),
-    CONSTRAINT fk_instrument FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
-);
-```
-
-#### `fills`
-```sql
-CREATE TABLE fills (
-    fill_id BIGSERIAL PRIMARY KEY,
-    order_id BIGINT NOT NULL UNIQUE,
-    fill_price DECIMAL(15, 6),
-    fill_quantity BIGINT,
-    idempotency_key VARCHAR(255) UNIQUE,  -- 🔑 Duplicate prevention
-    executed_at TIMESTAMP,
-    CONSTRAINT fk_order FOREIGN KEY (order_id) REFERENCES orders(order_id)
-);
-CREATE INDEX idx_fills_idempotency ON fills(idempotency_key);
-```
-
-#### `positions`
-```sql
-CREATE TABLE positions (
-    position_id BIGSERIAL PRIMARY KEY,
-    account_id BIGINT NOT NULL,
-    instrument_id BIGINT NOT NULL,
-    quantity BIGINT,
-    average_cost DECIMAL(15, 6),
-    version BIGINT,                    -- Optimistic locking
-    CONSTRAINT fk_account FOREIGN KEY (account_id) REFERENCES accounts(account_id),
-    CONSTRAINT fk_instrument FOREIGN KEY (instrument_id) REFERENCES instruments(instrument_id)
-);
-```
-
-### Accessing the Database
-
-```bash
-# Connect remotely via SSH tunnel
-psql -h localhost -p 5433 -U postgres -d leap_trading
-
-# Common queries
-SELECT COUNT(*) FROM orders;
-SELECT COUNT(*) FROM fills;
-SELECT account_id, cash_balance FROM accounts;
-SELECT symbol, COUNT(*) FROM orders GROUP BY symbol;
-```
-
 ### Troubleshooting Database Issues
 
 #### Flyway Migration Failed
@@ -359,15 +259,6 @@ ps aux | grep ssh
 # Verify PostgreSQL is running
 pg_isready -h localhost -p 5433
 ```
-
-#### Reset Test Database
-```bash
-# Drop and recreate test database
-psql -h localhost -p 5433 -U postgres -c "DROP DATABASE IF EXISTS leap_trading_test;"
-psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE leap_trading_test;"
-```
-
----
 
 ## API Documentation
 
