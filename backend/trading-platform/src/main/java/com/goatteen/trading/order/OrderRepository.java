@@ -21,6 +21,8 @@ public interface OrderRepository
 
         Optional<Order> findByIdempotencyKey(
                         String idempotencyKey);
+        
+        List<Order> findByStatus(OrderStatus status);
 
         @Query("SELECT o FROM Order o WHERE o.id = :id")
         @Lock(LockModeType.PESSIMISTIC_WRITE)

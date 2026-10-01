@@ -12,6 +12,9 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import com.goatteen.trading.recovery.RecoveryAssessment;
+import com.goatteen.trading.recovery.RecoveryService;
+import com.goatteen.trading.recovery.RecoveryState;
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -82,6 +85,9 @@ class OrderExecutionRollbackIntegrationTest {
 
         @Autowired
         private OrderExecutionService executionService;
+
+        @Autowired
+        private RecoveryService recoveryService;
 
         @Autowired
         private JdbcTemplate jdbc;
@@ -493,5 +499,24 @@ class OrderExecutionRollbackIntegrationTest {
                                 orderId);
 
                 assertEquals(0, filledHistoryCount);
+
+                /*
+                 * Goal 3:
+                 *
+                 * After the simulated mid-execution failure and transaction
+                 * rollback, recovery must be able to determine that the order
+                 * was never executed.
+                 *
+                 * The order is still ACCEPTED and has no Fill, therefore it
+                 * is safe to retry.
+                 */
+                RecoveryAssessment recoveryAssessment = recoveryService.assessOrder(orderId);
+
+                assertEquals(
+                                RecoveryState.ACCEPTED_NOT_EXECUTED,
+                                recoveryAssessment.state());
+
+                assertTrue(
+                                recoveryAssessment.safeToExecute());
         }
 }
