@@ -666,4 +666,79 @@ class OrderExecutionServiceTest {
 
         }
 
+        @Test
+        void shouldReturnExistingFillWhenSameIdempotencyKeyIsRetried() {
+
+                Fill existingFill = mock(Fill.class);
+
+                when(existingFill.getOrder())
+                                .thenReturn(order);
+
+                when(fillRepository.findByIdempotencyKey(
+                                "retry-key-55"))
+                                .thenReturn(Optional.of(existingFill));
+
+                Fill result = service.executeOrder(
+                                55L,
+                                "retry-key-55");
+
+                assertSame(
+                                existingFill,
+                                result);
+
+                verify(fillRepository)
+                                .findByIdempotencyKey(
+                                                "retry-key-55");
+
+                verifyNoInteractions(
+                                orderRepository,
+                                quoteRepository,
+                                accountRepository,
+                                positionRepository,
+                                cashTransactionRepository,
+                                historyRepository,
+                                positionHistoryRepository);
+        }
+
+        @Test
+        void shouldRejectIdempotencyKeyUsedByAnotherOrder() {
+
+                Order otherOrder = mock(Order.class);
+
+                when(otherOrder.getId())
+                                .thenReturn(999L);
+
+                Fill existingFill = mock(Fill.class);
+
+                when(existingFill.getOrder())
+                                .thenReturn(otherOrder);
+
+                when(fillRepository.findByIdempotencyKey(
+                                "already-used-key"))
+                                .thenReturn(Optional.of(existingFill));
+
+                OrderExecutionService.OrderExecutionException exception = assertThrows(
+                                OrderExecutionService.OrderExecutionException.class,
+                                () -> service.executeOrder(
+                                                55L,
+                                                "already-used-key"));
+
+                assertEquals(
+                                "Idempotency key has already been used for a different order",
+                                exception.getMessage());
+
+                verify(fillRepository)
+                                .findByIdempotencyKey(
+                                                "already-used-key");
+
+                verifyNoInteractions(
+                                orderRepository,
+                                quoteRepository,
+                                accountRepository,
+                                positionRepository,
+                                cashTransactionRepository,
+                                historyRepository,
+                                positionHistoryRepository);
+        }
+
 }

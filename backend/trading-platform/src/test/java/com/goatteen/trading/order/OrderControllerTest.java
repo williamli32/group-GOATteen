@@ -291,4 +291,210 @@ class OrderControllerTest {
                 verify(orderRepository)
                                 .findByIdAndAccountId(99L, 10L);
         }
+
+        @Test
+        void shouldReturnExistingFilledOrderForSameIdempotencyKey() {
+
+                BigDecimal quantity = new BigDecimal("2");
+
+                PlaceOrderRequest request = new PlaceOrderRequest(
+                                1L,
+                                OrderSide.BUY,
+                                quantity);
+
+                when(currentUserService.getCurrentUserId())
+                                .thenReturn(7L);
+
+                when(accountOwnershipService
+                                .getCurrentUserAccount(7L))
+                                .thenReturn(account);
+
+                when(account.getId())
+                                .thenReturn(10L);
+
+                when(instrumentRepository.findById(1L))
+                                .thenReturn(Optional.of(instrument));
+
+                when(instrument.getId())
+                                .thenReturn(1L);
+
+                Order existingOrder = mock(Order.class);
+
+                when(existingOrder.getId())
+                                .thenReturn(55L);
+
+                when(existingOrder.getAccount())
+                                .thenReturn(account);
+
+                when(existingOrder.getInstrument())
+                                .thenReturn(instrument);
+
+                when(existingOrder.getSide())
+                                .thenReturn(OrderSide.BUY);
+
+                when(existingOrder.getQuantity())
+                                .thenReturn(quantity);
+
+                when(existingOrder.getStatus())
+                                .thenReturn(OrderStatus.FILLED);
+
+                when(existingOrder.getSubmittedAt())
+                                .thenReturn(
+                                                LocalDateTime.of(
+                                                                2026,
+                                                                10,
+                                                                1,
+                                                                14,
+                                                                0));
+
+                when(orderRepository.findByIdempotencyKey(
+                                "retry-key-55"))
+                                .thenReturn(
+                                                Optional.of(existingOrder));
+
+                Fill existingFill = mock(Fill.class);
+
+                when(existingFill.getFillPrice())
+                                .thenReturn(
+                                                new BigDecimal("75.10"));
+
+                when(fillRepository.findByOrderId(55L))
+                                .thenReturn(
+                                                Optional.of(existingFill));
+
+                ResponseEntity<?> response = controller.placeOrder(
+                                request,
+                                "retry-key-55");
+
+                assertEquals(
+                                201,
+                                response.getStatusCode().value());
+
+                assertInstanceOf(
+                                OrderResponse.class,
+                                response.getBody());
+
+                OrderResponse body = (OrderResponse) response.getBody();
+
+                assertEquals(
+                                55L,
+                                body.getId());
+
+                assertEquals(
+                                OrderStatus.FILLED,
+                                body.getStatus());
+
+                verify(orderRepository)
+                                .findByIdempotencyKey(
+                                                "retry-key-55");
+
+                verify(executionService,
+                                never())
+                                .submitOrder(any());
+
+                verify(executionService,
+                                never())
+                                .acceptOrder(anyLong());
+
+                verify(executionService,
+                                never())
+                                .executeOrder(
+                                                anyLong(),
+                                                anyString());
+
+                verify(validationService,
+                                never())
+                                .validate(
+                                                any(),
+                                                any(),
+                                                any(),
+                                                any());
+        }
+
+        @Test
+        void shouldRejectSameIdempotencyKeyWithDifferentParameters() {
+
+                PlaceOrderRequest originalRequest = new PlaceOrderRequest(
+                                1L,
+                                OrderSide.BUY,
+                                new BigDecimal("2"));
+
+                when(currentUserService.getCurrentUserId())
+                                .thenReturn(7L);
+
+                when(accountOwnershipService
+                                .getCurrentUserAccount(7L))
+                                .thenReturn(account);
+
+                when(account.getId())
+                                .thenReturn(10L);
+
+                when(instrumentRepository.findById(1L))
+                                .thenReturn(Optional.of(instrument));
+
+                when(instrument.getId())
+                                .thenReturn(1L);
+
+                Order existingOrder = mock(Order.class);
+
+                when(existingOrder.getAccount())
+                                .thenReturn(account);
+
+                when(existingOrder.getInstrument())
+                                .thenReturn(instrument);
+
+                when(existingOrder.getSide())
+                                .thenReturn(OrderSide.BUY);
+
+                when(existingOrder.getQuantity())
+                                .thenReturn(
+                                                new BigDecimal("2"));
+
+                when(orderRepository.findByIdempotencyKey(
+                                "already-used-key"))
+                                .thenReturn(
+                                                Optional.of(existingOrder));
+
+                /*
+                 * Same key, but different quantity.
+                 */
+                PlaceOrderRequest differentRequest = new PlaceOrderRequest(
+                                1L,
+                                OrderSide.BUY,
+                                new BigDecimal("5"));
+
+                ResponseEntity<?> response = controller.placeOrder(
+                                differentRequest,
+                                "already-used-key");
+
+                assertEquals(
+                                422,
+                                response.getStatusCode().value());
+
+                assertEquals(
+                                "Idempotency key was reused with different order parameters",
+                                response.getBody());
+
+                verify(executionService,
+                                never())
+                                .submitOrder(any());
+
+                verify(executionService,
+                                never())
+                                .acceptOrder(anyLong());
+
+                verify(executionService,
+                                never())
+                                .executeOrder(
+                                                anyLong(),
+                                                anyString());
+
+                verify(validationService,
+                                never())
+                                .validate(
+                                                any(),
+                                                any(),
+                                                any(),
+                                                any());
+        }
 }
