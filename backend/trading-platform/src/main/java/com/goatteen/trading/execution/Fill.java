@@ -20,7 +20,7 @@ public class Fill {
     private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "quote_id")
+    @JoinColumn(name = "quote_id", nullable = false)
     private Quote quote;
 
     @Column(name = "fill_price", nullable = false)
