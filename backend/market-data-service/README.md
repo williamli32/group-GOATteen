@@ -443,25 +443,6 @@ The Market Data Service is used by:
 - **Price updates:** Non-blocking scheduled task, doesn't block HTTP threads
 - **Query latency:** Typically <10ms for single symbol, <50ms for market filter
 
-## Known Limitations
-
-1. **No Persistence** - State lost on restart
-2. **Simulated Data** - Not real market prices
-3. **No Market Hours** - Prices update 24/7 on fixed interval
-4. **Fixed Volatility** - ±5% per interval, doesn't change
-5. **No Volume Modeling** - Volume is static or random, not realistic
-6. **Single Instance** - No distributed caching for multi-instance deployment
-
-## Future Enhancements
-
-- Real external API integration (Finnhub, Alpha Vantage)
-- Database persistence for historical quotes
-- Configurable volatility profiles by market
-- Market hours awareness
-- Realistic volume distribution
-- WebSocket streaming for real-time updates
-- Caching layer (Redis) for distributed deployment
-
 ## Troubleshooting
 
 ### Service won't start
