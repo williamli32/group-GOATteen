@@ -96,47 +96,127 @@ public class OrderExecutionService {
         }
 
         @Transactional
-        public void executeOrder(Long orderId) throws OrderExecutionException {
+        public Fill executeOrder(Long orderId)
+                        throws OrderExecutionException {
 
+                return executeOrder(orderId, null);
+        }
+
+        @Transactional
+        public Fill executeOrder(
+                        Long orderId,
+                        String idempotencyKey)
+                        throws OrderExecutionException {
+
+                String normalizedKey = idempotencyKey == null ||
+                                idempotencyKey.isBlank()
+                                                ? null
+                                                : idempotencyKey.trim();
+
+                /*
+                 * 1. Persistent idempotency-key lookup.
+                 *
+                 * If this exact execution was already completed,
+                 * return the original Fill.
+                 */
+                if (normalizedKey != null) {
+
+                        Optional<Fill> existingByKey = fillRepository.findByIdempotencyKey(
+                                        normalizedKey);
+
+                        if (existingByKey.isPresent()) {
+
+                                Fill existingFill = existingByKey.get();
+
+                                Long existingOrderId = existingFill
+                                                .getOrder()
+                                                .getId();
+
+                                if (!existingOrderId.equals(orderId)) {
+
+                                        throw new OrderExecutionException(
+                                                        "Idempotency key has already been used for a different order");
+                                }
+
+                                return existingFill;
+                        }
+                }
+
+                /*
+                 * 2. Lock the order.
+                 *
+                 * This prevents two execution attempts from
+                 * settling the same order concurrently.
+                 */
                 Order order = orderRepository
                                 .findByIdForUpdate(orderId)
+                                .orElseThrow(
+                                                () -> new OrderExecutionException(
+                                                                "Order not found"));
 
-                                .orElseThrow(() -> new OrderExecutionException("Order not found"));
+                /*
+                 * 3. Check whether this order already has a Fill.
+                 */
+                Optional<Fill> existingByOrder = fillRepository.findByOrderId(orderId);
 
-                if (order.getStatus() != OrderStatus.ACCEPTED) {
-                        throw new OrderExecutionException("Order is not in ACCEPTED state");
+                if (existingByOrder.isPresent()) {
+
+                        Fill existingFill = existingByOrder.get();
+
+                        /*
+                         * Same idempotency key:
+                         * return the original result.
+                         */
+                        if (normalizedKey != null &&
+                                        normalizedKey.equals(
+                                                        existingFill.getIdempotencyKey())) {
+
+                                return existingFill;
+                        }
+
+                        /*
+                         * Different key attempting to execute
+                         * an already-settled order.
+                         */
+                        throw new OrderExecutionException(
+                                        "Duplicate execution detected: Fill already exists for this order");
                 }
 
-                Optional<Fill> existingFill = fillRepository.findByOrderId(
-                                orderId);
-
-                if (existingFill.isPresent()) {
+                /*
+                 * 4. The only executable state is ACCEPTED.
+                 */
+                if (order.getStatus() != OrderStatus.ACCEPTED) {
 
                         throw new OrderExecutionException(
-                                        "Order has already been executed");
+                                        "Order is not in ACCEPTED state");
                 }
 
-                // Fetch current quote (BR-08: price against current market quote)
-                Quote quote = quoteRepository.findTopByInstrumentIdOrderByQuotedAtDesc(order.getInstrument().getId())
-                                .orElseThrow(() -> new OrderExecutionException(
-                                                "No market quote available for instrument"));
+                /*
+                 * 5. Get the current quote.
+                 */
+                Quote quote = quoteRepository
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(
+                                                order.getInstrument().getId())
+                                .orElseThrow(
+                                                () -> new OrderExecutionException(
+                                                                "No market quote available for instrument"));
 
-                // Determine execution price based on side (BR-08)
-                BigDecimal executionPrice = order.getSide() == OrderSide.BUY ? quote.getAskPrice()
+                BigDecimal executionPrice = order.getSide() == OrderSide.BUY
+                                ? quote.getAskPrice()
                                 : quote.getBidPrice();
 
-                // Atomically update account, position, and record fill (BR-09)
-                Account account = accountRepository.findById(order.getAccount().getId())
-                                .orElseThrow(() -> new OrderExecutionException("Account not found"));
-
-                // Refresh to get latest version for optimistic locking
-                account = accountRepository.findById(account.getId()).orElseThrow();
-
-                // Update cash and positions atomically
                 /*
-                 * Re-check currency at execution time as well.
-                 * Validation may have happened earlier and LEAP does
-                 * not support FX conversion yet.
+                 * 6. Load account.
+                 */
+                Account account = accountRepository
+                                .findById(
+                                                order.getAccount().getId())
+                                .orElseThrow(
+                                                () -> new OrderExecutionException(
+                                                                "Account not found"));
+
+                /*
+                 * 7. Currency check.
                  */
                 if (!account.getCurrency()
                                 .equalsIgnoreCase(
@@ -147,52 +227,74 @@ public class OrderExecutionService {
                 }
 
                 /*
-                 * Cash and position mutations happen inside the
-                 * executeOrder transaction.
+                 * 8. Create the Fill BEFORE modifying cash/position.
+                 *
+                 * saveAndFlush() forces the database uniqueness
+                 * constraint to be checked immediately.
+                 */
+                Fill fill = new Fill();
+
+                fill.setOrder(order);
+
+                fill.setQuote(quote);
+
+                fill.setFillPrice(
+                                executionPrice);
+
+                fill.setFillQuantity(
+                                order.getQuantity());
+
+                fill.setExecutedAt(
+                                LocalDateTime.now());
+
+                fill.setIdempotencyKey(
+                                normalizedKey);
+
+                fill = fillRepository.saveAndFlush(
+                                fill);
+
+                /*
+                 * 9. Cash settlement.
                  */
                 CashTransaction cashTransaction = updateCashBalance(
                                 account,
                                 order,
                                 executionPrice);
 
-                // Record the fill (BR-08, BR-09, BR-14, BR-15)
-                Fill fill = new Fill();
-
-                fill.setOrder(order);
-                fill.setQuote(quote);
-                fill.setFillPrice(executionPrice);
-                fill.setFillQuantity(order.getQuantity());
-                fill.setExecutedAt(LocalDateTime.now());
-
-                fillRepository.save(fill);
-
-                // Link cash movement to the Fill
                 cashTransaction.setFill(fill);
 
                 cashTransactionRepository.save(
                                 cashTransaction);
 
+                /*
+                 * 10. Position settlement.
+                 */
                 updatePosition(
                                 account,
                                 order,
                                 fill);
 
-                // Update order status to FILLED (BR-06, BR-14)
-                order.setStatus(OrderStatus.FILLED);
-                order.setCompletedAt(LocalDateTime.now());
-                orderRepository.save(order);
-                recordStatusChange(order, OrderStatus.FILLED, "Order filled at " + executionPrice);
-        }
+                /*
+                 * 11. Mark order FILLED.
+                 */
+                order.setStatus(
+                                OrderStatus.FILLED);
 
-        @Transactional
-        public Fill executeOrder(
-                        Long orderId,
-                        String idempotencyKey)
-                        throws OrderExecutionException {
+                order.setCompletedAt(
+                                LocalDateTime.now());
 
-                return executeOrderWithKey(
-                                orderId,
-                                idempotencyKey);
+                orderRepository.save(
+                                order);
+
+                /*
+                 * 12. Persist status history.
+                 */
+                recordStatusChange(
+                                order,
+                                OrderStatus.FILLED,
+                                "Order filled at " + executionPrice);
+
+                return fill;
         }
 
         @Transactional

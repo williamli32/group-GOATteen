@@ -6,6 +6,10 @@ import {
 } from '@angular/core';
 
 import {
+  IdempotencyService
+} from '../core/services/idempotency';
+
+import {
   MarketDataService,
   MarketInstrumentResponse
 } from '../core/services/market-data';
@@ -156,7 +160,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private orderService: OrderService,
     private auth: Auth,
     private router: Router,
-    public notificationService: NotificationService
+    public notificationService: NotificationService,
+    private idempotencyService: IdempotencyService
   ) { }
 
 
@@ -671,10 +676,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.orderSubmitting.set(true);
 
+    const idempotencyKey =
+      this.idempotencyService.getOrCreateKey();
 
-    this.orderService
-      .placeOrder({
-
+    this.orderService.placeOrder(
+      {
         instrumentId:
           instrument.instrumentId,
 
@@ -682,8 +688,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.orderSide,
 
         quantity
-
-      })
+      },
+      idempotencyKey
+    )
       .pipe(
 
         finalize(() => {
@@ -722,6 +729,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           this.orderQuantity =
             null;
+
+          this.idempotencyService.clearKey();
 
         },
 

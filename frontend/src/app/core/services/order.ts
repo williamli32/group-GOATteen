@@ -45,12 +45,18 @@ export class OrderService {
 
 
     placeOrder(
-        request: PlaceOrderRequest
+        request: PlaceOrderRequest,
+        idempotencyKey: string
     ): Observable<OrderResponse> {
 
         return this.http.post<OrderResponse>(
             this.apiUrl,
-            request
+            request,
+            {
+                headers: {
+                    'Idempotency-Key': idempotencyKey
+                }
+            }
         );
 
     }

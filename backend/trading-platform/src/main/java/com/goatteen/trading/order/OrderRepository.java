@@ -19,11 +19,10 @@ public interface OrderRepository
                         Long id,
                         Long accountId);
 
-        @Query("""
-                        SELECT o
-                        FROM Order o
-                        WHERE o.id = :id
-                        """)
+        Optional<Order> findByIdempotencyKey(
+                        String idempotencyKey);
+
+        @Query("SELECT o FROM Order o WHERE o.id = :id")
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         Optional<Order> findByIdForUpdate(
                         @Param("id") Long id);
