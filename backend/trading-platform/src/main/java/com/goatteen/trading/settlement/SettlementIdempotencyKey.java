@@ -8,20 +8,10 @@ import java.time.LocalDateTime;
  * Settlement Idempotency Key Entity
  * 
  * Prevents duplicate settlement execution across application restarts.
- * 
  * When a settlement is executed, we store the idempotency key and result.
  * If the same settlement request arrives again (even after app crash/restart),
  * we can detect it and return the cached result without re-executing.
- * 
- * Example:
- *   Client: settlementService.execute(orderId=123, key="abc-def-ghi")
- *   └─ Settlement executes, store result with key
- *   └─ App crashes
- *   Client retries: settlementService.execute(orderId=123, key="abc-def-ghi")
- *   └─ Key exists! Return cached result (no re-execution)
- * 
- * Note: The key should be a UUID or similar unique identifier provided by the client
- * or generated consistently for each settlement attempt.
+
  */
 @Entity
 @Table(
@@ -32,7 +22,7 @@ import java.time.LocalDateTime;
     },
     uniqueConstraints = {
         /**
-         * CRITICAL: Each idempotency key can only exist once in the database.
+         * Each idempotency key can only exist once in the database.
          * This prevents duplicate executions at the database level.
          */
         @UniqueConstraint(
@@ -56,7 +46,7 @@ public class SettlementIdempotencyKey {
     private Order order;
 
     /**
-     * The idempotency key (typically a UUID)
+     * The idempotency key
      * UNIQUE constraint ensures no duplicate executions
      */
     @Column(name = "idempotency_key", nullable = false, unique = true, length = 100)
@@ -97,7 +87,7 @@ public class SettlementIdempotencyKey {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    // ============= CONSTRUCTORS =============
+
 
     protected SettlementIdempotencyKey() {
         // JPA requires no-arg constructor
@@ -132,7 +122,6 @@ public class SettlementIdempotencyKey {
         return key;
     }
 
-    // ============= GETTERS =============
 
     public Long getId() {
         return id;
@@ -158,7 +147,6 @@ public class SettlementIdempotencyKey {
         return createdAt;
     }
 
-    // ============= HELPER METHODS =============
 
     /**
      * Check if this idempotency key represents a successful execution

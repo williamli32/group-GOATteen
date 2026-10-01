@@ -75,7 +75,7 @@ public class SettlementService {
      */
     @Transactional
     public Settlement executeSettlement(Long orderId, String idempotencyKey) {
-        // Step 1: Check idempotency key (CRITICAL!)
+        // Step 1: Check idempotency key 
         Optional<SettlementIdempotencyKey> existingKey = 
             idempotencyKeyRepository.findByIdempotencyKey(idempotencyKey);
         

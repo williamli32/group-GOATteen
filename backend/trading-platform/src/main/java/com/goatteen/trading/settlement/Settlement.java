@@ -11,16 +11,6 @@ import java.time.LocalDateTime;
  * 
  * Tracks the settlement process: the conversion of an executed order
  * into actual cash and position changes in the account.
- * 
- * Lifecycle:
- *   INITIATED ──► CASH_DEBITED ──► POSITION_CREDITED ──► COMPLETED
- *                                                              │
- *                                                              ▼
- *                                                           (Terminal)
- * 
- * Each state represents a step that must complete in order.
- * If the system crashes, we can check which step actually completed
- * and resume from the next step.
  */
 @Entity
 @Table(

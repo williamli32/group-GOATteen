@@ -41,15 +41,11 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
     /**
      * Find all incomplete settlements
      * 
-     * CRITICAL: Used on application startup by RecoveryService.
+     * Used on application startup by RecoveryService.
      * Returns settlements that are mid-process and need to be completed.
      * 
      * Incomplete = INITIATED or CASH_DEBITED or POSITION_CREDITED
      * (anything that's not COMPLETED or FAILED)
-     * 
-     * Example: If app crashed with settlement in CASH_DEBITED state,
-     * this query finds it so we can continue with POSITION_CREDITED step.
-     * 
      * @return List of incomplete settlements
      */
     @Query("SELECT s FROM Settlement s WHERE s.status IN ('INITIATED', 'CASH_DEBITED', 'POSITION_CREDITED')")
