@@ -134,7 +134,7 @@ class OrderControllerTest {
                 when(fillRepository.findByOrderId(55L))
                                 .thenReturn(Optional.of(fill));
 
-                ResponseEntity<?> response = controller.placeOrder(request);
+                ResponseEntity<?> response = controller.placeOrder(request, "test-idempotency-key-55");
 
                 assertEquals(201, response.getStatusCode().value());
                 assertInstanceOf(OrderResponse.class, response.getBody());
@@ -151,7 +151,7 @@ class OrderControllerTest {
                 verify(executionService)
                                 .acceptOrder(55L);
                 verify(executionService)
-                                .executeOrder(55L);
+                                .executeOrder(55L, "test-idempotency-key-55");
                 verify(executionService, never())
                                 .rejectOrder(anyLong(), any());
                 verify(fillRepository)
@@ -211,7 +211,7 @@ class OrderControllerTest {
                 when(orderRepository.findById(56L))
                                 .thenReturn(Optional.of(rejectedOrder));
 
-                ResponseEntity<?> response = controller.placeOrder(request);
+                ResponseEntity<?> response = controller.placeOrder(request, "test-idempotency-key-56");
 
                 assertEquals(400, response.getStatusCode().value());
                 assertInstanceOf(OrderResponse.class, response.getBody());

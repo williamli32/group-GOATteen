@@ -24,6 +24,8 @@ import com.goatteen.trading.order.OrderStatus;
 
 import com.goatteen.trading.portfolio.CashTransaction;
 
+import com.goatteen.trading.audit.PositionHistoryRepository;
+
 import com.goatteen.trading.portfolio.CashTransactionRepository;
 
 import com.goatteen.trading.portfolio.Position;
@@ -56,610 +58,609 @@ import static org.mockito.Mockito.*;
 
 class OrderExecutionServiceTest {
 
-    @Mock
+        @Mock
 
-    private OrderRepository orderRepository;
+        private OrderRepository orderRepository;
 
-    @Mock
+        @Mock
 
-    private FillRepository fillRepository;
+        private FillRepository fillRepository;
 
-    @Mock
+        @Mock
 
-    private QuoteRepository quoteRepository;
+        private QuoteRepository quoteRepository;
 
-    @Mock
+        @Mock
 
-    private AccountRepository accountRepository;
+        private AccountRepository accountRepository;
 
-    @Mock
+        @Mock
+        private PositionHistoryRepository positionHistoryRepository;
 
-    private PositionRepository positionRepository;
+        @Mock
 
-    @Mock
+        private PositionRepository positionRepository;
 
-    private CashTransactionRepository cashTransactionRepository;
+        @Mock
 
-    @Mock
+        private CashTransactionRepository cashTransactionRepository;
 
-    private OrderStatusHistoryRepository historyRepository;
+        @Mock
 
-    @Mock
+        private OrderStatusHistoryRepository historyRepository;
 
-    private Instrument instrument;
+        @Mock
 
-    @Mock
+        private Instrument instrument;
 
-    private Quote quote;
+        @Mock
 
-    private OrderExecutionService service;
+        private Quote quote;
 
-    private Account account;
+        private OrderExecutionService service;
 
-    private Order order;
+        private Account account;
 
-    @BeforeEach
+        private Order order;
 
-    void setUp() {
+        @BeforeEach
 
-        service = new OrderExecutionService(
+        void setUp() {
 
-                orderRepository,
+                service = new OrderExecutionService(
+                                orderRepository,
+                                fillRepository,
+                                quoteRepository,
+                                accountRepository,
+                                positionRepository,
+                                cashTransactionRepository,
+                                historyRepository,
+                                positionHistoryRepository);
 
-                fillRepository,
+                account = new Account(
 
-                quoteRepository,
+                                null,
 
-                accountRepository,
+                                "LEAP-TEST123",
 
-                positionRepository,
+                                "GBP");
 
-                cashTransactionRepository,
+                ReflectionTestUtils.setField(
 
-                historyRepository);
+                                account, "id", 10L);
 
-        account = new Account(
+                account.setCashBalance(
 
-                null,
+                                new BigDecimal("1000.00"));
 
-                "LEAP-TEST123",
+                order = new Order();
 
-                "GBP");
+                ReflectionTestUtils.setField(
 
-        ReflectionTestUtils.setField(
+                                order, "id", 55L);
 
-                account, "id", 10L);
+                order.setAccount(account);
 
-        account.setCashBalance(
+                order.setInstrument(instrument);
 
-                new BigDecimal("1000.00"));
+                order.setSide(OrderSide.BUY);
 
-        order = new Order();
+                order.setQuantity(new BigDecimal("2"));
 
-        ReflectionTestUtils.setField(
+                order.setStatus(OrderStatus.ACCEPTED);
+                when(fillRepository.saveAndFlush(any(Fill.class)))
+                                .thenAnswer(invocation -> invocation.getArgument(0));
 
-                order, "id", 55L);
+        }
 
-        order.setAccount(account);
+        @Test
 
-        order.setInstrument(instrument);
+        void shouldSettleBuyAtAskAndCreatePositionFillAndLedger() {
 
-        order.setSide(OrderSide.BUY);
+                // Arrange
 
-        order.setQuantity(new BigDecimal("2"));
+                when(orderRepository.findByIdForUpdate(55L))
 
-        order.setStatus(OrderStatus.ACCEPTED);
+                                .thenReturn(Optional.of(order));
 
-    }
+                when(instrument.getId())
 
-    @Test
+                                .thenReturn(1L);
 
-    void shouldSettleBuyAtAskAndCreatePositionFillAndLedger() {
+                when(instrument.getCurrency())
 
-        // Arrange
+                                .thenReturn("GBP");
 
-        when(orderRepository.findById(55L))
+                when(quoteRepository
 
-                .thenReturn(Optional.of(order));
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
 
-        when(instrument.getId())
+                                .thenReturn(Optional.of(quote));
 
-                .thenReturn(1L);
+                when(quote.getAskPrice())
 
-        when(instrument.getCurrency())
+                                .thenReturn(new BigDecimal("75.10"));
 
-                .thenReturn("GBP");
+                when(accountRepository.findById(10L))
 
-        when(quoteRepository
+                                .thenReturn(Optional.of(account));
 
-                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                // The account has no existing position.
 
-                .thenReturn(Optional.of(quote));
+                when(positionRepository
 
-        when(quote.getAskPrice())
+                                .findByAccountIdAndInstrumentId(10L, 1L))
 
-                .thenReturn(new BigDecimal("75.10"));
+                                .thenReturn(Optional.empty());
 
-        when(accountRepository.findById(10L))
+                // Act
 
-                .thenReturn(Optional.of(account));
+                service.executeOrder(55L);
 
-        // The account has no existing position.
+                // Assert: BUY 2 at £75.10 costs £150.20.
 
-        when(positionRepository
+                assertEquals(
 
-                .findByAccountIdAndInstrumentId(10L, 1L))
+                                0,
 
-                .thenReturn(Optional.empty());
+                                new BigDecimal("849.80")
 
-        // Act
+                                                .compareTo(account.getCashBalance()));
 
-        service.executeOrder(55L);
+                // A new position must be created.
 
-        // Assert: BUY 2 at £75.10 costs £150.20.
+                ArgumentCaptor<Position> positionCaptor = ArgumentCaptor.forClass(Position.class);
 
-        assertEquals(
+                verify(positionRepository)
 
-                0,
+                                .save(positionCaptor.capture());
 
-                new BigDecimal("849.80")
+                Position savedPosition = positionCaptor.getValue();
 
-                        .compareTo(account.getCashBalance()));
+                assertSame(account, savedPosition.getAccount());
 
-        // A new position must be created.
+                assertSame(instrument, savedPosition.getInstrument());
 
-        ArgumentCaptor<Position> positionCaptor = ArgumentCaptor.forClass(Position.class);
+                assertEquals(
 
-        verify(positionRepository)
+                                0,
 
-                .save(positionCaptor.capture());
+                                new BigDecimal("2")
 
-        Position savedPosition = positionCaptor.getValue();
+                                                .compareTo(savedPosition.getQuantity()));
 
-        assertSame(account, savedPosition.getAccount());
+                // Exactly one Fill must be created using this quote.
 
-        assertSame(instrument, savedPosition.getInstrument());
+                ArgumentCaptor<Fill> fillCaptor = ArgumentCaptor.forClass(Fill.class);
 
-        assertEquals(
+                verify(fillRepository, times(1))
 
-                0,
+                                .saveAndFlush(fillCaptor.capture());
 
-                new BigDecimal("2")
+                Fill savedFill = fillCaptor.getValue();
 
-                        .compareTo(savedPosition.getQuantity()));
+                assertSame(order, savedFill.getOrder());
 
-        // Exactly one Fill must be created using this quote.
+                assertSame(quote, savedFill.getQuote());
 
-        ArgumentCaptor<Fill> fillCaptor = ArgumentCaptor.forClass(Fill.class);
+                assertEquals(
 
-        verify(fillRepository, times(1))
+                                0,
 
-                .save(fillCaptor.capture());
+                                new BigDecimal("75.10")
 
-        Fill savedFill = fillCaptor.getValue();
+                                                .compareTo(savedFill.getFillPrice()));
 
-        assertSame(order, savedFill.getOrder());
+                assertEquals(
 
-        assertSame(quote, savedFill.getQuote());
+                                0,
 
-        assertEquals(
+                                new BigDecimal("2")
 
-                0,
+                                                .compareTo(savedFill.getFillQuantity()));
 
-                new BigDecimal("75.10")
+                assertNotNull(savedFill.getExecutedAt());
 
-                        .compareTo(savedFill.getFillPrice()));
+                // Verify the cash ledger entry.
 
-        assertEquals(
+                ArgumentCaptor<CashTransaction> cashCaptor = ArgumentCaptor.forClass(CashTransaction.class);
 
-                0,
+                verify(cashTransactionRepository)
 
-                new BigDecimal("2")
+                                .save(cashCaptor.capture());
 
-                        .compareTo(savedFill.getFillQuantity()));
+                CashTransaction cashEntry = cashCaptor.getValue();
 
-        assertNotNull(savedFill.getExecutedAt());
+                assertSame(account, cashEntry.getAccount());
+                assertSame(savedFill, cashEntry.getFill());
 
-        // Verify the cash ledger entry.
+                assertEquals(
 
-        ArgumentCaptor<CashTransaction> cashCaptor = ArgumentCaptor.forClass(CashTransaction.class);
+                                0,
 
-        verify(cashTransactionRepository)
+                                new BigDecimal("-150.20")
 
-                .save(cashCaptor.capture());
+                                                .compareTo(cashEntry.getAmount()));
 
-        CashTransaction cashEntry = cashCaptor.getValue();
+                assertEquals(
 
-        assertSame(account, cashEntry.getAccount());
-        assertSame(savedFill, cashEntry.getFill());
+                                0,
 
-        assertEquals(
+                                new BigDecimal("849.80")
 
-                0,
+                                                .compareTo(cashEntry.getBalanceAfter()));
 
-                new BigDecimal("-150.20")
+                // Verify order completion.
 
-                        .compareTo(cashEntry.getAmount()));
+                assertEquals(OrderStatus.FILLED, order.getStatus());
 
-        assertEquals(
+                assertNotNull(order.getCompletedAt());
 
-                0,
+                verify(orderRepository).save(order);
 
-                new BigDecimal("849.80")
+                // Verify FILLED status history.
 
-                        .compareTo(cashEntry.getBalanceAfter()));
+                ArgumentCaptor<OrderStatusHistory> historyCaptor = ArgumentCaptor.forClass(OrderStatusHistory.class);
 
-        // Verify order completion.
+                verify(historyRepository)
 
-        assertEquals(OrderStatus.FILLED, order.getStatus());
+                                .save(historyCaptor.capture());
 
-        assertNotNull(order.getCompletedAt());
+                assertSame(
 
-        verify(orderRepository).save(order);
+                                order,
 
-        // Verify FILLED status history.
+                                historyCaptor.getValue().getOrder());
 
-        ArgumentCaptor<OrderStatusHistory> historyCaptor = ArgumentCaptor.forClass(OrderStatusHistory.class);
+                assertEquals(
 
-        verify(historyRepository)
+                                OrderStatus.FILLED,
 
-                .save(historyCaptor.capture());
+                                historyCaptor.getValue().getStatus());
 
-        assertSame(
+        }
 
-                order,
+        @Test
 
-                historyCaptor.getValue().getOrder());
+        void shouldSettleSellAtBidAndReduceExistingPosition() {
 
-        assertEquals(
+                // Arrange: the account owns 5 shares and sells 2.
 
-                OrderStatus.FILLED,
+                order.setSide(OrderSide.SELL);
 
-                historyCaptor.getValue().getStatus());
+                Position existingPosition = new Position();
 
-    }
+                existingPosition.setAccount(account);
 
-    @Test
+                existingPosition.setInstrument(instrument);
 
-    void shouldSettleSellAtBidAndReduceExistingPosition() {
+                existingPosition.setQuantity(new BigDecimal("5"));
 
-        // Arrange: the account owns 5 shares and sells 2.
+                when(orderRepository.findByIdForUpdate(55L))
 
-        order.setSide(OrderSide.SELL);
+                                .thenReturn(Optional.of(order));
 
-        Position existingPosition = new Position();
+                when(instrument.getId())
 
-        existingPosition.setAccount(account);
+                                .thenReturn(1L);
 
-        existingPosition.setInstrument(instrument);
+                when(instrument.getCurrency())
 
-        existingPosition.setQuantity(new BigDecimal("5"));
+                                .thenReturn("GBP");
 
-        when(orderRepository.findById(55L))
+                when(quoteRepository
 
-                .thenReturn(Optional.of(order));
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
 
-        when(instrument.getId())
+                                .thenReturn(Optional.of(quote));
 
-                .thenReturn(1L);
+                when(quote.getBidPrice())
 
-        when(instrument.getCurrency())
+                                .thenReturn(new BigDecimal("74.90"));
 
-                .thenReturn("GBP");
+                when(accountRepository.findById(10L))
 
-        when(quoteRepository
+                                .thenReturn(Optional.of(account));
 
-                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                when(positionRepository
 
-                .thenReturn(Optional.of(quote));
+                                .findByAccountIdAndInstrumentId(10L, 1L))
 
-        when(quote.getBidPrice())
+                                .thenReturn(Optional.of(existingPosition));
 
-                .thenReturn(new BigDecimal("74.90"));
+                // Act
 
-        when(accountRepository.findById(10L))
+                service.executeOrder(55L);
 
-                .thenReturn(Optional.of(account));
+                // Cash: £1000 + (2 × £74.90) = £1149.80.
 
-        when(positionRepository
+                assertEquals(
 
-                .findByAccountIdAndInstrumentId(10L, 1L))
+                                0,
 
-                .thenReturn(Optional.of(existingPosition));
+                                new BigDecimal("1149.80")
 
-        // Act
+                                                .compareTo(account.getCashBalance()));
 
-        service.executeOrder(55L);
+                // Holdings: 5 - 2 = 3 shares.
 
-        // Cash: £1000 + (2 × £74.90) = £1149.80.
+                assertEquals(
 
-        assertEquals(
+                                0,
 
-                0,
+                                new BigDecimal("3")
 
-                new BigDecimal("1149.80")
+                                                .compareTo(existingPosition.getQuantity()));
 
-                        .compareTo(account.getCashBalance()));
+                verify(positionRepository, times(1))
 
-        // Holdings: 5 - 2 = 3 shares.
+                                .save(same(existingPosition));
 
-        assertEquals(
+                assertNotNull(existingPosition.getUpdatedAt());
 
-                0,
+                // SELL must use BID, not ASK.
 
-                new BigDecimal("3")
+                verify(quote, times(1)).getBidPrice();
 
-                        .compareTo(existingPosition.getQuantity()));
+                verify(quote, never()).getAskPrice();
 
-        verify(positionRepository, times(1))
+                // Exactly one Fill must reference the executed order
 
-                .save(same(existingPosition));
+                // and the quote actually used.
 
-        assertNotNull(existingPosition.getUpdatedAt());
+                ArgumentCaptor<Fill> fillCaptor = ArgumentCaptor.forClass(Fill.class);
 
-        // SELL must use BID, not ASK.
+                verify(fillRepository, times(1))
 
-        verify(quote, times(1)).getBidPrice();
+                                .saveAndFlush(fillCaptor.capture());
 
-        verify(quote, never()).getAskPrice();
+                Fill savedFill = fillCaptor.getValue();
 
-        // Exactly one Fill must reference the executed order
+                assertSame(order, savedFill.getOrder());
 
-        // and the quote actually used.
+                assertSame(quote, savedFill.getQuote());
 
-        ArgumentCaptor<Fill> fillCaptor = ArgumentCaptor.forClass(Fill.class);
+                assertEquals(
 
-        verify(fillRepository, times(1))
+                                0,
 
-                .save(fillCaptor.capture());
+                                new BigDecimal("74.90")
 
-        Fill savedFill = fillCaptor.getValue();
+                                                .compareTo(savedFill.getFillPrice()));
 
-        assertSame(order, savedFill.getOrder());
+                assertEquals(
 
-        assertSame(quote, savedFill.getQuote());
+                                0,
 
-        assertEquals(
+                                new BigDecimal("2")
 
-                0,
+                                                .compareTo(savedFill.getFillQuantity()));
 
-                new BigDecimal("74.90")
+                assertNotNull(savedFill.getExecutedAt());
 
-                        .compareTo(savedFill.getFillPrice()));
+                // SELL produces a positive cash ledger entry.
 
-        assertEquals(
+                ArgumentCaptor<CashTransaction> cashCaptor = ArgumentCaptor.forClass(CashTransaction.class);
 
-                0,
+                verify(cashTransactionRepository, times(1))
 
-                new BigDecimal("2")
+                                .save(cashCaptor.capture());
 
-                        .compareTo(savedFill.getFillQuantity()));
+                CashTransaction cashEntry = cashCaptor.getValue();
 
-        assertNotNull(savedFill.getExecutedAt());
+                assertSame(account, cashEntry.getAccount());
+                assertSame(savedFill, cashEntry.getFill());
 
-        // SELL produces a positive cash ledger entry.
+                assertEquals(
 
-        ArgumentCaptor<CashTransaction> cashCaptor = ArgumentCaptor.forClass(CashTransaction.class);
+                                0,
 
-        verify(cashTransactionRepository, times(1))
+                                new BigDecimal("149.80")
 
-                .save(cashCaptor.capture());
+                                                .compareTo(cashEntry.getAmount()));
 
-        CashTransaction cashEntry = cashCaptor.getValue();
+                assertEquals(
 
-        assertSame(account, cashEntry.getAccount());
-        assertSame(savedFill, cashEntry.getFill());
+                                0,
 
-        assertEquals(
+                                new BigDecimal("1149.80")
 
-                0,
+                                                .compareTo(cashEntry.getBalanceAfter()));
 
-                new BigDecimal("149.80")
+                // Order and audit history must show FILLED.
 
-                        .compareTo(cashEntry.getAmount()));
+                assertEquals(OrderStatus.FILLED, order.getStatus());
 
-        assertEquals(
+                assertNotNull(order.getCompletedAt());
 
-                0,
+                verify(orderRepository, times(1)).save(order);
 
-                new BigDecimal("1149.80")
+                ArgumentCaptor<OrderStatusHistory> historyCaptor = ArgumentCaptor.forClass(OrderStatusHistory.class);
 
-                        .compareTo(cashEntry.getBalanceAfter()));
+                verify(historyRepository, times(1))
 
-        // Order and audit history must show FILLED.
+                                .save(historyCaptor.capture());
 
-        assertEquals(OrderStatus.FILLED, order.getStatus());
+                assertSame(order, historyCaptor.getValue().getOrder());
 
-        assertNotNull(order.getCompletedAt());
+                assertEquals(
 
-        verify(orderRepository, times(1)).save(order);
+                                OrderStatus.FILLED,
 
-        ArgumentCaptor<OrderStatusHistory> historyCaptor = ArgumentCaptor.forClass(OrderStatusHistory.class);
+                                historyCaptor.getValue().getStatus());
 
-        verify(historyRepository, times(1))
+        }
 
-                .save(historyCaptor.capture());
+        @Test
 
-        assertSame(order, historyCaptor.getValue().getOrder());
+        void shouldRejectBuyWhenCashIsInsufficientAtExecution() {
 
-        assertEquals(
+                account.setCashBalance(new BigDecimal("100.00"));
 
-                OrderStatus.FILLED,
+                when(orderRepository.findByIdForUpdate(55L))
 
-                historyCaptor.getValue().getStatus());
+                                .thenReturn(Optional.of(order));
 
-    }
+                when(instrument.getId())
 
-    @Test
+                                .thenReturn(1L);
 
-    void shouldRejectBuyWhenCashIsInsufficientAtExecution() {
+                when(instrument.getCurrency())
 
-        account.setCashBalance(new BigDecimal("100.00"));
+                                .thenReturn("GBP");
 
-        when(orderRepository.findById(55L))
+                when(quoteRepository
 
-                .thenReturn(Optional.of(order));
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
 
-        when(instrument.getId())
+                                .thenReturn(Optional.of(quote));
 
-                .thenReturn(1L);
+                when(quote.getAskPrice())
 
-        when(instrument.getCurrency())
+                                .thenReturn(new BigDecimal("75.10"));
 
-                .thenReturn("GBP");
+                when(accountRepository.findById(10L))
 
-        when(quoteRepository
+                                .thenReturn(Optional.of(account));
 
-                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                OrderExecutionService.OrderExecutionException exception = assertThrows(
 
-                .thenReturn(Optional.of(quote));
+                                OrderExecutionService.OrderExecutionException.class,
 
-        when(quote.getAskPrice())
+                                () -> service.executeOrder(55L));
 
-                .thenReturn(new BigDecimal("75.10"));
+                assertEquals(
 
-        when(accountRepository.findById(10L))
+                                "Insufficient cash after fill",
 
-                .thenReturn(Optional.of(account));
+                                exception.getMessage());
 
-        OrderExecutionService.OrderExecutionException exception = assertThrows(
+                assertEquals(
 
-                OrderExecutionService.OrderExecutionException.class,
+                                0,
 
-                () -> service.executeOrder(55L));
+                                new BigDecimal("100.00")
 
-        assertEquals(
+                                                .compareTo(account.getCashBalance()));
 
-                "Insufficient cash after fill",
+                assertEquals(OrderStatus.ACCEPTED, order.getStatus());
 
-                exception.getMessage());
+                verify(accountRepository, never()).save(any());
 
-        assertEquals(
+                verifyNoInteractions(
 
-                0,
+                                positionRepository,
 
-                new BigDecimal("100.00")
+                                cashTransactionRepository,
 
-                        .compareTo(account.getCashBalance()));
+                                fillRepository,
 
-        assertEquals(OrderStatus.ACCEPTED, order.getStatus());
+                                historyRepository);
 
-        verify(accountRepository, never()).save(any());
+                verify(orderRepository, never()).save(any());
 
-        verifyNoInteractions(
+        }
 
-                positionRepository,
+        @Test
 
-                cashTransactionRepository,
+        void shouldRejectSellWhenHoldingsAreInsufficientAtExecution() {
 
-                fillRepository,
+                order.setSide(OrderSide.SELL);
 
-                historyRepository);
+                when(orderRepository.findByIdForUpdate(55L))
 
-        verify(orderRepository, never()).save(any());
+                                .thenReturn(Optional.of(order));
 
-    }
+                when(instrument.getId())
 
-    @Test
+                                .thenReturn(1L);
 
-    void shouldRejectSellWhenHoldingsAreInsufficientAtExecution() {
+                when(instrument.getCurrency())
 
-        order.setSide(OrderSide.SELL);
+                                .thenReturn("GBP");
 
-        when(orderRepository.findById(55L))
+                when(quoteRepository
 
-                .thenReturn(Optional.of(order));
+                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
 
-        when(instrument.getId())
+                                .thenReturn(Optional.of(quote));
 
-                .thenReturn(1L);
+                when(quote.getBidPrice())
 
-        when(instrument.getCurrency())
+                                .thenReturn(new BigDecimal("74.90"));
 
-                .thenReturn("GBP");
+                when(accountRepository.findById(10L))
 
-        when(quoteRepository
+                                .thenReturn(Optional.of(account));
 
-                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+                when(positionRepository
 
-                .thenReturn(Optional.of(quote));
+                                .findByAccountIdAndInstrumentId(10L, 1L))
 
-        when(quote.getBidPrice())
+                                .thenReturn(Optional.empty());
 
-                .thenReturn(new BigDecimal("74.90"));
+                OrderExecutionService.OrderExecutionException exception = assertThrows(
 
-        when(accountRepository.findById(10L))
+                                OrderExecutionService.OrderExecutionException.class,
 
-                .thenReturn(Optional.of(account));
+                                () -> service.executeOrder(55L));
 
-        when(positionRepository
+                assertEquals(
 
-                .findByAccountIdAndInstrumentId(10L, 1L))
+                                "Insufficient holding at execution time",
 
-                .thenReturn(Optional.empty());
+                                exception.getMessage());
 
-        OrderExecutionService.OrderExecutionException exception = assertThrows(
+                assertEquals(OrderStatus.ACCEPTED, order.getStatus());
 
-                OrderExecutionService.OrderExecutionException.class,
+                verify(positionRepository, never()).save(any());
 
-                () -> service.executeOrder(55L));
+                verifyNoInteractions(fillRepository, historyRepository);
 
-        assertEquals(
+                verify(orderRepository, never()).save(any());
 
-                "Insufficient holding at execution time",
+        }
 
-                exception.getMessage());
+        @Test
 
-        assertEquals(OrderStatus.ACCEPTED, order.getStatus());
+        void shouldPreventDuplicateExecutionOfFilledOrder() {
 
-        verify(positionRepository, never()).save(any());
+                order.setStatus(OrderStatus.FILLED);
 
-        verifyNoInteractions(fillRepository, historyRepository);
+                when(orderRepository.findByIdForUpdate(55L))
 
-        verify(orderRepository, never()).save(any());
+                                .thenReturn(Optional.of(order));
 
-    }
+                OrderExecutionService.OrderExecutionException exception = assertThrows(
 
-    @Test
+                                OrderExecutionService.OrderExecutionException.class,
 
-    void shouldPreventDuplicateExecutionOfFilledOrder() {
+                                () -> service.executeOrder(55L));
 
-        order.setStatus(OrderStatus.FILLED);
+                assertEquals(
 
-        when(orderRepository.findById(55L))
+                                "Order is not in ACCEPTED state",
 
-                .thenReturn(Optional.of(order));
+                                exception.getMessage());
 
-        OrderExecutionService.OrderExecutionException exception = assertThrows(
+                assertEquals(OrderStatus.FILLED, order.getStatus());
 
-                OrderExecutionService.OrderExecutionException.class,
+                verifyNoInteractions(
 
-                () -> service.executeOrder(55L));
+                                quoteRepository,
 
-        assertEquals(
+                                accountRepository,
 
-                "Order is not in ACCEPTED state",
+                                positionRepository,
 
-                exception.getMessage());
+                                cashTransactionRepository,
 
-        assertEquals(OrderStatus.FILLED, order.getStatus());
+                                fillRepository,
 
-        verifyNoInteractions(
+                                historyRepository);
 
-                quoteRepository,
+                verify(orderRepository, never()).save(any());
 
-                accountRepository,
-
-                positionRepository,
-
-                cashTransactionRepository,
-
-                fillRepository,
-
-                historyRepository);
-
-        verify(orderRepository, never()).save(any());
-
-    }
+        }
 
 }
