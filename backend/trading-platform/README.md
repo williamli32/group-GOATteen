@@ -303,11 +303,11 @@ GET    /api/market/history?symbol=AAPL # Get quote history
 │SUBMITTED │  (new order)
 └─────┬────┘
       │
-      ├─→ POST /accept  ─→ ┌──────────┐
+      ├─→ POST /accept  ─→  ┌──────────┐
       │                     │ ACCEPTED │  (ready to fill)
       │                     └─────┬────┘
       │                           │
-      │                           └─→ POST /execute  ─→ ┌────────┐
+      │                           └─→ POST /execute  ─→  ┌────────┐
       │                                                  │ FILLED │  (terminal)
       │                                                  └────────┘
       │
