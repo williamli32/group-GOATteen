@@ -191,36 +191,6 @@ app:
 
 ## Database
 
-### Schema Overview
-
-The database consists of **6 main schemas** managed by **14 Flyway migrations** (for now):
-
-#### 1. Identity Schema (V1)
-```sql
--- Users and authentication
-users (user_id, username, email, created_at)
-roles (role_id, role_name)
-user_roles (user_id, role_id)
-```
-
-#### 2. Trading Schema (V2)
-```sql
--- Core trading data
-clients (client_id, name)
-accounts (account_id, client_id, cash_balance, account_status)
-orders (order_id, account_id, symbol, side, quantity, status)
-fills (fill_id, order_id, fill_price, fill_quantity, idempotency_key)
-positions (position_id, account_id, symbol, quantity, average_cost)
-```
-
-#### 3. Market Data Schema (V3+)
-```sql
--- Historical quotes and instruments
-instruments (instrument_id, symbol, name, type)
-market_quote_history (quote_id, symbol, price, timestamp)
-tradable_universe (instrument_id, is_tradable)
-```
-
 ### Schema Versions
 
 | Version | Description | Status |
