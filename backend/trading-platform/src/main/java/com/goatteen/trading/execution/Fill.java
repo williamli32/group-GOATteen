@@ -32,19 +32,8 @@ public class Fill {
     @Column(name = "executed_at", nullable = false)
     private LocalDateTime executedAt;
 
-<<<<<<< HEAD
-    /**
-     * Idempotency key for duplicate request detection.
-     * Persisted to database to enable idempotent execution across application restarts.
-     * Unique constraint ensures only one fill per idempotency key.
-     */
     @Column(name = "idempotency_key", unique = true)
     private String idempotencyKey;
-
-=======
-    @Column(name = "idempotency_key", unique = true)
-    private String idempotencyKey;
->>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4
 
     public Long getId() {
         return id;
@@ -98,13 +87,5 @@ public class Fill {
 
     public void setExecutedAt(LocalDateTime executedAt) {
         this.executedAt = executedAt;
-    }
-
-    public String getIdempotencyKey() {
-        return idempotencyKey;
-    }
-
-    public void setIdempotencyKey(String idempotencyKey) {
-        this.idempotencyKey = idempotencyKey;
     }
 }

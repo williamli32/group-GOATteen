@@ -123,8 +123,4 @@ public class PositionHistory {
     public void setRecordedAt(LocalDateTime recordedAt) {
         this.recordedAt = recordedAt;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4

@@ -9,11 +9,7 @@ public interface FillRepository
 
     Optional<Fill> findByOrderId(Long orderId);
 
-<<<<<<< HEAD
-    Optional<Fill> findByIdempotencyKey(String idempotencyKey);
-=======
     Optional<Fill> findByIdempotencyKey(
             String idempotencyKey);
->>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4
 
 }

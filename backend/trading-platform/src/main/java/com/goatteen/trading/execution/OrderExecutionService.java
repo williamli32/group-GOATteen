@@ -4,8 +4,6 @@ import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.audit.OrderStatusHistory;
 import com.goatteen.trading.audit.OrderStatusHistoryRepository;
-import com.goatteen.trading.audit.PositionHistory;
-import com.goatteen.trading.audit.PositionHistoryRepository;
 import com.goatteen.trading.instrument.Instrument;
 import com.goatteen.trading.marketdata.Quote;
 import com.goatteen.trading.marketdata.QuoteRepository;
