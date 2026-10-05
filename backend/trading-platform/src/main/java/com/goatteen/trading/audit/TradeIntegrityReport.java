@@ -1,5 +1,6 @@
 package com.goatteen.trading.audit;
 
+<<<<<<< HEAD
 /**
  * Trade Integrity Report
  * 
@@ -13,6 +14,23 @@ public class TradeIntegrityReport {
     public TradeIntegrityReport(Long orderId, boolean isValid, String message) {
         this.orderId = orderId;
         this.isValid = isValid;
+=======
+public class TradeIntegrityReport {
+
+    private final Long orderId;
+
+    private final boolean valid;
+
+    private final String message;
+
+    public TradeIntegrityReport(
+            Long orderId,
+            boolean valid,
+            String message) {
+
+        this.orderId = orderId;
+        this.valid = valid;
+>>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4
         this.message = message;
     }
 
@@ -21,12 +39,17 @@ public class TradeIntegrityReport {
     }
 
     public boolean isValid() {
+<<<<<<< HEAD
         return isValid;
+=======
+        return valid;
+>>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4
     }
 
     public String getMessage() {
         return message;
     }
+<<<<<<< HEAD
 
     @Override
     public String toString() {
@@ -37,3 +60,6 @@ public class TradeIntegrityReport {
                 '}';
     }
 }
+=======
+}
+>>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4

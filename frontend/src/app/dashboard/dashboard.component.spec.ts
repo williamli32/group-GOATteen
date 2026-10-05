@@ -49,6 +49,8 @@ describe('DashboardComponent', () => {
 
     let component: DashboardComponent;
 
+    let lastIdempotencyKey: string | null;
+
     let fixture: ComponentFixture<DashboardComponent>;
 
     let placeOrderCallCount: number;
@@ -128,12 +130,17 @@ describe('DashboardComponent', () => {
     const orderServiceMock = {
 
         placeOrder: (
-            request: PlaceOrderRequest
+            request: PlaceOrderRequest,
+            idempotencyKey: string
         ) => {
 
             placeOrderCallCount++;
 
-            lastPlaceOrderRequest = request;
+            lastPlaceOrderRequest =
+                request;
+
+            lastIdempotencyKey =
+                idempotencyKey;
 
             return placeOrderResult;
 
@@ -157,6 +164,8 @@ describe('DashboardComponent', () => {
         placeOrderCallCount = 0;
 
         lastPlaceOrderRequest = null;
+
+        lastIdempotencyKey = null;
 
 
         /*

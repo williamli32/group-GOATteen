@@ -23,13 +23,17 @@ public class CashTransaction {
     private Account account;
 
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "fill_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fill_id", unique = true)
     private Fill fill;
 
 
     @Column(nullable = false)
     private BigDecimal amount;
+
+
+    @Column(name = "balance_before", nullable = false)
+    private BigDecimal balanceBefore;
 
 
     @Column(name = "balance_after", nullable = false)
@@ -64,6 +68,11 @@ public class CashTransaction {
     }
 
 
+    public BigDecimal getBalanceBefore() {
+        return balanceBefore;
+    }
+
+
     public BigDecimal getBalanceAfter() {
         return balanceAfter;
     }
@@ -91,6 +100,11 @@ public class CashTransaction {
 
     public void setAmount(java.math.BigDecimal amount) {
         this.amount = amount;
+    }
+
+
+    public void setBalanceBefore(BigDecimal balanceBefore) {
+        this.balanceBefore = balanceBefore;
     }
 
 

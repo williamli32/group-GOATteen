@@ -7,42 +7,32 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-
 @Entity
 @Table(name = "fills")
 public class Fill {
-
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-        name = "order_id",
-        nullable = false,
-        unique = true
-    )
+    @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
 
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "quote_id")
+    @JoinColumn(name = "quote_id", nullable = false)
     private Quote quote;
-
 
     @Column(name = "fill_price", nullable = false)
     private BigDecimal fillPrice;
 
-
     @Column(name = "fill_quantity", nullable = false)
     private BigDecimal fillQuantity;
-
 
     @Column(name = "executed_at", nullable = false)
     private LocalDateTime executedAt;
 
+<<<<<<< HEAD
     /**
      * Idempotency key for duplicate request detection.
      * Persisted to database to enable idempotent execution across application restarts.
@@ -51,56 +41,60 @@ public class Fill {
     @Column(name = "idempotency_key", unique = true)
     private String idempotencyKey;
 
+=======
+    @Column(name = "idempotency_key", unique = true)
+    private String idempotencyKey;
+>>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4
 
     public Long getId() {
         return id;
     }
 
-
     public Order getOrder() {
         return order;
     }
 
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(
+            String idempotencyKey) {
+
+        this.idempotencyKey = idempotencyKey;
+    }
 
     public Quote getQuote() {
         return quote;
     }
 
-
     public BigDecimal getFillPrice() {
         return fillPrice;
     }
-
 
     public BigDecimal getFillQuantity() {
         return fillQuantity;
     }
 
-
     public LocalDateTime getExecutedAt() {
         return executedAt;
     }
-
 
     public void setOrder(Order order) {
         this.order = order;
     }
 
-
     public void setQuote(Quote quote) {
         this.quote = quote;
     }
-
 
     public void setFillPrice(java.math.BigDecimal fillPrice) {
         this.fillPrice = fillPrice;
     }
 
-
     public void setFillQuantity(java.math.BigDecimal fillQuantity) {
         this.fillQuantity = fillQuantity;
     }
-
 
     public void setExecutedAt(LocalDateTime executedAt) {
         this.executedAt = executedAt;

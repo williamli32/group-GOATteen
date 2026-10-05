@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 
+<<<<<<< HEAD
 /**
  * IdempotencyService
  * 
@@ -9,11 +10,14 @@ import { Injectable } from '@angular/core';
  * 
  * Keys are scoped to the browser session (cleared on browser close).
  */
+=======
+>>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4
 @Injectable({
     providedIn: 'root'
 })
 export class IdempotencyService {
 
+<<<<<<< HEAD
     private readonly STORAGE_PREFIX = 'idempotency_key_';
 
     /**
@@ -85,3 +89,40 @@ export class IdempotencyService {
         });
     }
 }
+=======
+    private readonly storageKey =
+        'leap_pending_order_idempotency_key';
+
+
+    getOrCreateKey(): string {
+
+        let key =
+            sessionStorage.getItem(
+                this.storageKey
+            );
+
+        if (!key) {
+
+            key =
+                crypto.randomUUID();
+
+            sessionStorage.setItem(
+                this.storageKey,
+                key
+            );
+        }
+
+        return key;
+    }
+
+
+    clearKey(): void {
+
+        sessionStorage.removeItem(
+            this.storageKey
+        );
+
+    }
+
+}
+>>>>>>> 29270f9221c18597faef1b200a17581cbc923fd4

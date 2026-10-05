@@ -14,10 +14,14 @@ import com.goatteen.trading.order.OrderValidationService;
 import com.goatteen.trading.order.OrderValidationService.ValidationResult;
 import com.goatteen.trading.order.dto.OrderResponse;
 import com.goatteen.trading.order.dto.PlaceOrderRequest;
+import com.goatteen.trading.order.OrderStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -50,7 +54,17 @@ public class OrderController {
 
         @PostMapping
         public ResponseEntity<?> placeOrder(
-                        @Valid @RequestBody PlaceOrderRequest request) {
+                        @Valid @RequestBody PlaceOrderRequest request,
+                        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+
+                if (idempotencyKey == null ||
+                                idempotencyKey.isBlank()) {
+
+                        idempotencyKey = UUID.randomUUID().toString();
+                } else {
+
+                        idempotencyKey = idempotencyKey.trim();
+                }
 
                 try {
 
@@ -74,6 +88,81 @@ public class OrderController {
                          * At this point no cash, position,
                          * or fill changes occur.
                          */
+
+                        Optional<Order> existingOrder = orderRepository.findByIdempotencyKey(
+                                        idempotencyKey);
+
+                        if (existingOrder.isPresent()) {
+
+                                Order existing = existingOrder.get();
+
+                                /*
+                                 * Same key cannot be reused for a
+                                 * different account.
+                                 */
+                                if (!existing.getAccount()
+                                                .getId()
+                                                .equals(account.getId())) {
+
+                                        return ResponseEntity
+                                                        .status(HttpStatus.CONFLICT)
+                                                        .body(
+                                                                        "Idempotency key is already associated with another order");
+                                }
+
+                                /*
+                                 * Same key must represent the same
+                                 * logical request.
+                                 */
+                                if (!existing.getInstrument()
+                                                .getId()
+                                                .equals(request.getInstrumentId())
+                                                ||
+                                                existing.getSide() != request.getSide()
+                                                ||
+                                                existing.getQuantity()
+                                                                .compareTo(
+                                                                                request.getQuantity()) != 0) {
+
+                                        return ResponseEntity
+                                                        .status(HttpStatus.UNPROCESSABLE_ENTITY)
+                                                        .body(
+                                                                        "Idempotency key was reused with different order parameters");
+                                }
+
+                                /*
+                                 * Already completed:
+                                 * return the original result.
+                                 */
+                                if (existing.getStatus() == OrderStatus.FILLED) {
+
+                                        return ResponseEntity
+                                                        .status(HttpStatus.CREATED)
+                                                        .body(
+                                                                        toOrderResponse(existing));
+                                }
+
+                                /*
+                                 * Already rejected:
+                                 * return the original rejection.
+                                 */
+                                if (existing.getStatus() == OrderStatus.REJECTED) {
+
+                                        return ResponseEntity
+                                                        .status(HttpStatus.BAD_REQUEST)
+                                                        .body(
+                                                                        toOrderResponse(existing));
+                                }
+
+                                /*
+                                 * SUBMITTED/ACCEPTED means another request
+                                 * is currently processing the instruction.
+                                 */
+                                return ResponseEntity
+                                                .status(HttpStatus.CONFLICT)
+                                                .body(
+                                                                "An order with this idempotency key is already being processed");
+                        }
                         Order order = new Order();
 
                         order.setAccount(
@@ -87,6 +176,8 @@ public class OrderController {
 
                         order.setQuantity(
                                         request.getQuantity());
+                        order.setIdempotencyKey(
+                                        idempotencyKey);
 
                         executionService
                                         .submitOrder(order);
@@ -138,7 +229,8 @@ public class OrderController {
 
                         executionService
                                         .executeOrder(
-                                                        order.getId());
+                                                        order.getId(),
+                                                        idempotencyKey);
 
                         Order filledOrder = orderRepository
                                         .findById(
@@ -167,6 +259,25 @@ public class OrderController {
                                                         HttpStatus.INTERNAL_SERVER_ERROR)
                                         .body(
                                                         e.getMessage());
+                } catch (DataIntegrityViolationException e) {
+
+                        Optional<Order> existingOrder = orderRepository.findByIdempotencyKey(
+                                        idempotencyKey);
+
+                        if (existingOrder.isPresent()) {
+
+                                Order existing = existingOrder.get();
+
+                                return ResponseEntity
+                                                .status(HttpStatus.CONFLICT)
+                                                .body(
+                                                                "An order with this idempotency key is already being processed");
+                        }
+
+                        return ResponseEntity
+                                        .status(HttpStatus.CONFLICT)
+                                        .body(
+                                                        "Duplicate request detected");
                 }
         }
 
@@ -204,7 +315,6 @@ public class OrderController {
                 response.setStatus(order.getStatus());
                 response.setRejectionReason(order.getRejectionReason());
                 response.setSubmittedAt(order.getSubmittedAt());
-                
 
                 // Fetch fill price if order is filled
                 if (order.getStatus() == com.goatteen.trading.order.OrderStatus.FILLED) {
