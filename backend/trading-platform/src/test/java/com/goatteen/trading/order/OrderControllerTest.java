@@ -497,4 +497,32 @@ class OrderControllerTest {
                                                 any(),
                                                 any());
         }
+
+        @Test
+        void shouldRejectBlankIdempotencyKey() {
+
+                PlaceOrderRequest request = new PlaceOrderRequest(
+                                1L,
+                                OrderSide.BUY,
+                                BigDecimal.ONE);
+
+                ResponseEntity<?> response = controller.placeOrder(
+                                request,
+                                "   ");
+
+                assertEquals(
+                                400,
+                                response.getStatusCode().value());
+
+                assertEquals(
+                                "Idempotency-Key header is required",
+                                response.getBody());
+
+                verifyNoInteractions(
+                                currentUserService,
+                                accountOwnershipService,
+                                instrumentRepository,
+                                validationService,
+                                executionService);
+        }
 }

@@ -20,7 +20,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.Optional;
-import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 
 @RestController
@@ -55,16 +54,18 @@ public class OrderController {
         @PostMapping
         public ResponseEntity<?> placeOrder(
                         @Valid @RequestBody PlaceOrderRequest request,
-                        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+                        @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
                 if (idempotencyKey == null ||
                                 idempotencyKey.isBlank()) {
 
-                        idempotencyKey = UUID.randomUUID().toString();
-                } else {
-
-                        idempotencyKey = idempotencyKey.trim();
+                        return ResponseEntity
+                                        .badRequest()
+                                        .body(
+                                                        "Idempotency-Key header is required");
                 }
+
+                idempotencyKey = idempotencyKey.trim();
 
                 try {
 
