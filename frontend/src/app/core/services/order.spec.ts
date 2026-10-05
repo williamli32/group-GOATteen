@@ -66,7 +66,7 @@ describe('OrderService', () => {
 
 
     it(
-        'should submit an order without an account id',
+        'should submit an order without an account id and include the idempotency key',
         () => {
 
             const requestBody = {
@@ -80,8 +80,15 @@ describe('OrderService', () => {
             };
 
 
+            const idempotencyKey =
+                'test-order-idempotency-key-123';
+
+
             service
-                .placeOrder(requestBody)
+                .placeOrder(
+                    requestBody,
+                    idempotencyKey
+                )
                 .subscribe(order => {
 
                     expect(
@@ -112,6 +119,21 @@ describe('OrderService', () => {
             expect(
                 request.request.body.accountId
             ).toBeUndefined();
+
+
+            /*
+             * Sprint 5:
+             *
+             * The order request must carry the same
+             * idempotency key supplied to OrderService.
+             */
+            expect(
+                request.request.headers.get(
+                    'Idempotency-Key'
+                )
+            ).toBe(
+                idempotencyKey
+            );
 
 
             request.flush({
