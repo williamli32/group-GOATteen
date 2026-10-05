@@ -1,6 +1,5 @@
 package com.goatteen.trading.execution;
 
-import com.goatteen.trading.order.OrderRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,37 +9,57 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Integration test for Goal 5: Concurrent Duplicate-Processing Protection
- * Verify that simultaneous execution requests with the same idempotency key
- * do not create duplicate Fills, duplicate cash movements, or duplicate position updates.
- */
 @SpringBootTest
 @ActiveProfiles("test")
 class OrderExecutionConcurrentDuplicateProcessingTest {
 
-    private static final String TEST_DB = "leap_trading";
-    private static final String TEST_USER = "postgres";
+    /*
+     * Always use the dedicated integration-test database.
+     */
+    private static final String TEST_DB = "leap_sprint4_rollback_test";
+
+    private static final String TEST_USER = "leap_sprint4_test";
+
+    private static final String TEST_DB_URL = "jdbc:postgresql://localhost:5432/"
+            + TEST_DB;
 
     @DynamicPropertySource
-    static void configureDatabase(DynamicPropertyRegistry registry) {
-        String password = System.getenv("LEAP_TEST_DB_PASSWORD");
-        if (password == null || password.isBlank()) {
-            throw new IllegalStateException("Set LEAP_TEST_DB_PASSWORD before running this test");
+    static void configureDatabase(
+            DynamicPropertyRegistry registry) {
+
+        String password = System.getenv(
+                "LEAP_TEST_DB_PASSWORD");
+
+        if (password == null
+                || password.isBlank()) {
+
+            throw new IllegalStateException(
+                    "Set LEAP_TEST_DB_PASSWORD before running "
+                            + "OrderExecutionConcurrentDuplicateProcessingTest");
         }
-        registry.add("spring.datasource.url", 
-            () -> "jdbc:postgresql://localhost:5433/" + TEST_DB);
-        registry.add("spring.datasource.username", () -> TEST_USER);
-        registry.add("spring.datasource.password", () -> password);
+
+        registry.add(
+                "spring.datasource.url",
+                () -> TEST_DB_URL);
+
+        registry.add(
+                "spring.datasource.username",
+                () -> TEST_USER);
+
+        registry.add(
+                "spring.datasource.password",
+                () -> password);
     }
 
     @Autowired
@@ -49,172 +68,533 @@ class OrderExecutionConcurrentDuplicateProcessingTest {
     @Autowired
     private OrderExecutionService executionService;
 
-    @Autowired
-    private OrderRepository orderRepository;
-
-    /**
-     * Goal 5: Concurrent Duplicate-Processing Protection
-     * Verify that simultaneous execution requests with the same idempotency key
-     * do not create duplicate Fills, duplicate cash movements, or duplicate position updates.
+    /*
+     * Goal 5:
+     *
+     * Simultaneous attempts using the same logical execution
+     * must never create duplicate settlement.
      */
     @Test
-    void testConcurrentDuplicateProcessingProtection() throws InterruptedException {
-        // Generate unique suffix to avoid database constraint violations on repeated runs
-        // Use first 8 chars of UUID to stay within VARCHAR(50) limit for account_number
-        String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
+    void testConcurrentDuplicateProcessingProtection()
+            throws InterruptedException {
 
-        // Setup: Create account, instrument, and quote
-        Long accountId = createAccount(uniqueSuffix, new BigDecimal("50000.00"));
-        Long instrumentId = createInstrument(uniqueSuffix);
-        createQuote(instrumentId, new BigDecimal("100.00"), new BigDecimal("100.05"));
+        assertDedicatedTestDatabase();
 
-        // Create order with idempotency key (unique per execution attempt, not per test run)
+        String suffix = UUID.randomUUID()
+                .toString()
+                .substring(0, 8);
+
+        /*
+         * ---------------------------------------------------------
+         * Arrange
+         * ---------------------------------------------------------
+         */
+
+        Long accountId = createAccount(
+                suffix,
+                new BigDecimal("50000.00"));
+
+        Long instrumentId = createInstrument(
+                suffix);
+
+        createQuote(
+                instrumentId,
+                new BigDecimal("100.00"),
+                new BigDecimal("100.05"));
+
         String sharedIdempotencyKey = "concurrent-" + UUID.randomUUID();
+
         Long orderId = jdbc.queryForObject(
-            """
-            INSERT INTO orders
-                (account_id, instrument_id, side, quantity, status, submitted_at, idempotency_key)
-            VALUES (?, ?, 'BUY', 100, 'SUBMITTED', CURRENT_TIMESTAMP, ?)
-            RETURNING id
-            """,
-            Long.class,
-            accountId,
-            instrumentId,
-            sharedIdempotencyKey);
+                """
+                        INSERT INTO orders
+                            (
+                                account_id,
+                                instrument_id,
+                                side,
+                                quantity,
+                                status,
+                                submitted_at,
+                                idempotency_key
+                            )
+                        VALUES
+                            (
+                                ?,
+                                ?,
+                                'BUY',
+                                100,
+                                'SUBMITTED',
+                                CURRENT_TIMESTAMP,
+                                ?
+                            )
+                        RETURNING id
+                        """,
+                Long.class,
+                accountId,
+                instrumentId,
+                sharedIdempotencyKey);
 
-        // Accept the order before concurrent execution
-        executionService.acceptOrder(orderId);
+        executionService.acceptOrder(
+                orderId);
 
-        // Concurrent execution: Two threads try to execute the same order simultaneously
+        /*
+         * ---------------------------------------------------------
+         * Execute two requests concurrently.
+         * ---------------------------------------------------------
+         */
+
         int threadCount = 2;
-        CountDownLatch startLatch = new CountDownLatch(1);
-        CountDownLatch endLatch = new CountDownLatch(threadCount);
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger failureCount = new AtomicInteger(0);
 
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-        var order = orderRepository.findById(orderId).orElseThrow();
+        CountDownLatch readyLatch = new CountDownLatch(
+                threadCount);
+
+        CountDownLatch startLatch = new CountDownLatch(
+                1);
+
+        CountDownLatch endLatch = new CountDownLatch(
+                threadCount);
+
+        AtomicInteger successCount = new AtomicInteger();
+
+        AtomicInteger safeFailureCount = new AtomicInteger();
+
+        Queue<Throwable> unexpectedErrors = new ConcurrentLinkedQueue<>();
+
+        ExecutorService executor = Executors.newFixedThreadPool(
+                threadCount);
 
         for (int i = 0; i < threadCount; i++) {
-            executor.submit(() -> {
-                try {
-                    startLatch.await();
-                    executionService.executeOrder(order.getId(), sharedIdempotencyKey);
-                    successCount.incrementAndGet();
-                } catch (OrderExecutionService.OrderExecutionException e) {
-                    if (e.getMessage().contains("already")) {
-                        failureCount.incrementAndGet();
-                    } else {
-                        fail("Unexpected exception: " + e.getMessage());
-                    }
-                } catch (Exception e) {
-                    fail("Unexpected exception: " + e.getMessage());
-                } finally {
-                    endLatch.countDown();
-                }
-            });
+
+            executor.submit(
+                    () -> {
+
+                        try {
+
+                            /*
+                             * Signal that this worker is ready.
+                             */
+                            readyLatch.countDown();
+
+                            /*
+                             * Both workers wait here so execution
+                             * begins as close together as possible.
+                             */
+                            startLatch.await();
+
+                            executionService.executeOrder(
+                                    orderId,
+                                    sharedIdempotencyKey);
+
+                            /*
+                             * A retry is allowed to return the
+                             * already-existing Fill.
+                             *
+                             * Therefore more than one caller may
+                             * return successfully while only one
+                             * settlement occurs.
+                             */
+                            successCount.incrementAndGet();
+
+                        } catch (OrderExecutionService.OrderExecutionException e) {
+
+                            /*
+                             * The second concurrent request may:
+                             *
+                             * 1. find the existing Fill and return it, or
+                             *
+                             * 2. acquire the order lock after the first
+                             * execution completed and safely discover
+                             * that the order is no longer ACCEPTED.
+                             *
+                             * Both outcomes are safe.
+                             */
+                            if (e.getMessage() != null
+                                    && (e.getMessage()
+                                            .contains(
+                                                    "not in ACCEPTED")
+                                            ||
+                                            e.getMessage()
+                                                    .contains(
+                                                            "already"))) {
+
+                                safeFailureCount.incrementAndGet();
+
+                            } else {
+
+                                unexpectedErrors.add(
+                                        e);
+                            }
+
+                        } catch (Throwable e) {
+
+                            unexpectedErrors.add(
+                                    e);
+
+                        } finally {
+
+                            endLatch.countDown();
+                        }
+                    });
         }
 
-        // Start all threads simultaneously
+        /*
+         * Make sure both workers reached the starting point.
+         */
+        assertTrue(
+                readyLatch.await(
+                        5,
+                        TimeUnit.SECONDS),
+                "Concurrent workers did not become ready in time");
+
+        /*
+         * Release both workers.
+         */
         startLatch.countDown();
-        endLatch.await();
+
+        assertTrue(
+                endLatch.await(
+                        15,
+                        TimeUnit.SECONDS),
+                "Concurrent execution did not complete in time");
+
         executor.shutdown();
 
-        // Verify: At most one execution succeeded
-        assertTrue(successCount.get() <= 1,
-            "At most one execution should succeed; got " + successCount.get());
+        assertTrue(
+                executor.awaitTermination(
+                        5,
+                        TimeUnit.SECONDS),
+                "Executor did not terminate cleanly");
 
-        // Verify database state: only ONE Fill exists for this order
-        List<Long> fills = jdbc.queryForList(
-            "SELECT id FROM fills WHERE order_id = ?",
-            Long.class,
-            orderId);
+        /*
+         * ---------------------------------------------------------
+         * Verify thread outcomes.
+         * ---------------------------------------------------------
+         */
 
-        assertEquals(1, fills.size(), "Exactly one Fill should exist, not " + fills.size());
+        if (!unexpectedErrors.isEmpty()) {
 
-        // Verify cash transaction: only ONE cash movement
-        List<Long> cashTransactions = jdbc.queryForList(
-            "SELECT id FROM cash_transactions WHERE account_id = ?",
-            Long.class,
-            accountId);
+            Throwable first = unexpectedErrors.peek();
 
-        assertEquals(1, cashTransactions.size(),
-            "Exactly one cash transaction should exist for account, not " + cashTransactions.size());
+            fail(
+                    "Unexpected concurrent execution error: "
+                            + first.getClass().getSimpleName()
+                            + ": "
+                            + first.getMessage());
+        }
 
-        // Verify final order status: FILLED exactly once
-        String orderStatus = jdbc.queryForObject(
-            "SELECT status FROM orders WHERE id = ?",
-            String.class,
-            orderId);
+        /*
+         * At least one request must successfully execute
+         * the trade.
+         */
+        assertTrue(
+                successCount.get() >= 1,
+                "At least one execution attempt must succeed");
 
-        assertEquals("FILLED", orderStatus,
-            "Order should be FILLED after concurrent execution attempts");
+        /*
+         * Every worker must finish with either:
+         *
+         * - a successful result, or
+         * - a safe duplicate/state rejection.
+         */
+        assertEquals(
+                threadCount,
+                successCount.get()
+                        + safeFailureCount.get(),
+                "Every execution attempt should finish deterministically");
 
-        // Verify cash was deducted exactly once
-        BigDecimal finalBalance = jdbc.queryForObject(
-            "SELECT cash_balance FROM accounts WHERE id = ?",
-            BigDecimal.class,
-            accountId);
+        /*
+         * ---------------------------------------------------------
+         * Verify persisted settlement.
+         * ---------------------------------------------------------
+         */
 
-        BigDecimal expectedCost = new BigDecimal("100.05").multiply(new BigDecimal("100"));
-        BigDecimal expectedBalance = new BigDecimal("50000.00").subtract(expectedCost);
+        assertEquals(
+                "FILLED",
+                jdbc.queryForObject(
+                        """
+                                SELECT status
+                                FROM orders
+                                WHERE id = ?
+                                """,
+                        String.class,
+                        orderId));
 
-        assertEquals(expectedBalance, finalBalance,
-            "Cash should be deducted exactly once, not multiple times");
+        /*
+         * Exactly ONE Fill.
+         */
+        assertEquals(
+                1L,
+                count(
+                        """
+                                SELECT COUNT(*)
+                                FROM fills
+                                WHERE order_id = ?
+                                """,
+                        orderId));
+
+        /*
+         * Exactly ONE Fill with the shared idempotency key.
+         */
+        assertEquals(
+                1L,
+                count(
+                        """
+                                SELECT COUNT(*)
+                                FROM fills
+                                WHERE idempotency_key = ?
+                                """,
+                        sharedIdempotencyKey));
+
+        /*
+         * Exactly ONE cash movement associated with this trade.
+         */
+        assertEquals(
+                1L,
+                count(
+                        """
+                                SELECT COUNT(*)
+                                FROM cash_transactions ct
+                                JOIN fills f
+                                  ON f.id = ct.fill_id
+                                WHERE f.order_id = ?
+                                """,
+                        orderId));
+
+        /*
+         * Exactly ONE position-history movement.
+         */
+        assertEquals(
+                1L,
+                count(
+                        """
+                                SELECT COUNT(*)
+                                FROM position_history ph
+                                JOIN fills f
+                                  ON f.id = ph.fill_id
+                                WHERE f.order_id = ?
+                                """,
+                        orderId));
+
+        /*
+         * Exactly ONE FILLED audit-history event.
+         */
+        assertEquals(
+                1L,
+                count(
+                        """
+                                SELECT COUNT(*)
+                                FROM order_status_history
+                                WHERE order_id = ?
+                                  AND status = 'FILLED'
+                                """,
+                        orderId));
+
+        /*
+         * Cash deducted exactly once.
+         *
+         * 100 × 100.05 = 10,005
+         *
+         * 50,000 - 10,005 = 39,995
+         */
+        BigDecimal expectedCost = new BigDecimal("100.05")
+                .multiply(
+                        new BigDecimal("100"));
+
+        BigDecimal expectedBalance = new BigDecimal("50000.00")
+                .subtract(
+                        expectedCost);
+
+        assertAmount(
+                expectedBalance,
+                jdbc.queryForObject(
+                        """
+                                SELECT cash_balance
+                                FROM accounts
+                                WHERE id = ?
+                                """,
+                        BigDecimal.class,
+                        accountId));
+
+        /*
+         * Position updated exactly once.
+         */
+        assertAmount(
+                new BigDecimal("100"),
+                jdbc.queryForObject(
+                        """
+                                SELECT quantity
+                                FROM positions
+                                WHERE account_id = ?
+                                  AND instrument_id = ?
+                                """,
+                        BigDecimal.class,
+                        accountId,
+                        instrumentId));
     }
 
-    // Helper methods
-    private Long createAccount(String suffix, BigDecimal initialCash) {
+    private void assertDedicatedTestDatabase() {
+
+        assertEquals(
+                TEST_DB,
+                jdbc.queryForObject(
+                        "SELECT current_database()",
+                        String.class),
+                "Refusing to run against an unexpected database");
+
+        assertEquals(
+                TEST_USER,
+                jdbc.queryForObject(
+                        "SELECT current_user",
+                        String.class),
+                "Refusing to run with an unexpected database user");
+    }
+
+    private Long createAccount(
+            String suffix,
+            BigDecimal initialCash) {
+
         Long userId = jdbc.queryForObject(
-            """
-            INSERT INTO users (email, password_hash)
-            VALUES (?, 'test-password-hash')
-            RETURNING id
-            """,
-            Long.class,
-            "account-" + suffix + "@test.com");
+                """
+                        INSERT INTO users
+                            (
+                                email,
+                                password_hash
+                            )
+                        VALUES
+                            (
+                                ?,
+                                'test-password-hash'
+                            )
+                        RETURNING id
+                        """,
+                Long.class,
+                "concurrent-"
+                        + suffix
+                        + "@test.com");
 
         Long clientId = jdbc.queryForObject(
-            """
-            INSERT INTO clients (user_id, first_name, last_name)
-            VALUES (?, 'Test', 'Client')
-            RETURNING id
-            """,
-            Long.class,
-            userId);
+                """
+                        INSERT INTO clients
+                            (
+                                user_id,
+                                first_name,
+                                last_name
+                            )
+                        VALUES
+                            (
+                                ?,
+                                'Concurrent',
+                                'Test'
+                            )
+                        RETURNING id
+                        """,
+                Long.class,
+                userId);
 
         return jdbc.queryForObject(
-            """
-            INSERT INTO accounts (client_id, account_number, cash_balance, currency)
-            VALUES (?, ?, ?, 'USD')
-            RETURNING id
-            """,
-            Long.class,
-            clientId,
-            "ACC-" + suffix,
-            initialCash);
+                """
+                        INSERT INTO accounts
+                            (
+                                client_id,
+                                account_number,
+                                cash_balance,
+                                currency
+                            )
+                        VALUES
+                            (
+                                ?,
+                                ?,
+                                ?,
+                                'USD'
+                            )
+                        RETURNING id
+                        """,
+                Long.class,
+                clientId,
+                "ACC-CON-" + suffix,
+                initialCash);
     }
 
-    private Long createInstrument(String suffix) {
+    private Long createInstrument(
+            String suffix) {
+
         return jdbc.queryForObject(
-            """
-            INSERT INTO instruments (symbol, name, instrument_class, exchange, country_code, currency, tradable)
-            VALUES (?, 'Test Instrument', 'EQUITY', 'NYSE', 'US', 'USD', TRUE)
-            RETURNING id
-            """,
-            Long.class,
-            "TEST" + suffix);
+                """
+                        INSERT INTO instruments
+                            (
+                                symbol,
+                                name,
+                                instrument_class,
+                                exchange,
+                                country_code,
+                                currency,
+                                tradable
+                            )
+                        VALUES
+                            (
+                                ?,
+                                'Concurrent Test Instrument',
+                                'EQUITY',
+                                'NYSE',
+                                'US',
+                                'USD',
+                                TRUE
+                            )
+                        RETURNING id
+                        """,
+                Long.class,
+                "CON" + suffix);
     }
 
-    private void createQuote(Long instrumentId, BigDecimal bidPrice, BigDecimal askPrice) {
+    private void createQuote(
+            Long instrumentId,
+            BigDecimal bidPrice,
+            BigDecimal askPrice) {
+
         jdbc.update(
-            """
-            INSERT INTO market_quotes (instrument_id, bid_price, ask_price, last_price, quoted_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """,
-            instrumentId,
-            bidPrice,
-            askPrice,
-            bidPrice);
+                """
+                        INSERT INTO market_quotes
+                            (
+                                instrument_id,
+                                bid_price,
+                                ask_price,
+                                last_price,
+                                quoted_at
+                            )
+                        VALUES
+                            (
+                                ?,
+                                ?,
+                                ?,
+                                ?,
+                                CURRENT_TIMESTAMP
+                            )
+                        """,
+                instrumentId,
+                bidPrice,
+                askPrice,
+                bidPrice);
+    }
+
+    private long count(
+            String sql,
+            Object... arguments) {
+
+        return jdbc.queryForObject(
+                sql,
+                Long.class,
+                arguments);
+    }
+
+    private void assertAmount(
+            BigDecimal expected,
+            BigDecimal actual) {
+
+        assertNotNull(
+                actual);
+
+        assertEquals(
+                0,
+                expected.compareTo(
+                        actual));
     }
 }
