@@ -9,10 +9,13 @@ import com.goatteen.trading.order.OrderSide;
 import com.goatteen.trading.order.OrderStatus;
 import com.goatteen.trading.portfolio.CashTransaction;
 import com.goatteen.trading.portfolio.CashTransactionRepository;
+import com.goatteen.trading.portfolio.Position;
+import com.goatteen.trading.portfolio.PositionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -24,19 +27,22 @@ public class TradeReconstructionService {
     private final FillRepository fillRepository;
     private final CashTransactionRepository cashTransactionRepository;
     private final PositionHistoryRepository positionHistoryRepository;
+    private final PositionRepository positionRepository;
 
     public TradeReconstructionService(
             OrderRepository orderRepository,
             OrderStatusHistoryRepository orderStatusHistoryRepository,
             FillRepository fillRepository,
             CashTransactionRepository cashTransactionRepository,
-            PositionHistoryRepository positionHistoryRepository) {
+            PositionHistoryRepository positionHistoryRepository,
+            PositionRepository positionRepository) {
 
         this.orderRepository = orderRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
         this.fillRepository = fillRepository;
         this.cashTransactionRepository = cashTransactionRepository;
         this.positionHistoryRepository = positionHistoryRepository;
+        this.positionRepository = positionRepository;
     }
 
     /**
@@ -82,6 +88,8 @@ public class TradeReconstructionService {
                     fill,
                     cashTransactions);
 
+            validateCurrentCashBalance(order);
+
             positionHistory = positionHistoryRepository
                     .findByFillId(fill.getId())
                     .orElseThrow(() -> new TradeReconstructionException(
@@ -92,6 +100,8 @@ public class TradeReconstructionService {
                     order,
                     fill,
                     positionHistory);
+
+            validateCurrentPosition(order);
 
         } else if (order.getStatus() == OrderStatus.REJECTED) {
 
@@ -443,21 +453,32 @@ public class TradeReconstructionService {
                     "Cash transaction is not linked to the fill: "
                             + transaction.getId());
         }
-
         if (transaction.getAmount() == null) {
-
             throw new TradeReconstructionException(
                     "Cash transaction has no amount: "
                             + transaction.getId());
         }
 
-        if (transaction.getBalanceAfter() == null) {
+        if (transaction.getBalanceBefore() == null) {
+            throw new TradeReconstructionException(
+                    "Cash transaction has no starting balance: "
+                            + transaction.getId());
+        }
 
+        if (transaction.getBalanceAfter() == null) {
             throw new TradeReconstructionException(
                     "Cash transaction has no resulting balance: "
                             + transaction.getId());
         }
 
+        BigDecimal calculatedBalanceAfter = transaction.getBalanceBefore()
+                .add(transaction.getAmount());
+
+        if (calculatedBalanceAfter.compareTo(transaction.getBalanceAfter()) != 0) {
+            throw new TradeReconstructionException(
+                    "Cash transaction balance is inconsistent: "
+                            + transaction.getId());
+        }
         if (transaction.getCreatedAt() == null) {
 
             throw new TradeReconstructionException(
@@ -466,8 +487,8 @@ public class TradeReconstructionService {
         }
 
         BigDecimal expectedCashMovement = fill.getFillPrice()
-                .multiply(fill.getFillQuantity());
-
+                .multiply(fill.getFillQuantity())
+                .setScale(2, RoundingMode.HALF_UP);
         if (order.getSide() == OrderSide.BUY) {
             expectedCashMovement = expectedCashMovement.negate();
         }
@@ -565,6 +586,75 @@ public class TradeReconstructionService {
             throw new TradeReconstructionException(
                     "Position history contains a negative quantity: "
                             + history.getId());
+        }
+    }
+
+    private void validateCurrentPosition(Order order) {
+
+        PositionHistory latestHistory = positionHistoryRepository
+                .findFirstByAccountIdAndInstrumentIdOrderByRecordedAtDescIdDesc(
+                        order.getAccount().getId(),
+                        order.getInstrument().getId())
+                .orElseThrow(() -> new TradeReconstructionException(
+                        "No position history found for current position: "
+                                + order.getId()));
+
+        Position position = positionRepository
+                .findByAccountIdAndInstrumentId(
+                        order.getAccount().getId(),
+                        order.getInstrument().getId())
+                .orElseThrow(() -> new TradeReconstructionException(
+                        "Current position not found for order: "
+                                + order.getId()));
+
+        if (latestHistory.getQuantityAfter() == null) {
+            throw new TradeReconstructionException(
+                    "Latest position history has no resulting quantity: "
+                            + latestHistory.getId());
+        }
+
+        if (position.getQuantity() == null) {
+            throw new TradeReconstructionException(
+                    "Current position has no quantity: "
+                            + position.getId());
+        }
+
+        if (latestHistory.getQuantityAfter()
+                .compareTo(position.getQuantity()) != 0) {
+
+            throw new TradeReconstructionException(
+                    "Current position does not match latest position history for order: "
+                            + order.getId());
+        }
+    }
+
+    private void validateCurrentCashBalance(Order order) {
+
+        CashTransaction latestTransaction = cashTransactionRepository
+                .findFirstByAccountIdOrderByCreatedAtDescIdDesc(
+                        order.getAccount().getId())
+                .orElseThrow(() -> new TradeReconstructionException(
+                        "No cash transaction found for account: "
+                                + order.getAccount().getId()));
+
+        if (latestTransaction.getBalanceAfter() == null) {
+            throw new TradeReconstructionException(
+                    "Latest cash transaction has no resulting balance: "
+                            + latestTransaction.getId());
+        }
+
+        if (order.getAccount().getCashBalance() == null) {
+            throw new TradeReconstructionException(
+                    "Account has no current cash balance: "
+                            + order.getAccount().getId());
+        }
+
+        if (latestTransaction.getBalanceAfter()
+                .compareTo(order.getAccount().getCashBalance()) != 0) {
+
+            throw new TradeReconstructionException(
+                    "Current account cash balance does not match latest cash transaction for account: "
+                            + order.getAccount().getId());
         }
     }
 

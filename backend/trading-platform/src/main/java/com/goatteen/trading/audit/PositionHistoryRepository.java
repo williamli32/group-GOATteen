@@ -6,6 +6,13 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface PositionHistoryRepository extends JpaRepository<PositionHistory, Long> {
+public interface PositionHistoryRepository
+        extends JpaRepository<PositionHistory, Long> {
+
     Optional<PositionHistory> findByFillId(Long fillId);
+
+    Optional<PositionHistory>
+            findFirstByAccountIdAndInstrumentIdOrderByRecordedAtDescIdDesc(
+                    Long accountId,
+                    Long instrumentId);
 }
