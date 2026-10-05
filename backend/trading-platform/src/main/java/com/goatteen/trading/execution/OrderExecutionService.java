@@ -21,6 +21,7 @@ import com.goatteen.trading.audit.PositionHistory;
 import com.goatteen.trading.audit.PositionHistoryRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Service
@@ -345,8 +346,9 @@ public class OrderExecutionService {
                         return;
                 }
 
-                BigDecimal totalCost = executionPrice.multiply(
-                                order.getQuantity());
+                BigDecimal totalCost = executionPrice
+                        .multiply(order.getQuantity())
+                        .setScale(2, RoundingMode.HALF_UP);
 
                 BigDecimal newBalance = account.getCashBalance()
                                 .subtract(totalCost);
@@ -389,30 +391,40 @@ public class OrderExecutionService {
 
         private CashTransaction updateCashBalance(Account account, Order order, BigDecimal executionPrice)
                         throws OrderExecutionException {
-                BigDecimal totalCost = executionPrice.multiply(order.getQuantity());
+                BigDecimal balanceBefore = account.getCashBalance();
+
+                BigDecimal totalCost = executionPrice
+                        .multiply(order.getQuantity())
+                        .setScale(2, RoundingMode.HALF_UP);
+
+                BigDecimal signedAmount;
 
                 if (order.getSide() == OrderSide.BUY) {
-                        // Deduct cash
-                        BigDecimal newBalance = account.getCashBalance().subtract(totalCost);
-                        if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
-                                throw new OrderExecutionException("Insufficient cash after fill");
-                        }
-                        account.setCashBalance(newBalance);
+                        signedAmount = totalCost.negate();
                 } else {
-                        // Add cash
-                        account.setCashBalance(account.getCashBalance().add(totalCost));
+                        signedAmount = totalCost;
                 }
 
+                BigDecimal balanceAfter = balanceBefore.add(signedAmount);
+
+                if (balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
+                        throw new OrderExecutionException("Insufficient cash after fill");
+                }
+
+                account.setCashBalance(balanceAfter);
                 accountRepository.save(account);
 
-                // Record cash transaction (BR-09, BR-14)
                 CashTransaction transaction = new CashTransaction();
                 transaction.setAccount(account);
-                transaction.setAmount(order.getSide() == OrderSide.BUY ? totalCost.negate() : totalCost);
-                transaction.setBalanceAfter(account.getCashBalance());
+                transaction.setBalanceBefore(balanceBefore);
+                transaction.setAmount(signedAmount);
+                transaction.setBalanceAfter(balanceAfter);
                 transaction.setCreatedAt(LocalDateTime.now());
-                transaction.setDescription(order.getSide() + " " + order.getQuantity() + " @ " + executionPrice);
+                transaction.setDescription(
+                        order.getSide() + " " + order.getQuantity() + " @ " + executionPrice);
+
                 cashTransactionRepository.save(transaction);
+
                 return transaction;
         }
 
