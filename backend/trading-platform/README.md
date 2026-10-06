@@ -1,737 +1,423 @@
-# LEAP Trading Platform
+# LEAP Trading Platform Backend
 
-## Project Overview
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
+[![Java](https://img.shields.io/badge/java-21-blue)]()
+[![Spring Boot](https://img.shields.io/badge/spring%20boot-3.5.5-green)]()
+[![PostgreSQL](https://img.shields.io/badge/postgresql-17-336791)]()
 
-Group GOATteen trading platform, G.O.A.T. Platforms.
+A high-performance REST API for order execution, portfolio management, and market data integration built with Spring Boot 3.5.5 and Java 21.
 
-Developed by Prasamsha Dahal, Niyati Goswami, William Li, Nowsin Mozemder, Seeyan Newaz, Hannah Ton.
+## Table of Contents
 
-Direct-to-consumer trading platform built using:
-
-## Technology Stack
-
-### Backend
-
-#### Technologies Used
-
-- Java 21
-- Spring Boot
-- Spring Security
-- Spring Data JPA
-
-#### Organization
-
-The backend is organized into two subprojects: the **Trading Platform** (port 8080) and a **Market Data Service** (port 8081).
-
-The Trading Platform is the core backend, handling order execution, account management, and trade settlement with additional features such as pessimistic locking and idempotency protection, working with the backend database to store information.
-
-The Market Data Service is an auxiliary microservice that simulates real-time market quotes across multiple asset classes (US and international stocks, forex, crypto) with prices updating every 3 seconds using a random walk algorithm, providing the quote feeds that the Trading Platform uses when executing orders.
-
-### Frontend
-
-#### Technologies Used
-
-- Angular
-- TypeScript
-
-#### Organization
-
-The frontend is organized through multiple sections:
-
-- **Core** module with authentication services, route guards, and HTTP interceptors
-- **Features** module containing login/register components and account management
-- **Dashboard** for displaying trading activity and account information
-- The application uses standalone components with Angular routing patterns and RxJS observables for reactive state management
-- Later components will be added as the frontend gets developed
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Setup & Installation](#setup--installation)
+- [Configuration](#configuration)
+- [Database](#database)
+- [API Documentation](#api-documentation)
+- [Development](#development)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Troubleshooting](#troubleshooting)
+- [Key Features Deep Dive](#key-features-deep-dive)
 
 ---
 
-# Development Environment Setup
+## Features
 
-The development environment uses a Windows machine for development and a remote Linux/EC2 machine for Docker.
+### Core Trading Features
+- ✅ **Order Management** - Submit, accept, execute, and track orders
+- ✅ **Portfolio Tracking** - Real-time position and cash balance management
+- ✅ **Market Data Integration** - Stream live quotes from market data service
+- ✅ **Instrument Universe** - Support for stocks, ETFs, forex, and crypto
+- ✅ **Audit Trail** - Complete transaction history with timestamps
 
-Docker and PostgreSQL run on the Linux server, while the Spring Boot Trading Platform runs locally on Windows.
+### Advanced Capabilities
+- ✅ **Idempotent Order Execution** - Duplicate protection with unique keys
+- ✅ **Pessimistic Locking** - Prevent concurrent execution of same order
+- ✅ **Optimistic Locking** - Safe concurrent updates with version control
+- ✅ **Scheduled Sync** - Automatic market data and position synchronization
+- ✅ **JWT Authentication** - Secure REST API with token-based auth
 
-The Windows machine communicates with:
+### Enterprise Features
+- ✅ **Flyway Migrations** - Version-controlled database schema
+- ✅ **Comprehensive Logging** - SQL and application-level logging
+- ✅ **REST Validation** - Request validation with detailed error responses
+- ✅ **OpenAPI/Swagger** - Interactive API documentation at `/swagger-ui.html`
 
-1. The remote Docker daemon through SSH using `DOCKER_HOST`
-2. PostgreSQL through an SSH tunnel from Windows port `5433` to Linux port `5432`
+---
 
-The database connection route is:
+## Tech Stack
 
-```text
-Windows Development Machine
-        |
-        | Spring Boot
-        |
-        | jdbc:postgresql://localhost:5433/leap_trading
-        |
-        v
-Windows localhost:5433
-        |
-        | SSH Tunnel
-        v
-Linux / EC2 localhost:5432
-        |
-        v
-Docker
-        |
-        v
-leap-postgres
-        |
-        v
-PostgreSQL :5432
-        |
-        v
-leap_trading
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **JVM** | Java | 21 (LTS) |
+| **Framework** | Spring Boot | 3.5.5 |
+| **Web** | Spring MVC | 6.x |
+| **Persistence** | Spring Data JPA | 3.x |
+| **ORM** | Hibernate | 6.6.26 |
+| **Database** | PostgreSQL | 17 |
+| **Migrations** | Flyway | 10.x |
+| **Authentication** | JWT (jjwt) | 0.12.6 |
+| **Testing** | JUnit 5 + Mockito | 5.x |
+| **Documentation** | SpringDoc OpenAPI | 2.8.13 |
+| **Build** | Maven | 3.9.9 |
+
+---
+
+## Project Structure
+
+The project follows a **domain-driven design** with modules organized by business capability:
+
+| Directory | Purpose |
+|-----------|---------|
+| `execution/` | Order execution with idempotency protection (pessimistic locking + duplicate key detection) |
+| `order/` | Order state management (SUBMITTED → ACCEPTED → FILLED/REJECTED) |
+| `auth/` | JWT token generation, validation, and session management |
+| `portfolio/` | Position tracking, cash management, P&L calculation |
+| `marketdata/` | Integration with market data service, quote synchronization |
+| `audit/` | Audit trail for all trading operations |
+| `account/` | Account and client management |
+| `instrument/` | Instrument metadata (stocks, ETFs, forex, crypto) |
+| `common/` | Shared utilities, enums, exceptions |
+| `config/` | Spring configuration and security config |
+| `db/migration/` | 14 Flyway migrations (versioned database schema) |
+
+**Build & Configuration**:
+- `pom.xml` - Maven dependencies and plugins
+- `mvnw/mvnw.cmd` - Maven wrapper (no installation needed)
+- `Dockerfile` - Container image definition
+- `src/main/resources/application*.yaml` - Configuration by profile (dev, test, prod)
+
+---
+
+## Prerequisites
+
+### System Requirements
+- **Java 21+** (LTS - Long Term Support)
+- **Maven 3.9.x** or higher
+- **PostgreSQL 17+**
+- **Git**
+
+### Verify Installation
+```bash
+java -version              # Should show Java 21+
+mvn --version              # Should show Maven 3.9+
+psql --version             # Should show PostgreSQL 17+
 ```
 
 ---
 
-# One-Time Windows Setup
+## Setup & Installation
 
-The following steps only need to be completed once on a new Windows development machine.
-
-## 1. Install Docker CLI
-
-Open PowerShell from your Windows home directory.
-
-Run:
-
-```powershell
-winget install Docker.DockerCLI
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-org/group-GOATteen.git
+cd group-GOATteen/backend/trading-platform
 ```
 
-## 2. Install Docker Compose
+### 2. Database Setup
 
-Run:
+#### Remote Database (via SSH Tunnel)
 
-```powershell
-winget install Docker.DockerCompose
-```
-
-## 3. Configure the Remote Docker Host
-
-Set the `DOCKER_HOST` Windows user environment variable:
-
-```powershell
-[System.Environment]::SetEnvironmentVariable("DOCKER_HOST", "ssh://ec2-user@<your_linux_ip>", "User")
-```
-
-Replace:
-
-```text
-<your_linux_ip>
-```
-
-with the IP address of the Linux/EC2 machine.
-
-Example:
-
-```powershell
-[System.Environment]::SetEnvironmentVariable("DOCKER_HOST", "ssh://ec2-user@10.14.137.224", "User")
-```
-
-After running this command, close and reopen PowerShell or VS Code so the new environment variable is loaded.
-
-Verify it:
-
-```powershell
-echo $env:DOCKER_HOST
-```
-
-Expected format:
-
-```text
-ssh://ec2-user@<your_linux_ip>
-```
-
-You can verify which Docker host is being used with:
-
-```powershell
-docker info --format '{{.Name}}'
-```
-
-The returned name should identify the remote Linux/EC2 machine.
-
-You can also check:
-
-```powershell
-docker context ls
-```
-
-> **Important:** Because `DOCKER_HOST` points to the Linux server, commands such as `docker ps`, `docker-compose up`, `docker-compose down`, `docker exec`, and `docker logs` operate on Docker running on the Linux machine, not on local Windows Docker.
-
----
-
-# SSH Key Setup
-
-Generate an SSH key from PowerShell:
-
-```powershell
-ssh-keygen
-```
-
-Press **Enter** for all prompts unless you specifically want to use a custom key location or passphrase.
-
-The default public key is usually:
-
-```text
-C:\Users\<your_username>\.ssh\id_ed25519.pub
-```
-
-Copy the SSH public key to the Linux server:
-
-```powershell
-type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh ec2-user@<your_linux_ip> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
-```
-
-Example:
-
-```powershell
-type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh ec2-user@10.14.137.224 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
-```
-
-Verify that SSH works:
-
-```powershell
-ssh ec2-user@<your_linux_ip>
-```
-
-If the connection succeeds, exit the Linux shell:
+To establish connection to Docker from Neueda Windows VM
 
 ```bash
-exit
-```
+# Establish SSH tunnel to remote PostgreSQL
+ssh -L 5433:localhost:5432 ec2-user@10.14.141.220
 
----
-
-# SSH Tunnel Setup
-
-The Trading Platform runs locally on Windows while PostgreSQL runs inside Docker on Linux.
-
-An SSH tunnel is therefore required so that Spring Boot can access PostgreSQL securely.
-
-The tunnel forwards:
-
-```text
-Windows localhost:5433
-        |
-        | SSH
-        v
-Linux localhost:5432
-        |
-        v
-Docker PostgreSQL
-```
-
-## Start the SSH Tunnel
-
-Open **PowerShell inside VS Code**.
-
-From the project root, run:
-
-```powershell
-ssh -L 5433:localhost:5432 ec2-user@<your_linux_ip>
-```
-
-Example:
-
-```powershell
-ssh -L 5433:localhost:5432 ec2-user@10.14.137.224
-```
-
-Keep this terminal open at all times while developing.
-
-Closing this terminal closes the SSH tunnel and the locally running Spring Boot application will no longer be able to access PostgreSQL.
-
-### Optional Tunnel-Only Command
-
-To create the tunnel without opening an interactive Linux shell, use:
-
-```powershell
-ssh -N -L 5433:localhost:5432 ec2-user@<your_linux_ip>
-```
-
-Keep this terminal open while working.
-
----
-
-# Database
-
-PostgreSQL runs inside Docker on the remote Linux machine.
-
-## Start PostgreSQL
-
-Open another **PowerShell terminal inside VS Code**.
-
-From the project root:
-
-```powershell
+# In another terminal, verify connection:
 docker-compose up -d
-```
-
-Verify that PostgreSQL is running:
-
-```powershell
-docker ps
-```
-
-The PostgreSQL container should appear as:
-
-```text
-leap-postgres
-```
-
-## View PostgreSQL Logs
-
-```powershell
-docker-compose logs postgres
-```
-
-To continuously follow the logs:
-
-```powershell
-docker-compose logs -f postgres
-```
-
-## Stop PostgreSQL
-
-```powershell
-docker-compose down
-```
-
-The PostgreSQL data remains stored in the Docker volume.
-
-Do not use:
-
-```powershell
-docker-compose down -v
-```
-
-unless you intentionally want to delete the PostgreSQL volume and its stored data.
-
----
-
-# Development Database Setup
-
-The main development database is:
-
-```text
-leap_trading
-```
-
-## Check Whether `leap_trading` Exists
-
-Connect to the default PostgreSQL database:
-
-```powershell
-docker exec -it leap-postgres psql -U postgres -d postgres
-```
-
-Inside PostgreSQL, list the databases:
-
-```sql
-\l
-```
-
-Look for:
-
-```text
-leap_trading
-```
-
-Exit PostgreSQL with:
-
-```sql
-\q
-```
-
----
-
-## Create `leap_trading` If Required
-
-If `leap_trading` does not exist, connect to PostgreSQL:
-
-```powershell
-docker exec -it leap-postgres psql -U postgres -d postgres
-```
-
-Create the development database:
-
-```sql
-CREATE DATABASE leap_trading;
-```
-
-Verify that it exists:
-
-```sql
-\l
-```
-
-Exit PostgreSQL:
-
-```sql
-\q
-```
-
-When the Trading Platform backend starts, Flyway automatically applies the required database migrations.
-
----
-
-# Connect to the Development Database
-
-To connect directly to PostgreSQL inside the Docker container:
-
-```powershell
 docker exec -it leap-postgres psql -U postgres -d leap_trading
 ```
 
-# Connecting Through the SSH Tunnel
+### 3. Build the Project
+```bash
+cd backend/trading-platform
 
-With the SSH tunnel running, PostgreSQL can also be accessed from Windows through port `5433`.
+# Clean build, with tests
+mvn clean package  # Runs all tests (requires database)
 
-If `psql` is available locally:
-
-```powershell
-psql -h localhost -p 5433 -U postgres -d leap_trading
+# Without tests
+mvn clean package -DskipTests
 ```
 
-This accesses the same database as:
+### 4. Run the Application
 
-```powershell
-docker exec -it leap-postgres psql -U postgres -d leap_trading
+#### From Command Line
+```bash
+mvn spring-boot:run
+
+# Equivalent command
+./mvnw spring-boot:run
 ```
-
-The difference is the route used.
-
-Direct Docker connection:
-
-```text
-Windows Docker CLI
-        |
-        | SSH through DOCKER_HOST
-        v
-Linux Docker daemon
-        |
-        v
-leap-postgres
-        |
-        v
-PostgreSQL
-```
-
-Spring Boot / SSH tunnel connection:
-
-```text
-Windows
-        |
-        v
-localhost:5433
-        |
-        | SSH Tunnel
-        v
-Linux localhost:5432
-        |
-        v
-leap-postgres
-        |
-        v
-PostgreSQL
-```
-
-Both routes access the same PostgreSQL instance.
 
 ---
 
-# Spring Boot Development Configuration
+## Configuration
 
-The Trading Platform backend connects to PostgreSQL through the SSH tunnel.
+### Application Profiles
 
-The development datasource should therefore use:
+The application uses Spring profiles for 
+environment-specific configuration. There are application and application-dev YAML files with configuration for the database.
 
-```text
-jdbc:postgresql://localhost:5433/leap_trading
-```
-
-Example `application-dev.yaml`:
+### Key Configuration Properties
 
 ```yaml
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5433/leap_trading
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate              # Don't modify schema at startup
+    show-sql: true                    # Log SQL queries
+  
+  flyway:
+    enabled: true                     # Enable automatic migrations
+    locations: classpath:db/migration
+    validateOnMigrate: false          # Skip validation on startup
+
+app:
+  jwt:
+    accessTokenExpirationMinutes: 60  # Token valid for 1 hour
+  
+  auth:
+    refreshTokenExpirationDays: 7     # Refresh token valid for 7 days
 ```
 
-Database passwords should not be committed to source control.
+> **Security Note**: Sensitive configuration (database credentials, JWT secrets, API keys) should be provided at runtime via your deployment platform's secret management system (Kubernetes Secrets, AWS Secrets Manager, HashiCorp Vault, etc.). Never commit secrets to version control.
 
-Example using PowerShell:
+---
 
-```powershell
-$env:DB_USERNAME="postgres"
-$env:DB_PASSWORD="your-database-password"
+## Database
+
+### Schema Versions
+
+| Version | Description | Status |
+|---------|-------------|--------|
+| V1 | Create identity schema (users, roles) | ✅ Applied |
+| V2 | Create trading schema (orders, fills, positions) | ✅ Applied |
+| V3 | Fix market quote history | ✅ Applied |
+| V4 | Add optimistic locking (version fields) | ✅ Applied |
+| V5 | Create auth sessions | ✅ Applied |
+| V6 | Seed market data (instruments, quotes) | ✅ Applied |
+| V7-10 | Expand instrument universe (stocks, ETFs, forex, crypto) | ✅ Applied |
+| V11-13 | Performance & compliance improvements | ✅ Applied |
+| V14 | Add idempotency_key to fills (unique constraint) | ✅ Applied |
+
+### Troubleshooting Database Issues
+
+#### Flyway Migration Failed
+```bash
+# Repair Flyway metadata (use with caution!)
+mvn flyway:repair
+
+# Re-run migrations
+mvn flyway:migrate
 ```
 
-Example using Git Bash:
+#### Connection Refused
+```bash
+# Check if SSH tunnel is active
+ps aux | grep ssh
+
+# Verify PostgreSQL is running
+pg_isready -h localhost -p 5433
+```
+
+## API Documentation
+
+### Interactive API Docs
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **OpenAPI JSON**: http://localhost:8080/v3/api-docs
+
+### Core Endpoints
+
+#### Authentication
+```
+POST   /api/auth/register              # Register new user
+POST   /api/auth/login                 # Login (returns JWT token)
+POST   /api/auth/refresh               # Refresh access token
+POST   /api/auth/logout                # Logout
+```
+
+#### Order Management
+```
+GET    /api/orders                     # List all orders for account
+POST   /api/orders                     # Submit new order
+GET    /api/orders/{orderId}           # Get order details
+POST   /api/orders/{orderId}/accept    # Accept order (SUBMITTED → ACCEPTED)
+POST   /api/orders/{orderId}/reject    # Reject order (SUBMITTED → REJECTED)
+POST   /api/orders/execute/{orderId}   # Execute order (ACCEPTED → FILLED)
+```
+
+#### Portfolio
+```
+GET    /api/accounts                   # List all accounts
+GET    /api/accounts/{accountId}       # Get account details
+GET    /api/accounts/{accountId}/positions  # Get positions
+GET    /api/accounts/{accountId}/blotter    # Get order history
+```
+
+#### Market Data
+```
+GET    /api/instruments                # List all instruments
+GET    /api/market/quotes?symbol=AAPL  # Get latest quotes
+GET    /api/market/history?symbol=AAPL # Get quote history
+```
+
+### Order State Machine
+
+```
+┌──────────┐
+│SUBMITTED │  (new order)
+└─────┬────┘
+      │
+      ├─→ POST /accept  ─→  ┌──────────┐
+      │                     │ ACCEPTED │  (ready to fill)
+      │                     └─────┬────┘
+      │                           │
+      │                           └─→ POST /execute  ─→  ┌────────┐
+      │                                                  │ FILLED │  (terminal)
+      │                                                  └────────┘
+      │
+      └─→ POST /reject  ─→ ┌──────────┐
+                           │ REJECTED │  (terminal)
+                           └──────────┘
+```
+
+### Error Responses
+
+```json
+{
+  "timestamp": "2026-10-01T16:25:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Order quantity must be positive",
+  "path": "/api/orders"
+}
+```
+
+| Status | Meaning |
+|--------|---------|
+| 200 | Success |
+| 201 | Created |
+| 204 | No Content |
+| 400 | Bad Request (validation error) |
+| 401 | Unauthorized (missing/invalid token) |
+| 403 | Forbidden (insufficient permissions) |
+| 409 | Conflict (wrong order state) |
+| 500 | Internal Server Error |
+
+---
+
+## Development
+
+### Code Conventions
+
+- **Naming**: PascalCase for classes, camelCase for variables/methods
+- **Packages**: Group by domain (auth, order, portfolio, etc.)
+- **Logging**: Use SLF4J via `@Slf4j` annotation
+- **Comments**: Document public methods, complex logic, and business rules
+- **Error Handling**: Create custom exceptions extending `RuntimeException`
+
+## Testing
+
+### Test Structure
+
+STUB - update later
+
+### Health Checks
 
 ```bash
-export DB_USERNAME=postgres
-export DB_PASSWORD='your-database-password'
+# Application health
+curl http://localhost:8080/actuator/health
+
+# Detailed metrics
+curl http://localhost:8080/actuator/metrics
+
+# Database connectivity
+curl http://localhost:8080/actuator/health/db
+```
+
+## Troubleshooting
+
+### Application Won't Start
+
+#### Error: "Connection refused" to PostgreSQL
+```
+Solution:
+1. Verify PostgreSQL is running: pg_isready -h localhost -p 5433
+2. Check SSH tunnel: ps aux | grep ssh
+3. Verify datasource configuration is correct
+4. Test connection: psql -h localhost -p 5433 -U postgres -d leap_trading
+```
+
+#### Error: "Flyway validation failed"
+```
+Solution:
+1. Check if migrations are out of sync: mvn flyway:info
+2. Repair metadata: mvn flyway:repair
+3. Re-run migrations: mvn flyway:migrate
+4. Clear compiled bytecode: mvn clean
+```
+
+#### Error: "Port 8080 already in use"
+```bash
+# Find process using port 8080
+lsof -i :8080
+
+# Kill process
+kill -9 <PID>
+
+# Or use different port:
+mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=8081"
+```
+
+### Order State Machine
+
+**Valid Transitions**:
+- SUBMITTED → ACCEPTED → FILLED (terminal)
+- SUBMITTED → REJECTED (terminal)
+- ACCEPTED → REJECTED (terminal)
+
+**Enforced In**:
+```java
+// Order.java
+public void validateTransitionToAccepted() {
+    if (status != OrderStatus.SUBMITTED) {
+        throw new IllegalStateException("Only SUBMITTED orders can be accepted");
+    }
+}
 ```
 
 ---
 
-# Daily Development Startup
+## Contributing
 
-The recommended startup process uses multiple VS Code terminals.
+### Pull Request Workflow
+1. Create feature branch: `git checkout -b feature/description`
+2. Make changes and commit: `git commit -m "feat: description"`
+3. Push to remote: `git push origin feature/description`
+4. Create Pull Request on GitHub
+5. Ensure CI passes (tests, build)
+6. Get code review approval
+7. Merge to main
 
-## Terminal 1 - PowerShell - SSH Tunnel
-
-Open PowerShell inside VS Code.
-
-From the project root:
-
-```powershell
-ssh -L 5433:localhost:5432 ec2-user@<your_linux_ip>
+### Commit Message Convention
+```
+feat:    Add new feature
+fix:     Fix a bug
+docs:    Update documentation
+test:    Add or update tests
+refactor: Refactor code without changing behavior
+chore:   Update dependencies, configs
 ```
 
-Example:
-
-```powershell
-ssh -L 5433:localhost:5432 ec2-user@10.14.137.224
-```
-
-Keep this terminal open at all times.
-
----
-
-## Terminal 2 - PowerShell - Docker
-
-Open another PowerShell terminal inside VS Code.
-
-From the project root:
-
-```powershell
-docker-compose up -d
-```
-
-Verify Docker services:
-
-```powershell
-docker ps
-```
-
-Connect to the database if required:
-
-```powershell
-docker exec -it leap-postgres psql -U postgres -d leap_trading
-```
-
----
-
-## Terminal 3 - Git Bash - Trading Platform Backend
-
-Open Git Bash inside VS Code.
-
-From the project root:
-
-```bash
-cd backend/trading-platform
-```
-
-Start Spring Boot:
-
-```bash
-./mvnw spring-boot:run
-```
-
-If the `dev` profile needs to be explicitly enabled:
-
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-The Trading Platform backend runs on:
-
-```text
-http://localhost:8080
-```
-
----
-
-## Terminal 4 - Market Data Service
-
-Open another terminal.
-
-From the project root:
-
-```bash
-cd backend/market-data-service
-```
-
-Start the Market Data Service:
-
-```bash
-./mvnw spring-boot:run
-```
-
-The Market Data Service runs on:
-
-```text
-http://localhost:8081
-```
-
----
-
-## Terminal 5 - Angular Frontend
-
-Open another terminal.
-
-From the project root:
-
-```bash
-cd frontend
-```
-
-Install frontend dependencies if required:
-
-```bash
-npm install
-```
-
-Start Angular:
-
-```bash
-npm start
-```
-
-or:
-
-```bash
-ng serve
-```
-
-The Angular frontend runs on:
-
-```text
-http://localhost:4200
-```
-
----
-
-# Normal Startup Summary
-
-For normal development, use the following order:
-
-### 1. Open PowerShell and start the SSH tunnel
-
-```powershell
-ssh -L 5433:localhost:5432 ec2-user@<your_linux_ip>
-```
-
-Keep this terminal open.
-
-### 2. Open another PowerShell terminal and start Docker
-
-```powershell
-docker-compose up -d
-```
-
-### 3. Verify PostgreSQL
-
-```powershell
-docker ps
-```
-
-### 4. If required, connect to PostgreSQL
-
-```powershell
-docker exec -it leap-postgres psql -U postgres -d leap_trading
-```
-
-### 5. Open Git Bash and start the Trading Platform
-
-```bash
-cd backend/trading-platform
-./mvnw spring-boot:run
-```
-
-### 6. Start the Market Data Service
-
-```bash
-cd backend/market-data-service
-./mvnw spring-boot:run
-```
-
-### 7. Start the Angular frontend
-
-```bash
-cd frontend
-npm start
-```
-
----
-
-# Application Ports
-
-| Application | Port |
-|---|---:|
-| Angular Frontend | 4200 |
-| Trading Platform Backend | 8080 |
-| Market Data Service | 8081 |
-| Windows PostgreSQL SSH Tunnel | 5433 |
-| Linux/Docker PostgreSQL | 5432 |
-
----
-
-# API Documentation
-
-Swagger UI:
-
-```text
-http://localhost:8080/swagger-ui/index.html
-```
-
-OpenAPI JSON:
-
-```text
-http://localhost:8080/v3/api-docs
-```
-
-# Project Structure
-
-```text
-group-GOATteen/
-|
-|-- backend/
-|   |
-|   |-- trading-platform/
-|   |   `-- Core Spring Boot trading application
-|   |
-|   `-- market-data-service/
-|       `-- Simulated market quote service
-|
-|-- frontend/
-|   `-- Angular client application
-|
-|-- database/
-|   `-- Database-related resources
-|
-|-- docs/
-|   `-- Architecture and project documentation
-|
-|-- docker-compose.yaml
-|
-`-- README.md
-```
-
-## Main Directories
-
-- `backend` - Spring Boot backend services
-- `backend/trading-platform` - Order management, account management, execution, settlement, audit, recovery and API functionality
-- `backend/market-data-service` - Simulated market quotes
-- `frontend` - Angular application
-- `database` - Database-related resources
-- `docs` - Architecture and project documentation
+### Code Review Checklist
+- [ ] Tests pass (`mvn clean test`)
+- [ ] Build succeeds (`mvn clean package`)
+- [ ] No SQL/N+1 queries issues
+- [ ] Follows code conventions
+- [ ] Documentation updated
+- [ ] No secrets committed to repository
