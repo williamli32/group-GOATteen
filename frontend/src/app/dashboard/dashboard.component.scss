@@ -3,7 +3,7 @@
 :host {
   display: flex;
   width: 100%;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -28,12 +28,193 @@ $accent-primary: #00d4aa;
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
   background: $bg-dark;
   color: $text-primary;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
+}
+
+// ============ NOTIFICATIONS ============
+.notification-container {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+  width: 90%;
+  max-width: 600px;
+  pointer-events: none;
+
+  .notification {
+    pointer-events: auto;
+    padding: 16px 20px;
+    border-radius: 8px;
+    border-left: 5px solid;
+    background: $bg-darker;
+    color: $text-primary;
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slideDown 0.3s ease-out;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-100px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateY(-100px);
+        opacity: 0;
+      }
+    }
+
+    &.fade-out {
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .notification-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      gap: 16px;
+    }
+
+    .notification-message {
+      flex: 1;
+      word-break: break-word;
+      line-height: 1.5;
+      font-weight: 500;
+    }
+
+    .notification-close {
+      background: none;
+      border: none;
+      color: $text-muted;
+      cursor: pointer;
+      font-size: 24px;
+      padding: 0;
+      margin: 0;
+      transition: color 0.2s ease;
+      flex-shrink: 0;
+
+      &:hover {
+        color: $text-primary;
+      }
+    }
+
+    // Success notification
+    &.notification-success {
+      border-left-color: $accent-positive;
+      background: linear-gradient(
+        135deg,
+        rgba(34, 197, 94, 0.15),
+        rgba(34, 197, 94, 0.08)
+      );
+      color: $accent-positive;
+
+      .notification-message {
+        color: $accent-positive;
+      }
+
+      .notification-close {
+        color: rgba($accent-positive, 0.7);
+
+        &:hover {
+          color: $accent-positive;
+        }
+      }
+    }
+
+    // Error notification
+    &.notification-error {
+      border-left-color: #ff0000;
+      background: linear-gradient(
+        135deg,
+        rgba(255, 0, 0, 0.25),
+        rgba(255, 0, 0, 0.15)
+      );
+      color: #ff3333;
+
+      .notification-message {
+        color: #ff3333;
+        font-weight: 600;
+      }
+
+      .notification-close {
+        color: rgba(255, 0, 0, 0.8);
+
+        &:hover {
+          color: #ff0000;
+        }
+      }
+    }
+
+    // Info notification
+    &.notification-info {
+      border-left-color: $accent-primary;
+      background: linear-gradient(
+        135deg,
+        rgba(0, 212, 170, 0.15),
+        rgba(0, 212, 170, 0.08)
+      );
+      color: $accent-primary;
+
+      .notification-message {
+        color: $accent-primary;
+      }
+
+      .notification-close {
+        color: rgba($accent-primary, 0.7);
+
+        &:hover {
+          color: $accent-primary;
+        }
+      }
+    }
+
+    // Warning notification
+    &.notification-warning {
+      border-left-color: #f59e0b;
+      background: linear-gradient(
+        135deg,
+        rgba(245, 158, 11, 0.15),
+        rgba(245, 158, 11, 0.08)
+      );
+      color: #fbbf24;
+
+      .notification-message {
+        color: #fbbf24;
+      }
+
+      .notification-close {
+        color: rgba(#fbbf24, 0.7);
+
+        &:hover {
+          color: #fbbf24;
+        }
+      }
+    }
+  }
 }
 
 // ============ TOPBAR ============
@@ -54,7 +235,7 @@ $accent-primary: #00d4aa;
 
   .symbol-btn {
     padding: 4px 10px;
-    font-size: 11px;
+    font-size: 18px;
     font-family: 'JetBrains Mono', monospace;
     border-radius: 4px;
     border: none;
@@ -80,7 +261,7 @@ $accent-primary: #00d4aa;
     align-items: center;
     gap: 14px;
     margin-left: auto;
-    font-size: 11px;
+    font-size: 18px;
     font-family: 'JetBrains Mono', monospace;
 
     .label {
@@ -144,10 +325,12 @@ $accent-primary: #00d4aa;
 }
 
 .chart-area {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  width: 600px; /* Default width, will be overridden by ngStyle */
 }
 
 // ============ CHART SECTION ============
@@ -189,12 +372,12 @@ $accent-primary: #00d4aa;
 .positions-section {
   border-top: 1px solid $border-color;
   padding: 12px 16px;
-  flex-shrink: 0;
-  max-height: 200px;
+  flex: 0 0 auto;
   overflow-y: auto;
+  position: relative;
 
   .section-title {
-    font-size: 11px;
+    font-size: 18px;
     font-weight: 500;
     color: $text-muted;
     margin: 0 0 8px 0;
@@ -209,7 +392,7 @@ $accent-primary: #00d4aa;
   .positions-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 11px;
+    font-size: 18px;
     font-family: 'JetBrains Mono', monospace;
 
     thead {
@@ -264,10 +447,17 @@ $accent-primary: #00d4aa;
   }
 }
 
+::ng-deep .ngx-resizable-handle {
+  background: rgba(0, 212, 170, 0.1);
+  
+  &:hover {
+    background: rgba(0, 212, 170, 0.3);
+  }
+}
+
 // ============ RIGHT PANEL ============
 .right-panel {
-  width: 288px;
-  flex-shrink: 0;
+  flex: 1;
   border-left: 1px solid $border-color;
   display: flex;
   flex-direction: column;
@@ -280,9 +470,11 @@ $accent-primary: #00d4aa;
   padding: 12px 16px;
   border-bottom: 1px solid $border-color;
   flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
 
   .section-title {
-    font-size: 11px;
+    font-size: 18px;
     font-weight: 500;
     color: $text-muted;
     margin: 0 0 8px 0;
@@ -302,7 +494,7 @@ $accent-primary: #00d4aa;
     .side-btn {
       flex: 1;
       padding: 6px;
-      font-size: 11px;
+      font-size: 18px;
       font-weight: 600;
       border: none;
       background: transparent;
@@ -354,7 +546,7 @@ $accent-primary: #00d4aa;
         border: 1px solid $border-color;
         border-radius: 4px;
         padding: 6px 8px;
-        font-size: 11px;
+        font-size: 18px;
         font-family: 'JetBrains Mono', monospace;
         color: $text-primary;
         transition: border-color 0.2s ease;
@@ -364,10 +556,25 @@ $accent-primary: #00d4aa;
           border-color: $accent-primary;
         }
 
+        &[aria-invalid="true"] {
+          border-color: #ff3333;
+          background: rgba(255, 51, 51, 0.05);
+        }
+
         option {
           background: $bg-darker;
           color: $text-primary;
         }
+      }
+
+      .quantity-error {
+        font-size: 12px;
+        color: #ff3333;
+        margin-top: 4px;
+        margin-bottom: 0;
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1.3;
+        font-weight: 500;
       }
     }
 
@@ -380,7 +587,7 @@ $accent-primary: #00d4aa;
       .summary-row {
         display: flex;
         justify-content: space-between;
-        font-size: 10px;
+        font-size: 14px;
         color: $text-muted;
         margin-bottom: 3px;
 
@@ -399,7 +606,7 @@ $accent-primary: #00d4aa;
       padding: 8px;
       border-radius: 4px;
       border: none;
-      font-size: 11px;
+      font-size: 18px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -443,7 +650,7 @@ $accent-primary: #00d4aa;
   flex-direction: column;
 
   .section-title {
-    font-size: 11px;
+    font-size: 18px;
     font-weight: 500;
     color: $text-muted;
     margin: 0 0 8px 0;
@@ -473,14 +680,14 @@ $accent-primary: #00d4aa;
 
       .order-symbol {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 11px;
+        font-size: 18px;
         font-weight: 600;
         color: $text-primary;
       }
 
       .order-status {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 9px;
+        font-size: 13px;
         padding: 2px 4px;
         border-radius: 2px;
       }
@@ -491,7 +698,7 @@ $accent-primary: #00d4aa;
       justify-content: space-between;
       font-family: 'JetBrains Mono', monospace;
       color: $text-muted;
-      font-size: 9px;
+      font-size: 13px;
       margin-bottom: 2px;
 
       .side-buy {
@@ -504,7 +711,7 @@ $accent-primary: #00d4aa;
     }
 
     .order-time {
-      font-size: 9px;
+      font-size: 13px;
       color: #2a3f5f;
       margin: 0;
       font-family: 'JetBrains Mono', monospace;
@@ -565,445 +772,785 @@ $accent-primary: #00d4aa;
   }
 }
 
-// ============ RESPONSIVE ============
-@media (max-width: 1024px) {
-  .right-panel {
-    width: 256px;
+// =====================================================
+// SPRINT 2 ACCOUNT DASHBOARD INTEGRATION
+// =====================================================
+
+// Account identity
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+
+  .brand-name {
+    color: $accent-primary;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    font-size: 13px;
+  }
+
+  .account-name {
+    color: $text-primary;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .account-number {
+    color: $text-muted;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .divider {
+    width: 1px;
+    height: 18px;
+    background: $border-color;
   }
 }
 
-@media (max-width: 768px) {
-  .main-content {
-    flex-direction: column;
+
+// Logout
+
+.logout-btn {
+  padding: 8px 14px;
+  border-radius: 4px;
+
+  border: 1.5px solid #d97373;
+
+  background: rgba(220, 100, 100, 0.08);
+
+  color: #dc6464;
+
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    border-color: $accent-negative;
+    color: $accent-negative;
+    background: rgba(239, 68, 68, 0.12);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.15);
   }
 
-  .right-panel {
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid $border-color;
+  &:focus:not(:disabled) {
+    outline: none;
+    border-color: $accent-negative;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
   }
 
-  // =====================================================
-  // SPRINT 2 ACCOUNT DASHBOARD INTEGRATION
-  // =====================================================
-
-  :host {
-    height: 100vh;
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
+}
 
 
-  // Account identity
+// Main account placeholder
 
-  .account-identity {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
+.market-placeholder {
 
-    .brand-name {
-      color: $accent-primary;
-      font-weight: 700;
-      letter-spacing: 1.2px;
-      font-size: 13px;
-    }
+  flex: 1;
 
-    .account-name {
-      color: $text-primary;
-      font-weight: 600;
-      white-space: nowrap;
-    }
+  min-height: 240px;
 
-    .account-number {
-      color: $text-muted;
-      font-size: 10px;
-      white-space: nowrap;
-    }
+  display: flex;
+  flex-direction: column;
 
-    .divider {
-      width: 1px;
-      height: 18px;
-      background: $border-color;
-    }
-  }
+  justify-content: center;
+
+  border: 1px dashed $border-color;
+
+  border-radius: 6px;
+
+  padding: 28px;
+
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(0, 212, 170, 0.05),
+      transparent 55%);
+
+}
 
 
-  // Logout
+.placeholder-kicker {
 
-  .logout-btn {
-    padding: 5px 10px;
-    border-radius: 4px;
+  color: $accent-primary;
 
-    border: 1px solid $border-color;
+  font-size: 10px;
 
-    background: transparent;
+  letter-spacing: 1.4px;
+
+  margin-bottom: 8px;
+
+}
+
+
+.placeholder-title {
+
+  color: $text-primary;
+
+  font-size: 22px;
+
+  font-weight: 600;
+
+  margin-bottom: 8px;
+
+}
+
+
+.placeholder-copy {
+
+  max-width: 580px;
+
+  color: $text-muted;
+
+  font-size: 18px;
+
+  line-height: 1.7;
+
+  margin: 0 0 24px;
+
+}
+
+
+.account-summary-grid {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 10px;
+
+  max-width: 720px;
+
+}
+
+
+.summary-card {
+
+  border: 1px solid $border-color;
+
+  border-radius: 5px;
+
+  padding: 12px;
+
+  background: $bg-darker;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+
+}
+
+
+.summary-label {
+
+  color: $text-muted;
+
+  font-size: 13px;
+
+  letter-spacing: 0.6px;
+
+}
+
+
+.summary-value {
+
+  color: $text-primary;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+}
+
+
+// Account information in right panel
+
+.account-facts {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 7px;
+
+  padding: 9px;
+
+  border: 1px solid $border-color;
+
+  border-radius: 4px;
+
+  background: $bg-darker;
+
+}
+
+
+.fact-row {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  color: $text-muted;
+
+  font-size: 13px;
+
+  gap: 10px;
+
+
+  .mono {
 
     color: $text-dim;
 
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-family:
+      'JetBrains Mono',
+      monospace;
 
-    cursor: pointer;
-
-    transition: all 0.2s ease;
-
-    &:hover:not(:disabled) {
-      border-color: $accent-negative;
-      color: $accent-negative;
-      background: rgba(239, 68, 68, 0.05);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-  }
-
-
-  // Main account placeholder
-
-  .market-placeholder {
-
-    flex: 1;
-
-    min-height: 240px;
-
-    display: flex;
-    flex-direction: column;
-
-    justify-content: center;
-
-    border: 1px dashed $border-color;
-
-    border-radius: 6px;
-
-    padding: 28px;
-
-    background:
-      radial-gradient(circle at 50% 50%,
-        rgba(0, 212, 170, 0.05),
-        transparent 55%);
+    text-align: right;
 
   }
 
+}
 
-  .placeholder-kicker {
 
+.disabled-submit {
+
+  background: $border-color !important;
+
+  color: $text-muted !important;
+
+  cursor: not-allowed !important;
+
+  opacity: 0.65;
+
+}
+
+
+// Empty states
+
+.empty-state {
+
+  padding: 16px !important;
+
+  color: $text-muted !important;
+
+  text-align: center;
+
+}
+
+
+.empty-orders {
+
+  padding: 16px 8px;
+
+  border: 1px dashed $border-color;
+
+  border-radius: 4px;
+
+  color: $text-muted;
+
+  text-align: center;
+
+  font-size: 10px;
+
+}
+
+
+.rejection-reason {
+
+  margin: 5px 0 0;
+
+  padding-top: 5px;
+
+  border-top: 1px solid $border-light;
+
+  color: $accent-negative;
+
+  font-size: 13px;
+
+}
+
+
+// Extra real backend statuses
+
+.status-rejected {
+
+  .order-status {
+    background: rgba(239, 68, 68, 0.1);
+    color: $accent-negative;
+  }
+
+}
+
+
+.status-submitted {
+
+  .order-status {
+    background: rgba(0, 212, 170, 0.08);
+    color: $accent-primary;
+  }
+
+}
+
+
+// Loading / error screen
+
+.dashboard-state {
+
+  min-height: 100vh;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 14px;
+
+  background: $bg-dark;
+
+  color: $text-muted;
+
+  font-family:
+    'JetBrains Mono',
+    monospace;
+
+}
+
+
+.state-spinner {
+
+  width: 28px;
+  height: 28px;
+
+  border-radius: 50%;
+
+  border: 2px solid $border-color;
+
+  border-top-color: $accent-primary;
+
+  animation:
+    dashboard-spin 0.8s linear infinite;
+
+}
+
+
+@keyframes dashboard-spin {
+
+  to {
+    transform: rotate(360deg);
+  }
+
+}
+
+
+.state-error {
+
+  color: $accent-negative;
+
+}
+
+
+.retry-btn {
+
+  padding: 7px 14px;
+
+  border-radius: 4px;
+
+  border: 1px solid $accent-primary;
+
+  background:
+    rgba(0, 212, 170, 0.08);
+
+  color: $accent-primary;
+
+  font-family:
+    'JetBrains Mono',
+    monospace;
+
+  cursor: pointer;
+
+}
+
+
+// =====================================================
+// SPRINT 3 MARKET DATA
+// =====================================================
+
+.market-terminal {
+  flex: 1;
+  min-height: 240px;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+
+  border: 1px solid $border-color;
+  border-radius: 6px;
+
+  background: $bg-darker;
+}
+
+
+.selected-market {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 14px 16px;
+
+  border-bottom: 1px solid $border-color;
+}
+
+
+.selected-symbol {
+  color: $text-primary;
+
+  font-size: 20px;
+  font-weight: 700;
+}
+
+
+.selected-name {
+  margin-top: 3px;
+
+  color: $text-muted;
+
+  font-size: 10px;
+}
+
+
+.selected-price {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+
+  strong {
     color: $accent-primary;
 
-    font-size: 10px;
-
-    letter-spacing: 1.4px;
-
-    margin-bottom: 8px;
-
+    font-size: 20px;
   }
+}
 
 
-  .placeholder-title {
+.price-label,
+.currency-label {
+  color: $text-muted;
 
-    color: $text-primary;
+  font-size: 13px;
 
-    font-size: 22px;
+  letter-spacing: 0.5px;
+}
 
-    font-weight: 600;
 
-    margin-bottom: 8px;
+.market-table-wrapper {
+  flex: 1;
 
-  }
+  overflow: auto;
+}
 
 
-  .placeholder-copy {
+.market-table {
+  width: 100%;
 
-    max-width: 580px;
+  border-collapse: collapse;
 
-    color: $text-muted;
+  font-family:
+    'JetBrains Mono',
+    monospace;
 
-    font-size: 11px;
+  font-size: 15px;
 
-    line-height: 1.7;
+  th {
+    position: sticky;
+    top: 0;
 
-    margin: 0 0 24px;
-
-  }
-
-
-  .account-summary-grid {
-
-    display: grid;
-
-    grid-template-columns:
-      repeat(3, minmax(0, 1fr));
-
-    gap: 10px;
-
-    max-width: 720px;
-
-  }
-
-
-  .summary-card {
-
-    border: 1px solid $border-color;
-
-    border-radius: 5px;
-
-    padding: 12px;
-
-    background: $bg-darker;
-
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 5px;
-
-  }
-
-
-  .summary-label {
-
-    color: $text-muted;
-
-    font-size: 9px;
-
-    letter-spacing: 0.6px;
-
-  }
-
-
-  .summary-value {
-
-    color: $text-primary;
-
-    font-size: 13px;
-
-    font-weight: 600;
-
-  }
-
-
-  // Account information in right panel
-
-  .account-facts {
-
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 7px;
-
-    padding: 9px;
-
-    border: 1px solid $border-color;
-
-    border-radius: 4px;
-
-    background: $bg-darker;
-
-  }
-
-
-  .fact-row {
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    color: $text-muted;
-
-    font-size: 9px;
-
-    gap: 10px;
-
-
-    .mono {
-
-      color: $text-dim;
-
-      font-family:
-        'JetBrains Mono',
-        monospace;
-
-      text-align: right;
-
-    }
-
-  }
-
-
-  .disabled-submit {
-
-    background: $border-color !important;
-
-    color: $text-muted !important;
-
-    cursor: not-allowed !important;
-
-    opacity: 0.65;
-
-  }
-
-
-  // Empty states
-
-  .empty-state {
-
-    padding: 16px !important;
-
-    color: $text-muted !important;
-
-    text-align: center;
-
-  }
-
-
-  .empty-orders {
-
-    padding: 16px 8px;
-
-    border: 1px dashed $border-color;
-
-    border-radius: 4px;
-
-    color: $text-muted;
-
-    text-align: center;
-
-    font-size: 10px;
-
-  }
-
-
-  .rejection-reason {
-
-    margin: 5px 0 0;
-
-    padding-top: 5px;
-
-    border-top: 1px solid $border-light;
-
-    color: $accent-negative;
-
-    font-size: 9px;
-
-  }
-
-
-  // Extra real backend statuses
-
-  .status-rejected {
-
-    .order-status {
-      background: rgba(239, 68, 68, 0.1);
-      color: $accent-negative;
-    }
-
-  }
-
-
-  .status-submitted {
-
-    .order-status {
-      background: rgba(0, 212, 170, 0.08);
-      color: $accent-primary;
-    }
-
-  }
-
-
-  // Loading / error screen
-
-  .dashboard-state {
-
-    min-height: 100vh;
-
-    display: flex;
-
-    flex-direction: column;
-
-    align-items: center;
-
-    justify-content: center;
-
-    gap: 14px;
+    padding: 8px 10px;
 
     background: $bg-dark;
 
     color: $text-muted;
 
-    font-family:
-      'JetBrains Mono',
-      monospace;
+    text-align: right;
 
-  }
+    border-bottom:
+      1px solid $border-color;
 
-
-  .state-spinner {
-
-    width: 28px;
-    height: 28px;
-
-    border-radius: 50%;
-
-    border: 2px solid $border-color;
-
-    border-top-color: $accent-primary;
-
-    animation:
-      dashboard-spin 0.8s linear infinite;
-
-  }
-
-
-  @keyframes dashboard-spin {
-
-    to {
-      transform: rotate(360deg);
+    &:first-child,
+    &:nth-child(2) {
+      text-align: left;
     }
-
   }
 
+  td {
+    padding: 8px 10px;
 
-  .state-error {
+    text-align: right;
 
-    color: $accent-negative;
+    color: $text-dim;
 
+    border-bottom:
+      1px solid $border-light;
+
+    &:first-child,
+    &:nth-child(2) {
+      text-align: left;
+    }
+  }
+}
+
+
+.market-row {
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease;
+
+  &:hover {
+    background:
+      rgba(255, 255, 255, 0.025);
   }
 
+  &.selected {
+    background:
+      rgba(0, 212, 170, 0.07);
+  }
+}
 
-  .retry-btn {
 
-    padding: 7px 14px;
+.market-symbol {
+  color: $text-primary !important;
 
-    border-radius: 4px;
+  font-weight: 600;
+}
 
-    border: 1px solid $accent-primary;
 
+.market-last {
+  color: $accent-primary !important;
+}
+
+
+.market-state {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  color: $text-muted;
+}
+
+
+.market-error {
+  color: $accent-negative;
+}
+
+
+.market-retry-btn {
+  padding: 5px 9px;
+
+  border:
+    1px solid $accent-primary;
+
+  border-radius: 4px;
+
+  background:
+    rgba(0, 212, 170, 0.08);
+
+  color: $accent-primary;
+
+  font-family:
+    'JetBrains Mono',
+    monospace;
+
+  font-size: 13px;
+
+  cursor: pointer;
+}
+
+// =====================================================
+// SPRINT 3 ORDER TICKET
+// =====================================================
+
+.order-warning,
+.order-success,
+.order-error {
+  margin: 0;
+
+  padding: 7px 8px;
+
+  border-radius: 4px;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+.order-warning {
+  border:
+    1px solid rgba(245, 158, 11, 0.25);
+
+  background:
+    rgba(245, 158, 11, 0.06);
+
+  color: #f59e0b;
+}
+
+
+.order-success {
+  border:
+    1px solid rgba(34, 197, 94, 0.25);
+
+  background:
+    rgba(34, 197, 94, 0.06);
+
+  color: $accent-positive;
+}
+
+
+.order-error {
+  border:
+    1px solid rgba(239, 68, 68, 0.25);
+
+  background:
+    rgba(239, 68, 68, 0.06);
+
+  color: $accent-negative;
+}
+
+
+.submit-btn:disabled,
+.side-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+}
+
+
+.status-accepted {
+
+  .order-status {
     background:
       rgba(0, 212, 170, 0.08);
 
-    color: $accent-primary;
-
-    font-family:
-      'JetBrains Mono',
-      monospace;
-
-    cursor: pointer;
-
+    color:
+      $accent-primary;
   }
 
+}
 
-  @media (max-width: 850px) {
+// =====================================================
+// MOBILE LAYOUT
+// =====================================================
 
-    .account-summary-grid {
-      grid-template-columns: 1fr;
-    }
+@media (max-width: 600px) {
 
-    .account-number {
-      display: none;
-    }
+  .dashboard-container {
+    height: auto;
+    min-height: 100vh;
 
+    overflow: visible;
+  }
+
+  .topbar {
+    min-height: 52px;
+    height: auto;
+
+    flex-wrap: wrap;
+
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .topbar-right {
+    width: 100%;
+
+    margin-left: 0;
+
+    justify-content: space-between;
+
+    flex-wrap: wrap;
+  }
+
+  .main-content {
+    flex-direction: column;
+
+    overflow: visible;
+  }
+
+  .chart-area {
+    min-height: 500px;
+    border-right: 1px solid $border-color;
+    overflow: visible;
+  }
+
+  .right-panel {
+    width: 100%;
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    border-left: none;
+    border-top: 1px solid $border-color;
+
+    overflow: hidden;
+  }
+
+  .account-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-number {
+    display: none;
+  }
+
+  .selected-market {
+    align-items: flex-start;
+
+    gap: 12px;
+
+    flex-direction: column;
+  }
+
+  .market-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .market-table {
+    min-width: 620px;
+  }
+
+}
+
+// ============ RESIZE HANDLES ============
+.resizable-panel {
+  position: relative;
+  pointer-events: auto;
+  
+  // Visual indicator: subtle border highlight when hovering over resize zone
+  &.chart-area {
+    border-right: 1px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+  
+  &.order-panel,
+  &.positions-section {
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
   }
 }

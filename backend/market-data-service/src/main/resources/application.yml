@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: market-data-service
+
+server:
+  port: 8081
+
+logging:
+  level:
+    root: INFO
+    com.goatteen.market: DEBUG

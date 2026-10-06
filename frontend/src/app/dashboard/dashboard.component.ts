@@ -1,205 +1,1911 @@
 import {
+
   Component,
+
   OnInit,
-  signal
+
+  signal,
+
+  OnDestroy
+
 } from '@angular/core';
 
+
+
 import {
+
+  IdempotencyService
+
+} from '../core/services/idempotency';
+
+
+
+import {
+
+  MarketDataService,
+
+  MarketInstrumentResponse
+
+} from '../core/services/market-data';
+
+
+
+import {
+
   CommonModule
+
 } from '@angular/common';
 
+
+
+
+
+import { AppResizableDirective } from './resizable.directive';
+
+
+
+
+
 import {
+
   HttpErrorResponse
+
 } from '@angular/common/http';
 
+
+
 import {
+
   Router
+
 } from '@angular/router';
 
+
+
 import {
+
   finalize,
+
   forkJoin
+
 } from 'rxjs';
 
-import {
-  AccountResponse,
-  AccountService,
-  HoldingsResponse,
-  OrderResponse
-} from '../core/services/account';
+
 
 import {
+
+  AccountResponse,
+
+  AccountService,
+
+  HoldingsResponse,
+
+  OrderResponse
+
+} from '../core/services/account';
+
+
+
+import {
+
   Auth
+
 } from '../core/auth/auth';
 
 
+
+import {
+
+  FormsModule
+
+} from '@angular/forms';
+
+
+
+import {
+
+  OrderService,
+
+  OrderSide
+
+} from '../core/services/order';
+
+
+
+import {
+
+  NotificationService
+
+} from '../core/services/notification';
+
+
+
+
+
 @Component({
+
   selector: 'app-dashboard',
+
   standalone: true,
+
   imports: [
-    CommonModule
+
+    CommonModule,
+
+    FormsModule,
+
+    AppResizableDirective
+
   ],
+
   templateUrl: './dashboard.component.html',
+
   styleUrl: './dashboard.component.scss'
+
 })
-export class DashboardComponent implements OnInit {
 
-  account =
-    signal<AccountResponse | null>(null);
+export class DashboardComponent implements OnInit, OnDestroy {
 
-  holdings =
-    signal<HoldingsResponse | null>(null);
 
-  orders =
-    signal<OrderResponse[]>([]);
 
-  loading =
+  chartAreaWidth = signal(600);
+
+  orderPanelHeight = signal(300);
+
+  positionsPanelHeight = signal(250);
+
+
+
+  onResizeEnd(event: any) {
+
+    if (event.edges.right) {
+
+      this.chartAreaWidth.set(event.edges.right);
+
+    }
+
+  }
+
+
+
+  onResizeOrderPanel(event: any) {
+
+    if (event.edges.bottom) {
+
+      this.orderPanelHeight.set(event.edges.bottom);
+
+    }
+
+  }
+
+
+
+  onResizePositionsPanel(event: any) {
+
+    if (event.edges.top) {
+
+      this.positionsPanelHeight.set(event.edges.top);
+
+    }
+
+  }
+
+
+
+
+
+  marketInstruments =
+
+    signal<MarketInstrumentResponse[]>([]);
+
+
+
+  selectedInstrument =
+
+    signal<MarketInstrumentResponse | null>(null);
+
+
+
+  marketLoading =
+
     signal(true);
 
-  loggingOut =
-    signal(false);
 
-  errorMessage =
+
+  marketErrorMessage =
+
     signal('');
 
 
+
+  account =
+
+    signal<AccountResponse | null>(null);
+
+
+
+  holdings =
+
+    signal<HoldingsResponse | null>(null);
+
+
+
+  orders =
+
+    signal<OrderResponse[]>([]);
+
+
+
+  loading =
+
+    signal(true);
+
+
+
+  loggingOut =
+
+    signal(false);
+
+
+
+  errorMessage =
+
+    signal('');
+
+
+
+  orderSide: OrderSide =
+
+    'BUY';
+
+
+
+  orderQuantity:
+
+    number | null = null;
+
+
+
+  orderSubmitting =
+
+    signal(false);
+
+
+
+  orderMessage =
+
+    signal('');
+
+
+
+  orderErrorMessage =
+
+    signal('');
+
+
+
+  quantityError =
+
+    signal('');
+
+
+
+  private marketRefreshInterval: number | null = null;
+
+
+
+  private marketRefreshInProgress = false;
+
+
+
+  private dashboardRefreshInterval:
+
+    number | null = null;
+
+
+
+  private dashboardRefreshInProgress =
+
+    false;
+
+
+
   constructor(
+
     private accountService: AccountService,
+
+    private marketDataService: MarketDataService,
+
+    private orderService: OrderService,
+
     private auth: Auth,
-    private router: Router
-  ) {}
+
+    private router: Router,
+
+    public notificationService: NotificationService,
+
+    private idempotencyService: IdempotencyService
+
+  ) { }
+
+
+
 
 
   ngOnInit(): void {
 
+
+
+    /*
+
+     * Initial account/portfolio state.
+
+     */
+
     this.loadDashboard();
+
+
+
+    /*
+
+     * Initial market state.
+
+     */
+
+    this.loadMarketData();
+
+
+
+
+
+    /*
+
+     * Quotes refresh independently.
+
+     */
+
+    this.marketRefreshInterval =
+
+      window.setInterval(
+
+        () => this.loadMarketData(false),
+
+        3000
+
+      );
+
+
+
+
+
+    /*
+
+     * Sprint 4:
+
+     *
+
+     * Continuously refresh account cash,
+
+     * positions and the order blotter so that
+
+     * execution changes appear without logout
+
+     * or a manual browser refresh.
+
+     */
+
+    this.dashboardRefreshInterval =
+
+      window.setInterval(
+
+        () => this.loadDashboard(false),
+
+        3000
+
+      );
+
+
 
   }
 
 
-  loadDashboard(): void {
 
-    this.loading.set(true);
 
-    this.errorMessage.set('');
+
+  loadDashboard(
+
+    showLoading: boolean = true
+
+  ): void {
+
+
+
+    /*
+
+     * Prevent overlapping account refreshes.
+
+     */
+
+    if (this.dashboardRefreshInProgress) {
+
+      return;
+
+    }
+
+
+
+
+
+    this.dashboardRefreshInProgress =
+
+      true;
+
+
+
+
+
+    /*
+
+     * Only show the large loading state during
+
+     * the initial/manual dashboard load.
+
+     *
+
+     * Background polling must not make the
+
+     * dashboard flash every three seconds.
+
+     */
+
+    if (showLoading) {
+
+
+
+      this.loading.set(true);
+
+
+
+      this.errorMessage.set('');
+
+
+
+    }
+
+
+
 
 
     forkJoin({
 
+
+
       account:
+
         this.accountService.getMyAccount(),
 
+
+
       holdings:
+
         this.accountService.getHoldings(),
 
+
+
       orders:
+
         this.accountService.getBlotter()
 
+
+
     })
-    .pipe(
 
-      finalize(() => {
-
-        this.loading.set(false);
-
-      })
-
-    )
-    .subscribe({
-
-      next: result => {
-
-        this.account.set(
-          result.account
-        );
-
-        this.holdings.set(
-          result.holdings
-        );
-
-        this.orders.set(
-          result.orders
-        );
-
-      },
+      .pipe(
 
 
-      error: (error: HttpErrorResponse) => {
 
-        if (error.status === 401) {
+        finalize(() => {
 
-          this.auth.clearToken();
 
-          this.router.navigate([
-            '/login'
-          ]);
 
-          return;
+          this.dashboardRefreshInProgress =
+
+            false;
+
+
+
+
+
+          if (showLoading) {
+
+
+
+            this.loading.set(false);
+
+
+
+          }
+
+
+
+        })
+
+
+
+      )
+
+      .subscribe({
+
+
+
+        next: result => {
+
+
+
+          /*
+
+           * All client-visible Sprint 4 state is
+
+           * refreshed together.
+
+           */
+
+          this.account.set(
+
+            result.account
+
+          );
+
+
+
+          this.holdings.set(
+
+            result.holdings
+
+          );
+
+
+
+          this.orders.set(
+
+            result.orders
+
+          );
+
+
+
+
+
+          /*
+
+           * A successful refresh means any previous
+
+           * temporary dashboard error is no longer
+
+           * relevant.
+
+           */
+
+          if (showLoading) {
+
+
+
+            this.errorMessage.set('');
+
+
+
+          }
+
+
+
+        },
+
+
+
+
+
+        error: (
+
+          error: HttpErrorResponse
+
+        ) => {
+
+
+
+          if (error.status === 401) {
+
+
+
+            this.auth.clearToken();
+
+
+
+            this.router.navigate([
+
+              '/login'
+
+            ]);
+
+
+
+            return;
+
+          }
+
+
+
+
+
+          /*
+
+           * Background polling should retain the
+
+           * last successful account state rather
+
+           * than replacing the UI with an error.
+
+           */
+
+          if (showLoading) {
+
+
+
+            this.errorMessage.set(
+
+              'Unable to load your account dashboard. Please try again.'
+
+            );
+
+
+
+          }
+
+
+
         }
 
 
-        this.errorMessage.set(
-          'Unable to load your account dashboard. Please try again.'
-        );
 
-      }
+      });
 
-    });
+
 
   }
 
 
+
+
+
   logout(): void {
 
+
+
     if (this.loggingOut()) {
+
       return;
+
     }
+
+
+
 
 
     this.loggingOut.set(true);
 
 
+
+
+
     this.auth.logoutSession()
+
       .pipe(
+
+
 
         finalize(() => {
 
+
+
           this.loggingOut.set(false);
+
+
 
         })
 
+
+
       )
+
       .subscribe({
+
+
 
         next: () => {
 
+
+
           this.finishLogout();
+
+
 
         },
 
 
+
+
+
         error: () => {
 
+
+
           /*
+
            * Even if the server is temporarily unavailable,
+
            * remove the locally stored access token.
+
            */
+
           this.finishLogout();
+
+
 
         }
 
+
+
       });
+
+
 
   }
 
 
+
+
+
   private finishLogout(): void {
+
+
 
     this.auth.clearToken();
 
+
+
     this.router.navigate([
+
       '/login'
+
     ]);
+
+
+
+  }
+
+
+
+  loadMarketData(
+
+    showLoading = true
+
+  ): void {
+
+
+
+    if (this.marketRefreshInProgress) {
+
+      return;
+
+    }
+
+
+
+    this.marketRefreshInProgress = true;
+
+
+
+
+
+    if (showLoading) {
+
+
+
+      this.marketLoading.set(true);
+
+
+
+      this.marketErrorMessage.set('');
+
+
+
+    }
+
+
+
+
+
+    this.marketDataService
+
+      .getInstruments()
+
+      .pipe(
+
+
+
+        finalize(() => {
+
+
+
+          this.marketRefreshInProgress = false;
+
+
+
+          if (showLoading) {
+
+
+
+            this.marketLoading.set(false);
+
+
+
+          }
+
+
+
+        })
+
+
+
+      )
+
+      .subscribe({
+
+
+
+        next: instruments => {
+
+
+
+          this.marketInstruments.set(
+
+            instruments
+
+          );
+
+
+
+
+
+          const currentSelected =
+
+            this.selectedInstrument();
+
+
+
+
+
+          if (currentSelected) {
+
+
+
+            const refreshedSelected =
+
+              instruments.find(
+
+                instrument =>
+
+                  instrument.instrumentId ===
+
+                  currentSelected.instrumentId
+
+              );
+
+
+
+
+
+            if (refreshedSelected) {
+
+
+
+              this.selectedInstrument.set(
+
+                refreshedSelected
+
+              );
+
+
+
+            } else {
+
+
+
+              this.selectedInstrument.set(
+
+                instruments[0] ?? null
+
+              );
+
+
+
+            }
+
+
+
+          } else {
+
+
+
+            this.selectedInstrument.set(
+
+              instruments[0] ?? null
+
+            );
+
+
+
+          }
+
+
+
+
+
+          /*
+
+           * A successful refresh clears any previous
+
+           * market-data error.
+
+           */
+
+          this.marketErrorMessage.set('');
+
+
+
+        },
+
+
+
+
+
+        error: (
+
+          error: HttpErrorResponse
+
+        ) => {
+
+
+
+          if (error.status === 401) {
+
+
+
+            this.auth.clearToken();
+
+
+
+            this.router.navigate([
+
+              '/login'
+
+            ]);
+
+
+
+            return;
+
+
+
+          }
+
+
+
+
+
+          /*
+
+           * Only replace the visible market area with
+
+           * an error during the initial/manual load.
+
+           *
+
+           * A failed background refresh leaves the most
+
+           * recently loaded prices visible.
+
+           */
+
+          if (showLoading) {
+
+
+
+            this.marketErrorMessage.set(
+
+              'Unable to load market data.'
+
+            );
+
+
+
+          }
+
+
+
+        }
+
+
+
+      });
+
+
+
+  }
+
+
+
+
+
+  isQuantityValid(): boolean {
+
+    const quantity = Number(this.orderQuantity);
+
+    return Number.isFinite(quantity) && quantity > 0;
+
+  }
+
+
+
+  validateQuantity(): void {
+
+    if (this.orderQuantity === null || this.orderQuantity === undefined) {
+
+      this.quantityError.set('');
+
+      return;
+
+    }
+
+
+
+    const quantity = Number(this.orderQuantity);
+
+
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+
+      this.quantityError.set('Enter a valid quantity greater than 0.');
+
+    } else {
+
+      this.quantityError.set('');
+
+    }
+
+  }
+
+
+
+  selectInstrument(
+
+    instrument: MarketInstrumentResponse
+
+  ): void {
+
+
+
+    this.selectedInstrument.set(
+
+      instrument
+
+    );
+
+
+
+    this.orderMessage.set('');
+
+
+
+    this.orderErrorMessage.set('');
+
+
+
+    this.quantityError.set('');
+
+
+
+  }
+
+
+
+  setOrderSide(
+
+    side: OrderSide
+
+  ): void {
+
+
+
+    this.orderSide =
+
+      side;
+
+
+
+    this.orderMessage.set('');
+
+
+
+    this.orderErrorMessage.set('');
+
+
+
+  }
+
+
+
+
+
+  currentOrderPrice():
+
+    number | null {
+
+
+
+    const quote =
+
+      this.selectedInstrument()
+
+        ?.latestQuote;
+
+
+
+    if (!quote) {
+
+      return null;
+
+    }
+
+
+
+    return this.orderSide === 'BUY'
+
+      ? quote.askPrice
+
+      : quote.bidPrice;
+
+
+
+  }
+
+
+
+
+
+  estimatedNotional():
+
+    number | null {
+
+
+
+    const price =
+
+      this.currentOrderPrice();
+
+
+
+    const quantity =
+
+      Number(this.orderQuantity);
+
+
+
+
+
+    if (
+
+      price === null ||
+
+      !Number.isFinite(quantity) ||
+
+      quantity <= 0
+
+    ) {
+
+
+
+      return null;
+
+
+
+    }
+
+
+
+
+
+    return price * quantity;
+
+
+
+  }
+
+
+
+
+
+  submitOrder(): void {
+
+
+
+    if (this.orderSubmitting()) {
+
+      return;
+
+    }
+
+
+
+
+
+    this.orderMessage.set('');
+
+
+
+    this.orderErrorMessage.set('');
+
+
+
+    this.quantityError.set('');
+
+
+
+
+
+    const instrument =
+
+      this.selectedInstrument();
+
+
+
+
+
+    if (!instrument) {
+
+
+
+      this.orderErrorMessage.set(
+
+        'Select an instrument first.'
+
+      );
+
+
+
+      return;
+
+
+
+    }
+
+
+
+
+
+    if (!instrument.latestQuote) {
+
+
+
+      this.orderErrorMessage.set(
+
+        'No market quote is available for this instrument.'
+
+      );
+
+
+
+      return;
+
+
+
+    }
+
+
+
+
+
+    const quantity =
+
+      Number(this.orderQuantity);
+
+
+
+
+
+    if (
+
+      !Number.isFinite(quantity) ||
+
+      quantity <= 0
+
+    ) {
+
+
+
+      this.quantityError.set(
+
+        'Enter a valid quantity greater than 0.'
+
+      );
+
+
+
+      return;
+
+
+
+    }
+
+
+
+
+
+    this.orderSubmitting.set(true);
+
+
+
+    const idempotencyKey =
+
+      this.idempotencyService.getOrCreateKey();
+
+
+
+    this.orderService.placeOrder(
+
+      {
+
+        instrumentId:
+
+          instrument.instrumentId,
+
+
+
+        side:
+
+          this.orderSide,
+
+
+
+        quantity
+
+      },
+
+      idempotencyKey
+
+    )
+
+      .pipe(
+
+
+
+        finalize(() => {
+
+
+
+          this.orderSubmitting.set(
+
+            false
+
+          );
+
+
+
+        })
+
+
+
+      )
+
+      .subscribe({
+
+
+
+        next: order => {
+
+
+
+          this.addOrderToBlotter(
+
+            order
+
+          );
+
+
+
+          /*
+
+ * Refresh cash, positions and orders immediately
+
+ * after execution without displaying the main
+
+ * loading state.
+
+ */
+
+          this.loadDashboard(false);
+
+
+
+          this.orderMessage.set(
+
+            `Order #${order.id} filled.`
+
+          );
+
+
+
+          this.notificationService.show(
+
+            `✓ Order #${order.id} filled - ${this.orderSide} ${this.orderQuantity} units`,
+
+            'success',
+
+            5000
+
+          );
+
+
+
+          this.orderQuantity =
+
+            null;
+
+
+
+          this.idempotencyService.clearKey();
+
+
+
+        },
+
+
+
+
+
+        error: (
+
+          error: HttpErrorResponse
+
+        ) => {
+
+
+
+          if (error.status === 401) {
+
+
+
+            this.auth.clearToken();
+
+
+
+            this.router.navigate([
+
+              '/login'
+
+            ]);
+
+
+
+            return;
+
+
+
+          }
+
+
+
+
+
+          /*
+
+           * Business-rule rejection from the
+
+           * order controller returns the stored
+
+           * OrderResponse in the 400 body.
+
+           */
+
+          const rejectedOrder =
+
+            error.error as OrderResponse;
+
+
+
+
+
+          if (
+
+            error.status === 400 &&
+
+            rejectedOrder &&
+
+            typeof rejectedOrder.id === 'number' &&
+
+            rejectedOrder.status === 'REJECTED'
+
+          ) {
+
+
+
+            this.addOrderToBlotter(
+
+              rejectedOrder
+
+            );
+
+
+
+            const rejectionMsg = rejectedOrder.rejectionReason ?? 'Order rejected.';
+
+
+
+            this.orderErrorMessage.set(
+
+              rejectionMsg
+
+            );
+
+
+
+            this.notificationService.show(
+
+              `✗ Order rejected: ${rejectionMsg}`,
+
+              'error',
+
+              5000
+
+            );
+
+
+
+            
+            /*
+             * The order was definitively rejected by the server.
+             * This idempotency key must not be reused for the
+             * user's next, potentially different order.
+             */
+            this.idempotencyService.clearKey();
+
+            return;
+
+
+
+          }
+
+
+
+
+
+          /*
+           * The server has determined that the current idempotency
+           * key was already used for different order parameters.
+           * Discard the stale key so the next submission gets a
+           * fresh key.
+           */
+          if (error.status === 422) {
+
+            this.idempotencyService.clearKey();
+
+            this.orderErrorMessage.set(
+              'The previous order request key was already used. Please submit the order again.'
+            );
+
+            this.notificationService.show(
+              '✗ Previous order request expired. Please submit the order again.',
+              'error',
+              5000
+            );
+
+            return;
+
+          }
+
+
+          this.orderErrorMessage.set(
+
+            'Unable to submit the order.'
+
+          );
+
+
+
+          this.notificationService.show(
+
+            '✗ Unable to submit the order. Please try again.',
+
+            'error',
+
+            5000
+
+          );
+
+
+
+        }
+
+
+
+      });
+
+
+
+  }
+
+
+
+
+
+  private addOrderToBlotter(
+
+    order: OrderResponse
+
+  ): void {
+
+
+
+    this.orders.update(
+
+      current => [
+
+
+
+        order,
+
+
+
+        ...current.filter(
+
+          existing =>
+
+            existing.id !== order.id
+
+        )
+
+
+
+      ]
+
+    );
+
+
+
+  }
+
+
+
+  ngOnDestroy(): void {
+
+
+
+    if (this.marketRefreshInterval !== null) {
+
+
+
+      window.clearInterval(
+
+        this.marketRefreshInterval
+
+      );
+
+
+
+      this.marketRefreshInterval =
+
+        null;
+
+
+
+    }
+
+
+
+
+
+    if (
+
+      this.dashboardRefreshInterval !== null
+
+    ) {
+
+
+
+      window.clearInterval(
+
+        this.dashboardRefreshInterval
+
+      );
+
+
+
+      this.dashboardRefreshInterval =
+
+        null;
+
+
+
+    }
+
+
+
+  }
+
+
+
+  currencyName(
+
+    currency: string | null | undefined
+
+  ): string {
+
+
+
+    switch (
+
+    currency?.toUpperCase()
+
+    ) {
+
+
+
+      case 'USD':
+
+        return 'US Dollar';
+
+
+
+      case 'GBP':
+
+        return 'British Pound';
+
+
+
+      case 'INR':
+
+        return 'Indian Rupee';
+
+
+
+      case 'EUR':
+
+        return 'Euro';
+
+
+
+      case 'CHF':
+
+        return 'Swiss Franc';
+
+
+
+      case 'CAD':
+
+        return 'Canadian Dollar';
+
+
+
+      case 'AUD':
+
+        return 'Australian Dollar';
+
+
+
+      case 'JPY':
+
+        return 'Japanese Yen';
+
+
+
+      default:
+
+        return currency ?? '—';
+
+
+
+    }
+
+
+
+  }
+
+
+
+  marketName(
+
+    exchange: string | null | undefined
+
+  ): string {
+
+
+
+    switch (
+
+    exchange?.toUpperCase()
+
+    ) {
+
+
+
+      case 'NASDAQ':
+
+        return 'Nasdaq Stock Market';
+
+
+
+      case 'NYSE':
+
+        return 'New York Stock Exchange';
+
+
+
+      case 'NSE_IN':
+
+        return 'National Stock Exchange of India';
+
+
+
+      case 'LSE':
+
+        return 'London Stock Exchange';
+
+
+
+      case 'XETRA':
+
+        return 'Xetra';
+
+
+
+      case 'SIX':
+
+        return 'SIX Swiss Exchange';
+
+
+
+      case 'TSX':
+
+        return 'Toronto Stock Exchange';
+
+
+
+      case 'ASX':
+
+        return 'Australian Securities Exchange';
+
+
+
+      case 'FOREX':
+
+        return 'Foreign Exchange Market';
+
+
+
+      case 'CRYPTO':
+
+        return 'Cryptocurrency Market';
+
+
+
+      default:
+
+        return exchange ?? '—';
+
+
+
+    }
+
+
 
   }
 

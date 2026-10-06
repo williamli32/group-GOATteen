@@ -29,8 +29,12 @@ backend/trading-platform/src/main/resources/application-dev.yaml
 
 .git
 
-backend/target
+backend/trading-platform/target
+backend/market-data-service/target
 frontend/node_modules
 frontend/dist
 
 req/
+
+# Scripts
+scripts/

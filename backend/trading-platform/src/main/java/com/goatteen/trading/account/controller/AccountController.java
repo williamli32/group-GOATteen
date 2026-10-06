@@ -108,12 +108,13 @@ public class AccountController {
         response.setStatus(order.getStatus());
         response.setRejectionReason(order.getRejectionReason());
         response.setSubmittedAt(order.getSubmittedAt());
-        response.setFilledAt(order.getCompletedAt());
+        
 
         if (order.getStatus() == OrderStatus.FILLED) {
             Fill fill = fillRepository.findByOrderId(order.getId()).orElse(null);
             if (fill != null) {
                 response.setFillPrice(fill.getFillPrice());
+                response.setFilledAt(fill.getExecutedAt());
             }
         }
 

@@ -1,33 +1,34 @@
 package com.goatteen.trading.order.dto;
 
 import com.goatteen.trading.order.OrderSide;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
-
 public class PlaceOrderRequest {
 
-    private Long accountId;
+    @NotNull(message = "Instrument is required")
+    @Positive(message = "Instrument ID must be positive")
     private Long instrumentId;
+
+    @NotNull(message = "Order side is required")
     private OrderSide side;
+
+    @NotNull(message = "Quantity is required")
+    @Positive(message = "Quantity must be greater than zero")
     private BigDecimal quantity;
 
     public PlaceOrderRequest() {
     }
 
-    public PlaceOrderRequest(Long accountId, Long instrumentId, OrderSide side, BigDecimal quantity) {
-        this.accountId = accountId;
+    public PlaceOrderRequest(
+            Long instrumentId,
+            OrderSide side,
+            BigDecimal quantity) {
         this.instrumentId = instrumentId;
         this.side = side;
         this.quantity = quantity;
-    }
-
-    public Long getAccountId() {
-        return accountId;
-    }
-
-    public void setAccountId(Long accountId) {
-        this.accountId = accountId;
     }
 
     public Long getInstrumentId() {

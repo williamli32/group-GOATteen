@@ -30,7 +30,7 @@ export class Register {
   constructor(
     private auth: Auth,
     private router: Router
-  ) {}
+  ) { }
 
   register(): void {
 
@@ -50,6 +50,16 @@ export class Register {
       return;
     }
 
+    if (
+      this.password.length < 12 ||
+      this.password.length > 72
+    ) {
+      this.validationMessage.set(
+        'Password must be between 12 and 72 characters.'
+      );
+      return;
+    }
+
     if (this.password !== this.confirmPassword) {
       this.validationMessage.set(
         'Passwords do not match.'
@@ -65,36 +75,36 @@ export class Register {
       email: this.email.trim(),
       password: this.password
     })
-    .pipe(
-      finalize(() => {
-        this.loading.set(false);
-      })
-    )
-    .subscribe({
+      .pipe(
+        finalize(() => {
+          this.loading.set(false);
+        })
+      )
+      .subscribe({
 
-      next: () => {
-        this.router.navigate(['/login']);
-      },
+        next: () => {
+          this.router.navigate(['/login']);
+        },
 
-      error: (error) => {
+        error: (error) => {
 
-        if (error.status === 409) {
-          this.errorMessage.set(
-            'An account with this email already exists.'
-          );
+          if (error.status === 409) {
+            this.errorMessage.set(
+              'An account with this email already exists.'
+            );
 
-        } else if (error.status === 400) {
-          this.errorMessage.set(
-            'Please check your information and try again.'
-          );
+          } else if (error.status === 400) {
+            this.errorMessage.set(
+              'Please check your information and try again.'
+            );
 
-        } else {
-          this.errorMessage.set(
-            'Registration failed. Please try again.'
-          );
+          } else {
+            this.errorMessage.set(
+              'Registration failed. Please try again.'
+            );
+          }
         }
-      }
 
-    });
+      });
   }
 }
