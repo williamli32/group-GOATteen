@@ -27,7 +27,71 @@ public class OrderFilledEvent extends ApplicationEvent{
     private final BigDecimal askPrice;
     private final LocalDateTime quoteTimestamp;
 
-    public OrderFilledEvent (
+    public Long getFillId() {
+		return fillId;
+	}
+
+	public Long getOrderId() {
+		return orderId;
+	}
+
+	public Long getAccountId() {
+		return accountId;
+	}
+
+	public Long getClientId() {
+		return clientId;
+	}
+
+	public Long getInstrumentId() {
+		return instrumentId;
+	}
+
+	public String getOrderSide() {
+		return orderSide;
+	}
+
+	public BigDecimal getOrderQuantity() {
+		return orderQuantity;
+	}
+
+	public BigDecimal getExecutionPrice() {
+		return executionPrice;
+	}
+
+	public BigDecimal getExecutionQuantity() {
+		return executionQuantity;
+	}
+
+	public LocalDateTime getOrderSubmittedAt() {
+		return orderSubmittedAt;
+	}
+
+	public LocalDateTime getOrderAcceptedAt() {
+		return orderAcceptedAt;
+	}
+
+	public LocalDateTime getOrderFilledAt() {
+		return orderFilledAt;
+	}
+
+	public String getOrderStatus() {
+		return orderStatus;
+	}
+
+	public BigDecimal getBidPrice() {
+		return bidPrice;
+	}
+
+	public BigDecimal getAskPrice() {
+		return askPrice;
+	}
+
+	public LocalDateTime getQuoteTimestamp() {
+		return quoteTimestamp;
+	}
+
+	public OrderFilledEvent (
         Object source,
         Long fillId,
         Long orderId,
