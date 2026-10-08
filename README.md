@@ -23,9 +23,9 @@ Direct-to-consumer trading platform built using:
 
 The backend is organized into two subprojects: the **Trading Platform** (port 8080) and a **Market Data Service** (port 8081).
 
-The Trading Platform is the core backend, handling order execution, account management, and trade settlement with additional features such as pessimistic locking and idempotency protection, working with the backend database to store information.
+The Trading Platform is the core backend, handling order execution, account management, trade settlement, audit, recovery, pessimistic locking, and idempotency protection while working with PostgreSQL to persist trading information.
 
-The Market Data Service is an auxiliary microservice that simulates real-time market quotes across multiple asset classes (US and international stocks, forex, crypto) with prices updating every 3 seconds using a random walk algorithm, providing the quote feeds that the Trading Platform uses when executing orders.
+The Market Data Service is an auxiliary microservice that simulates real-time market quotes across multiple asset classes (US and international stocks, forex, crypto), with prices updating every 3 seconds using a random walk algorithm. It provides the quote feed used by the Trading Platform when executing orders.
 
 ### Frontend
 
@@ -88,6 +88,174 @@ leap_trading
 
 ---
 
+# Credential and Environment Configuration
+
+Sensitive values such as database passwords and JWT signing secrets must **not** be committed to Git.
+
+The Trading Platform uses environment variables referenced by `application.yaml`.
+
+Local development values are stored in a `.env` file that is excluded from Git.
+
+## Trading Platform `.env`
+
+Create the following file locally:
+
+```text
+backend/trading-platform/.env
+```
+
+Example:
+
+```properties
+DB_URL=jdbc:postgresql://localhost:5433/leap_trading
+DB_USERNAME=postgres
+DB_PASSWORD=<your-database-password>
+
+JWT_SECRET=<your-base64-jwt-secret>
+JWT_ACCESS_TOKEN_EXPIRATION_MINUTES=60
+REFRESH_TOKEN_EXPIRATION_DAYS=7
+```
+
+Replace:
+
+```text
+<your-database-password>
+<your-base64-jwt-secret>
+```
+
+with your own local values.
+
+Do **not** commit this file.
+
+A JWT signing secret can be generated using:
+
+```bash
+openssl rand -base64 32
+```
+
+The committed Spring Boot configuration reads these values from environment variables:
+
+```yaml
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/leap_trading}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-expiration-minutes: ${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES:60}
+
+  auth:
+    refresh-token-expiration-days: ${REFRESH_TOKEN_EXPIRATION_DAYS:7}
+```
+
+The `.env` file is ignored by Git.
+
+Verify this before committing:
+
+```bash
+git check-ignore -v backend/trading-platform/.env
+```
+
+You can also run:
+
+```bash
+git status
+```
+
+The `.env` file should not appear as an untracked or modified file.
+
+> **Important:** Never commit real database passwords, JWT signing secrets, API keys, access tokens, private keys, or other credentials to YAML, source-code, test, Markdown, or configuration files.
+
+---
+
+# Docker Compose Environment Configuration
+
+Docker Compose also requires PostgreSQL environment variables.
+
+Create another local `.env` file in the **repository root**:
+
+```text
+group-GOATteen/.env
+```
+
+Example:
+
+```properties
+POSTGRES_DB=leap_trading
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<your-database-password>
+```
+
+The value of:
+
+```text
+POSTGRES_PASSWORD
+```
+
+should match the database password configured as:
+
+```text
+DB_PASSWORD
+```
+
+inside:
+
+```text
+backend/trading-platform/.env
+```
+
+The root `.env` file is also ignored by Git and must not be committed.
+
+Docker Compose reads these variables through:
+
+```yaml
+environment:
+  POSTGRES_DB: ${POSTGRES_DB}
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+```
+
+---
+
+# Spring Boot Configuration
+
+The Trading Platform uses one primary runtime configuration file:
+
+```text
+backend/trading-platform/src/main/resources/application.yaml
+```
+
+A separate `application-dev.yaml` is **not required**.
+
+Development-specific credentials are supplied through:
+
+```text
+backend/trading-platform/.env
+```
+
+The backend can therefore be started normally with:
+
+```bash
+./mvnw spring-boot:run
+```
+
+There is no need to run:
+
+```text
+-Dspring-boot.run.profiles=dev
+```
+
+for normal development.
+
+---
+
 # One-Time Windows Setup
 
 The following steps only need to be completed once on a new Windows development machine.
@@ -126,12 +294,6 @@ Replace:
 
 with the IP address of the Linux/EC2 machine.
 
-Example:
-
-```powershell
-[System.Environment]::SetEnvironmentVariable("DOCKER_HOST", "ssh://ec2-user@10.14.137.224", "User")
-```
-
 After running this command, close and reopen PowerShell or VS Code so the new environment variable is loaded.
 
 Verify it:
@@ -160,7 +322,7 @@ You can also check:
 docker context ls
 ```
 
-> **Important:** Because `DOCKER_HOST` points to the Linux server, commands such as `docker ps`, `docker-compose up`, `docker-compose down`, `docker exec`, and `docker logs` operate on Docker running on the Linux machine, not on local Windows Docker.
+> **Important:** Because `DOCKER_HOST` points to the Linux server, commands such as `docker ps`, `docker compose up`, `docker compose down`, `docker exec`, and `docker logs` operate on Docker running on the Linux machine, not on local Windows Docker.
 
 ---
 
@@ -184,12 +346,6 @@ Copy the SSH public key to the Linux server:
 
 ```powershell
 type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh ec2-user@<your_linux_ip> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
-```
-
-Example:
-
-```powershell
-type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh ec2-user@10.14.137.224 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
 ```
 
 Verify that SSH works:
@@ -235,12 +391,6 @@ From the project root, run:
 ssh -L 5433:localhost:5432 ec2-user@<your_linux_ip>
 ```
 
-Example:
-
-```powershell
-ssh -L 5433:localhost:5432 ec2-user@10.14.137.224
-```
-
 Keep this terminal open at all times while developing.
 
 Closing this terminal closes the SSH tunnel and the locally running Spring Boot application will no longer be able to access PostgreSQL.
@@ -268,7 +418,7 @@ Open another **PowerShell terminal inside VS Code**.
 From the project root:
 
 ```powershell
-docker-compose up -d
+docker compose up -d
 ```
 
 Verify that PostgreSQL is running:
@@ -286,19 +436,19 @@ leap-postgres
 ## View PostgreSQL Logs
 
 ```powershell
-docker-compose logs postgres
+docker compose logs postgres
 ```
 
 To continuously follow the logs:
 
 ```powershell
-docker-compose logs -f postgres
+docker compose logs -f postgres
 ```
 
 ## Stop PostgreSQL
 
 ```powershell
-docker-compose down
+docker compose down
 ```
 
 The PostgreSQL data remains stored in the Docker volume.
@@ -306,7 +456,7 @@ The PostgreSQL data remains stored in the Docker volume.
 Do not use:
 
 ```powershell
-docker-compose down -v
+docker compose down -v
 ```
 
 unless you intentionally want to delete the PostgreSQL volume and its stored data.
@@ -387,6 +537,28 @@ To connect directly to PostgreSQL inside the Docker container:
 docker exec -it leap-postgres psql -U postgres -d leap_trading
 ```
 
+Useful PostgreSQL commands:
+
+List tables:
+
+```sql
+\dt
+```
+
+Check the current database and database user:
+
+```sql
+SELECT current_database(), current_user;
+```
+
+Exit:
+
+```sql
+\q
+```
+
+---
+
 # Connecting Through the SSH Tunnel
 
 With the SSH tunnel running, PostgreSQL can also be accessed from Windows through port `5433`.
@@ -444,45 +616,6 @@ Both routes access the same PostgreSQL instance.
 
 ---
 
-# Spring Boot Development Configuration
-
-The Trading Platform backend connects to PostgreSQL through the SSH tunnel.
-
-The development datasource should therefore use:
-
-```text
-jdbc:postgresql://localhost:5433/leap_trading
-```
-
-Example `application-dev.yaml`:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5433/leap_trading
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-```
-
-Database passwords should not be committed to source control.
-
-Example using PowerShell:
-
-```powershell
-$env:DB_USERNAME="postgres"
-$env:DB_PASSWORD="your-database-password"
-```
-
-Example using Git Bash:
-
-```bash
-export DB_USERNAME=postgres
-export DB_PASSWORD='your-database-password'
-```
-
----
-
 # Daily Development Startup
 
 The recommended startup process uses multiple VS Code terminals.
@@ -497,12 +630,6 @@ From the project root:
 ssh -L 5433:localhost:5432 ec2-user@<your_linux_ip>
 ```
 
-Example:
-
-```powershell
-ssh -L 5433:localhost:5432 ec2-user@10.14.137.224
-```
-
 Keep this terminal open at all times.
 
 ---
@@ -514,7 +641,7 @@ Open another PowerShell terminal inside VS Code.
 From the project root:
 
 ```powershell
-docker-compose up -d
+docker compose up -d
 ```
 
 Verify Docker services:
@@ -541,16 +668,16 @@ From the project root:
 cd backend/trading-platform
 ```
 
+Make sure the local credential file exists:
+
+```text
+backend/trading-platform/.env
+```
+
 Start Spring Boot:
 
 ```bash
 ./mvnw spring-boot:run
-```
-
-If the `dev` profile needs to be explicitly enabled:
-
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 The Trading Platform backend runs on:
@@ -636,7 +763,7 @@ Keep this terminal open.
 ### 2. Open another PowerShell terminal and start Docker
 
 ```powershell
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 3. Verify PostgreSQL
@@ -700,14 +827,43 @@ OpenAPI JSON:
 http://localhost:8080/v3/api-docs
 ```
 
+---
+
+# Security Notes
+
+The following values must never be committed to Git:
+
+- Database passwords
+- JWT signing secrets
+- API keys
+- Access tokens
+- Private SSH keys
+- Cloud provider credentials
+- Production connection strings containing credentials
+
+Local credentials should be stored in ignored `.env` files or supplied directly as environment variables.
+
+For CI/CD, secrets should be stored using the CI platform's credential-management system rather than committed to the repository.
+
+If a credential has previously been committed to Git, removing it from the current file is not sufficient to make that credential safe. The exposed credential should be rotated.
+
+---
+
 # Project Structure
 
 ```text
 group-GOATteen/
 |
+|-- .env
+|   `-- Local Docker/PostgreSQL environment variables - NOT COMMITTED
+|
 |-- backend/
 |   |
 |   |-- trading-platform/
+|   |   |
+|   |   |-- .env
+|   |   |   `-- Local Spring Boot credentials - NOT COMMITTED
+|   |   |
 |   |   `-- Core Spring Boot trading application
 |   |
 |   `-- market-data-service/
@@ -722,7 +878,7 @@ group-GOATteen/
 |-- docs/
 |   `-- Architecture and project documentation
 |
-|-- docker-compose.yaml
+|-- docker-compose.yml
 |
 `-- README.md
 ```
@@ -730,7 +886,7 @@ group-GOATteen/
 ## Main Directories
 
 - `backend` - Spring Boot backend services
-- `backend/trading-platform` - Order management, account management, execution, settlement, audit, recovery and API functionality
+- `backend/trading-platform` - Order management, account management, execution, settlement, audit, recovery, and API functionality
 - `backend/market-data-service` - Simulated market quotes
 - `frontend` - Angular application
 - `database` - Database-related resources
