@@ -4,7 +4,7 @@
 
 Group GOATteen trading platform, G.O.A.T. Platforms.
 
-Developed by Prasamsha Dahal, Niyati Goswami, William Li, Nowsin Mozemder, Seeyan Newaz, Hannah Ton.
+Developed by Prasamsha Dahal, Niyati Goswami, William Li, Nowsin Mozumder, Seeyan Newaz, Hannah Ton.
 
 Direct-to-consumer trading platform built using:
 
