@@ -90,6 +90,10 @@ public class OrderFilledEvent extends ApplicationEvent{
 	public LocalDateTime getQuoteTimestamp() {
 		return quoteTimestamp;
 	}
+    
+    public BigDecimal calculateTradeValue() {
+        return executionPrice.multiply(executionQuantity);
+    }
 
 	public OrderFilledEvent (
         Object source,
