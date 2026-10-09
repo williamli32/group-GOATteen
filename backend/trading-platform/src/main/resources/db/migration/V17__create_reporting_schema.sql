@@ -67,3 +67,27 @@ CREATE INDEX idx_trade_facts_side_filled_at
 
 CREATE INDEX idx_trade_facts_fill_id 
     ON reporting.trade_facts(fill_id);
+
+
+-- Tracking table: which trades have been synced (for idempotency on replay)
+CREATE TABLE reporting.sync_tracking (
+    sync_id BIGSERIAL PRIMARY KEY,
+    
+    fill_id BIGINT NOT NULL UNIQUE,
+    event_timestamp TIMESTAMP NOT NULL,
+    sync_completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sync_status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS'
+        CHECK (sync_status IN ('SUCCESS', 'FAILED', 'PENDING')),
+    error_message TEXT,
+    
+    CONSTRAINT fk_sync_tracking_fill 
+        FOREIGN KEY(fill_id) 
+        REFERENCES fills(id) 
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_sync_tracking_fill_id 
+    ON reporting.sync_tracking(fill_id);
+
+CREATE INDEX idx_sync_tracking_sync_status 
+    ON reporting.sync_tracking(sync_status);
