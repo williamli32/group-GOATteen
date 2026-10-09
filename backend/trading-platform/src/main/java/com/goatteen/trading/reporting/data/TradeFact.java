@@ -146,4 +146,108 @@ public class TradeFact {
         this.dataSyncedAt = LocalDateTime.now();
     }
 
+	public Long getTradeFactId() {
+		return tradeFactId;
+	}
+
+	public Long getFillId() {
+		return fillId;
+	}
+
+	public Long getOrderId() {
+		return orderId;
+	}
+
+	public LocalDateTime getOrderSubmittedAt() {
+		return orderSubmittedAt;
+	}
+
+	public LocalDateTime getOrderAcceptedAt() {
+		return orderAcceptedAt;
+	}
+
+	public LocalDateTime getOrderFilledAt() {
+		return orderFilledAt;
+	}
+
+	public Long getAccountId() {
+		return accountId;
+	}
+
+	public Long getClientId() {
+		return clientId;
+	}
+
+	public String getClientFirstName() {
+		return clientFirstName;
+	}
+
+	public String getClientLastName() {
+		return clientLastName;
+	}
+
+	public Long getInstrumentId() {
+		return instrumentId;
+	}
+
+	public String getInstrumentSymbol() {
+		return instrumentSymbol;
+	}
+
+	public String getInstrumentClass() {
+		return instrumentClass;
+	}
+
+	public String getInstrumentName() {
+		return instrumentName;
+	}
+
+	public String getCurrency() {
+		return currency;
+	}
+
+	public String getSide() {
+		return side;
+	}
+
+	public BigDecimal getOrderQuantity() {
+		return orderQuantity;
+	}
+
+	public BigDecimal getExecutionPrice() {
+		return executionPrice;
+	}
+
+	public BigDecimal getExecutionQuantity() {
+		return executionQuantity;
+	}
+
+	public BigDecimal getTradeValue() {
+		return tradeValue;
+	}
+
+	public String getOrderStatus() {
+		return orderStatus;
+	}
+
+	public BigDecimal getBidPrice() {
+		return bidPrice;
+	}
+
+	public BigDecimal getAskPrice() {
+		return askPrice;
+	}
+
+	public LocalDateTime getQuoteTimestamp() {
+		return quoteTimestamp;
+	}
+
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public LocalDateTime getDataSyncedAt() {
+		return dataSyncedAt;
+	}
+
 }
