@@ -15,6 +15,9 @@ import com.goatteen.trading.portfolio.CashTransaction;
 import com.goatteen.trading.portfolio.CashTransactionRepository;
 import com.goatteen.trading.portfolio.Position;
 import com.goatteen.trading.portfolio.PositionRepository;
+import com.goatteen.trading.reporting.event.OrderFilledEvent;
+
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.goatteen.trading.audit.PositionHistory;
@@ -23,9 +26,12 @@ import com.goatteen.trading.audit.PositionHistoryRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class OrderExecutionService {
+        private static final Logger logger = LoggerFactory.getLogger(OrderExecutionService.class);
 
         private final OrderRepository orderRepository;
         private final FillRepository fillRepository;
@@ -35,12 +41,13 @@ public class OrderExecutionService {
         private final CashTransactionRepository cashTransactionRepository;
         private final OrderStatusHistoryRepository orderStatusHistoryRepository;
         private final PositionHistoryRepository positionHistoryRepository;
+        private final ApplicationEventPublisher applicationEventPublisher;
 
         public OrderExecutionService(OrderRepository orderRepository, FillRepository fillRepository,
                         QuoteRepository quoteRepository, AccountRepository accountRepository,
                         PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
                         OrderStatusHistoryRepository orderStatusHistoryRepository,
-                        PositionHistoryRepository positionHistoryRepository) {
+                        PositionHistoryRepository positionHistoryRepository, ApplicationEventPublisher applicationEventPublisher) {
                 this.orderRepository = orderRepository;
                 this.fillRepository = fillRepository;
                 this.quoteRepository = quoteRepository;
@@ -49,6 +56,7 @@ public class OrderExecutionService {
                 this.cashTransactionRepository = cashTransactionRepository;
                 this.orderStatusHistoryRepository = orderStatusHistoryRepository;
                 this.positionHistoryRepository = positionHistoryRepository;
+                this.applicationEventPublisher = applicationEventPublisher;
         }
 
         @Transactional
@@ -312,9 +320,42 @@ public class OrderExecutionService {
                                 order,
                                 OrderStatus.FILLED,
                                 "Order filled at " + executionPrice);
-
+                
+                // Before the return statement, publish the event
+                // This publishes AFTER transaction commits 
+                publishOrderFilledEvent(order, fill);
                 return fill;
         }
+
+        private void publishOrderFilledEvent(Order order, Fill fill) {
+                try {
+                        OrderFilledEvent event = new OrderFilledEvent(
+                                this,
+                                fill.getId(),
+                                order.getId(),
+                                order.getAccount().getId(),
+                                order.getAccount().getClient().getId(),
+                                order.getInstrument().getId(),
+                                order.getSide().toString(),
+                                order.getQuantity(),
+                                fill.getFillPrice(),
+                                fill.getFillQuantity(),
+                                order.getSubmittedAt(),
+                                order.getAcceptedAt(),  // May be null if never accepted
+                                order.getCompletedAt(),  // When status set to FILLED
+                                order.getStatus().toString(),
+                                fill.getQuote().getBidPrice(),
+                                fill.getQuote().getAskPrice(),
+                                fill.getQuote().getQuotedAt()
+                        );
+                        applicationEventPublisher.publishEvent(event);
+                        logger.info("Published OrderFilledEvent for order_id={}, fill_id={}",
+                                order.getId(), fill.getId());
+                } catch (Exception e) {
+                        logger.error("Failed to publish OrderFilledEvent for order_id={}", order.getId(), e);
+                        // Do NOT rethrow: event publishing failure should not block order execution
+                }
+                }
 
         @Transactional
         public void rejectOrder(Long orderId, String reason) throws OrderExecutionException {

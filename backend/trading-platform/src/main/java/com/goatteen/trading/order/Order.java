@@ -40,6 +40,9 @@ public class Order {
     @Column(name = "submitted_at", nullable = false)
     private LocalDateTime submittedAt;
 
+    @Column(nullable = true)
+    private LocalDateTime acceptedAt;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
@@ -76,6 +79,10 @@ public class Order {
 
     public LocalDateTime getSubmittedAt() {
         return submittedAt;
+    }
+
+    public LocalDateTime getAcceptedAt() { 
+        return acceptedAt; 
     }
 
     public LocalDateTime getCompletedAt() {

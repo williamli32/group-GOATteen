@@ -32,8 +32,8 @@ import java.util.Optional;
 /**
  * Synchronizes order fill events from the transactional path into the reporting schema.
  * 
- * CRITICAL: Runs AFTER the order execution transaction commits, ensuring:
- * 1. Zero latency impact on live trading (BR-16 compliance).
+ * Runs AFTER the order execution transaction commits, ensuring:
+ * 1. Zero latency impact on live trading.
  * 2. Exactly-once semantics for reporting data (idempotency via fill_id).
  * 3. Failure isolation: if sync fails, live execution is unaffected.
  * 
@@ -75,11 +75,7 @@ public class ReportingDataSyncService {
 
     /**
      * Listener for order fill events.
-     * 
      * Executes ONLY AFTER the transactional execution commits.
-     * Uses a separate transaction (REQUIRES_NEW) for reporting writes,
-     * ensuring reporting failures don't rollback live trading operations.
-     * 
      * @param event Published from OrderExecutionService.executeOrder()
      */
     @TransactionalEventListener(phase = org.springframework.transaction.event.TransactionPhase.AFTER_COMMIT)
@@ -88,7 +84,7 @@ public class ReportingDataSyncService {
         try {
             logger.info("Syncing fill_id={} to reporting schema", event.getFillId());
 
-            // 1. Idempotency check: has this fill already been synced?
+            // Idempotency check: has this fill already been synced?
             Optional<TradeFact> existingFact = tradeFactRepository.findByFillId(event.getFillId());
             if (existingFact.isPresent()) {
                 logger.debug("Fill {} already synced; skipping", event.getFillId());
@@ -96,7 +92,7 @@ public class ReportingDataSyncService {
                 return;
             }
 
-            // 2. Load transactional source data for denormalization
+            // Load transactional source data for denormalization
             Fill fill = fillRepository.findById(event.getFillId())
                     .orElseThrow(() -> new SyncException("Fill not found: " + event.getFillId()));
 
@@ -115,7 +111,7 @@ public class ReportingDataSyncService {
             Quote quote = quoteRepository.findById(fill.getQuote().getId())
                     .orElseThrow(() -> new SyncException("Quote not found: " + fill.getQuote().getId()));
 
-            // 3. Build trade fact from event and denormalized data
+            //  Build trade fact from event and denormalized data
             TradeFact tradeFact = new TradeFact(
                     event.getFillId(),
                     event.getOrderId(),
@@ -142,7 +138,7 @@ public class ReportingDataSyncService {
                     quote.getQuotedAt()
             );
 
-            // 4. Persist to reporting schema
+            // Persist to reporting schema
             TradeFact saved = tradeFactRepository.save(tradeFact);
             logger.info("Successfully synced TradeFact id={} for fill_id={}", 
                     saved.getTradeFactId(), event.getFillId());
@@ -158,7 +154,6 @@ public class ReportingDataSyncService {
 
     /**
      * Record sync attempt for audit and replay recovery.
-     * 
      * Runs in a nested transaction to ensure tracking persists
      * even if main sync was already successful.
      */
@@ -174,7 +169,7 @@ public class ReportingDataSyncService {
             syncTrackingRepository.save(tracking);
         } catch (Exception e) {
             logger.error("Failed to record sync tracking for fill_id={}", fillId, e);
-            // Swallow: tracking failure is not critical
+
         }
     }
 }
