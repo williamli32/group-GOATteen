@@ -1,5 +1,7 @@
 package com.goatteen.trading.execution;
 
+import org.springframework.context.ApplicationEventPublisher;
+
 import com.goatteen.trading.account.Account;
 
 import com.goatteen.trading.account.AccountRepository;
@@ -55,12 +57,16 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 
 class OrderExecutionServiceTest {
+        @Mock
+
+        private ApplicationEventPublisher applicationEventPublisher; 
 
         @Mock
 
@@ -119,7 +125,8 @@ class OrderExecutionServiceTest {
                                 positionRepository,
                                 cashTransactionRepository,
                                 historyRepository,
-                                positionHistoryRepository);
+                                positionHistoryRepository,
+                                applicationEventPublisher);
 
                 account = new Account(
 
