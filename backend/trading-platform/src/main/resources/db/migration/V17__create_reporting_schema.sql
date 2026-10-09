@@ -68,7 +68,6 @@ CREATE INDEX idx_trade_facts_side_filled_at
 CREATE INDEX idx_trade_facts_fill_id 
     ON reporting.trade_facts(fill_id);
 
-
 -- Tracking table: which trades have been synced (for idempotency on replay)
 CREATE TABLE reporting.sync_tracking (
     sync_id BIGSERIAL PRIMARY KEY,
