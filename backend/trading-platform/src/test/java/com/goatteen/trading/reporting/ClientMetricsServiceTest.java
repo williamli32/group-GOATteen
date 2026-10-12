@@ -1,6 +1,6 @@
-
 package com.goatteen.trading.reporting;
 
+import com.goatteen.trading.reporting.data.OrderFactRepository;
 import com.goatteen.trading.reporting.data.TradeFactRepository;
 import com.goatteen.trading.reporting.metrics.ClientMetrics;
 import com.goatteen.trading.reporting.metrics.ClientMetricsService;
@@ -21,88 +21,138 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ClientMetricsServiceTest {
 
-    @Mock
-    private TradeFactRepository tradeFactRepository;
+        @Mock
+        private OrderFactRepository orderFactRepository;
 
-    private ClientMetricsService metricsService;
+        @Mock
+        private TradeFactRepository tradeFactRepository;
 
-    private final LocalDateTime start =
-            LocalDateTime.of(2026, 10, 1, 0, 0);
+        private ClientMetricsService metricsService;
 
-    private final LocalDateTime end =
-            LocalDateTime.of(2026, 11, 1, 0, 0);
+        private final LocalDateTime start = LocalDateTime.of(2026, 10, 1, 0, 0);
 
-    @BeforeEach
-    void setUp() {
-        metricsService =
-                new ClientMetricsService(tradeFactRepository);
-    }
+        private final LocalDateTime end = LocalDateTime.of(2026, 11, 1, 0, 0);
 
-    @Test
-    void calculatesClientMetrics() {
+        @BeforeEach
+        void setUp() {
 
-        Object[] usdRow = {
-                101L,
-                "USD",
-                5L,
-                new BigDecimal("100"),
-                new BigDecimal("15000.00")
-        };
+                metricsService = new ClientMetricsService(
+                                orderFactRepository,
+                                tradeFactRepository);
+        }
 
-        Object[] eurRow = {
-                102L,
-                "EUR",
-                3L,
-                new BigDecimal("50"),
-                new BigDecimal("8000.00")
-        };
+        @Test
+        void calculatesOrdersAndExecutedActivityPerClient() {
 
-        when(tradeFactRepository.summarizeByClient(start, end))
-                .thenReturn(List.<Object[]>of(usdRow, eurRow));
+                Object[] client1Orders = {
+                                101L,
+                                "USD",
+                                7L
+                };
 
-        List<ClientMetrics> result =
-                metricsService.calculate(start, end);
+                Object[] client2Orders = {
+                                102L,
+                                "EUR",
+                                4L
+                };
 
-        assertEquals(2, result.size());
+                /*
+                 * Client 103 placed orders but all were rejected.
+                 */
+                Object[] client3Orders = {
+                                103L,
+                                "GBP",
+                                2L
+                };
 
-        assertEquals(101L, result.get(0).clientId());
-        assertEquals("USD", result.get(0).currency());
-        assertEquals(5L, result.get(0).fillCount());
-        assertEquals(
-                new BigDecimal("100"),
-                result.get(0).executedQuantity());
-        assertEquals(
-                new BigDecimal("15000.00"),
-                result.get(0).tradedValue());
+                when(orderFactRepository
+                                .summarizeOrdersByClient(start, end))
+                                .thenReturn(List.of(
+                                                client1Orders,
+                                                client2Orders,
+                                                client3Orders));
 
-        assertEquals(102L, result.get(1).clientId());
-        assertEquals("EUR", result.get(1).currency());
-        assertEquals(3L, result.get(1).fillCount());
-    }
+                Object[] client1Trades = {
+                                101L,
+                                "USD",
+                                5L,
+                                new BigDecimal("100"),
+                                new BigDecimal("15000.00")
+                };
 
-    @Test
-    void returnsEmptyListWhenThereAreNoTrades() {
+                Object[] client2Trades = {
+                                102L,
+                                "EUR",
+                                3L,
+                                new BigDecimal("50"),
+                                new BigDecimal("8000.00")
+                };
 
-        when(tradeFactRepository.summarizeByClient(start, end))
-                .thenReturn(List.of());
+                when(tradeFactRepository
+                                .summarizeByClient(start, end))
+                                .thenReturn(List.of(
+                                                client1Trades,
+                                                client2Trades));
 
-        List<ClientMetrics> result =
-                metricsService.calculate(start, end);
+                List<ClientMetrics> result = metricsService.calculate(start, end);
 
-        assertTrue(result.isEmpty());
-    }
+                assertEquals(3, result.size());
 
-    @Test
-    void rejectsInvalidDateRange() {
+                ClientMetrics first = result.get(0);
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> metricsService.calculate(end, start));
+                assertEquals(101L, first.clientId());
+                assertEquals("USD", first.currency());
+                assertEquals(7L, first.orderCount());
+                assertEquals(5L, first.fillCount());
+                assertEquals(
+                                new BigDecimal("100"),
+                                first.executedQuantity());
+                assertEquals(
+                                new BigDecimal("15000.00"),
+                                first.tradedValue());
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> metricsService.calculate(start, start));
+                ClientMetrics rejectedOnly = result.get(2);
 
-        verifyNoInteractions(tradeFactRepository);
-    }
+                assertEquals(103L, rejectedOnly.clientId());
+                assertEquals(2L, rejectedOnly.orderCount());
+                assertEquals(0L, rejectedOnly.fillCount());
+
+                assertEquals(
+                                BigDecimal.ZERO,
+                                rejectedOnly.executedQuantity());
+
+                assertEquals(
+                                BigDecimal.ZERO,
+                                rejectedOnly.tradedValue());
+        }
+
+        @Test
+        void returnsEmptyListWhenThereIsNoActivity() {
+
+                when(orderFactRepository
+                                .summarizeOrdersByClient(start, end))
+                                .thenReturn(List.of());
+
+                when(tradeFactRepository
+                                .summarizeByClient(start, end))
+                                .thenReturn(List.of());
+
+                List<ClientMetrics> result = metricsService.calculate(start, end);
+
+                assertTrue(result.isEmpty());
+        }
+
+        @Test
+        void rejectsInvalidDateRange() {
+
+                assertThrows(
+                                IllegalArgumentException.class,
+                                () -> metricsService.calculate(
+                                                end,
+                                                start));
+
+                verifyNoInteractions(
+                                orderFactRepository,
+                                tradeFactRepository);
+        }
 }

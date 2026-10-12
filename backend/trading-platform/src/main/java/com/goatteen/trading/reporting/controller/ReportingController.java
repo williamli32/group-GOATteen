@@ -1,6 +1,9 @@
 
 package com.goatteen.trading.reporting.controller;
 
+import com.goatteen.trading.reporting.metrics.ActivityTrendPoint;
+import com.goatteen.trading.reporting.metrics.ActivityTrendService;
+
 import com.goatteen.trading.reporting.metrics.ClientMetrics;
 import com.goatteen.trading.reporting.metrics.ClientMetricsService;
 import com.goatteen.trading.reporting.metrics.InstrumentMetrics;
@@ -28,17 +31,20 @@ public class ReportingController {
     private final InstrumentMetricsService instrumentService;
     private final ClientMetricsService clientService;
     private final PeriodicReportingService periodicService;
+    private final ActivityTrendService activityTrendService;
 
     public ReportingController(
             TradingActivityMetricsService tradingService,
             InstrumentMetricsService instrumentService,
             ClientMetricsService clientService,
-            PeriodicReportingService periodicService) {
+            PeriodicReportingService periodicService,
+            ActivityTrendService activityTrendService) {
 
         this.tradingService = tradingService;
         this.instrumentService = instrumentService;
         this.clientService = clientService;
         this.periodicService = periodicService;
+        this.activityTrendService = activityTrendService;
     }
 
     @GetMapping("/trends")

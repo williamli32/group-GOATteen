@@ -81,8 +81,8 @@ public class Order {
         return submittedAt;
     }
 
-    public LocalDateTime getAcceptedAt() { 
-        return acceptedAt; 
+    public LocalDateTime getAcceptedAt() {
+        return acceptedAt;
     }
 
     public LocalDateTime getCompletedAt() {
@@ -103,6 +103,10 @@ public class Order {
 
     public void setCompletedAt(LocalDateTime completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public void setAcceptedAt(LocalDateTime acceptedAt) {
+        this.acceptedAt = acceptedAt;
     }
 
     public void setAccount(Account account) {

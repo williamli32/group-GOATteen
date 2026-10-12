@@ -18,6 +18,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import com.goatteen.trading.reporting.metrics.ActivityTrendService;
 
 import java.time.LocalDateTime;
 
@@ -27,78 +28,111 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ReportingController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class })
 class ReportingControllerSecurityTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @MockBean
-    private JwtService jwtService;
+        @MockBean
+        private JwtService jwtService;
 
-    @MockBean
-    private UserRepository userRepository;
-    @MockBean
-    private TradingActivityMetricsService tradingService;
+        @MockBean
+        private ActivityTrendService activityTrendService;
 
-    @MockBean
-    private InstrumentMetricsService instrumentService;
+        @MockBean
+        private UserRepository userRepository;
+        @MockBean
+        private TradingActivityMetricsService tradingService;
 
-    @MockBean
-    private ClientMetricsService clientService;
+        @MockBean
+        private InstrumentMetricsService instrumentService;
 
-    @MockBean
-    private PeriodicReportingService periodicService;
+        @MockBean
+        private ClientMetricsService clientService;
 
-    private static final String TRADING_URL =
-            "/api/reporting/trading"
-                    + "?startDate=2026-10-01T00:00:00"
-                    + "&endDate=2026-11-01T00:00:00";
+        @MockBean
+        private PeriodicReportingService periodicService;
 
-    @Test
-    void unauthenticatedUserGets401() throws Exception {
-        mockMvc.perform(get(TRADING_URL))
-                .andExpect(status().isUnauthorized());
+        private static final String TRADING_URL = "/api/reporting/trading"
+                        + "?startDate=2026-10-01T00:00:00"
+                        + "&endDate=2026-11-01T00:00:00";
 
-        verifyNoInteractions(tradingService);
-    }
+        @Test
+        void unauthenticatedUserGets401() throws Exception {
+                mockMvc.perform(get(TRADING_URL))
+                                .andExpect(status().isUnauthorized());
 
-    @Test
-    @WithMockUser(roles = "USER")
-    void ordinaryUserGets403() throws Exception {
-        mockMvc.perform(get(TRADING_URL))
-                .andExpect(status().isForbidden());
+                verifyNoInteractions(tradingService);
+        }
 
-        verifyNoInteractions(tradingService);
-    }
+        @Test
+        @WithMockUser(roles = "USER")
+        void ordinaryUserGets403() throws Exception {
+                mockMvc.perform(get(TRADING_URL))
+                                .andExpect(status().isForbidden());
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    void adminCanAccessReporting() throws Exception {
-        mockMvc.perform(get(TRADING_URL))
-                .andExpect(status().isOk());
+                verifyNoInteractions(tradingService);
+        }
 
-        verify(tradingService).calculate(
-                LocalDateTime.of(2026, 10, 1, 0, 0),
-                LocalDateTime.of(2026, 11, 1, 0, 0)
-        );
-    }
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        void adminCanAccessReporting() throws Exception {
+                mockMvc.perform(get(TRADING_URL))
+                                .andExpect(status().isOk());
 
-    @Test
-    @WithMockUser(roles = "ANALYST")
-    void analystCanAccessReporting() throws Exception {
-        mockMvc.perform(get(TRADING_URL))
-                .andExpect(status().isOk());
-    }
+                verify(tradingService).calculate(
+                                LocalDateTime.of(2026, 10, 1, 0, 0),
+                                LocalDateTime.of(2026, 11, 1, 0, 0));
+        }
 
-    @Test
-    @WithMockUser(roles = "USER")
-    void ordinaryUserCannotAccessClientReports() throws Exception {
-        mockMvc.perform(get("/api/reporting/clients")
-                .param("startDate", "2026-10-01T00:00:00")
-                .param("endDate", "2026-11-01T00:00:00"))
-                .andExpect(status().isForbidden());
+        @Test
+        @WithMockUser(roles = "ANALYST")
+        void analystCanAccessReporting() throws Exception {
+                mockMvc.perform(get(TRADING_URL))
+                                .andExpect(status().isOk());
+        }
 
-        verifyNoInteractions(clientService);
-    }
+        @Test
+        @WithMockUser(roles = "USER")
+        void ordinaryUserCannotAccessClientReports() throws Exception {
+                mockMvc.perform(get("/api/reporting/clients")
+                                .param("startDate", "2026-10-01T00:00:00")
+                                .param("endDate", "2026-11-01T00:00:00"))
+                                .andExpect(status().isForbidden());
+
+                verifyNoInteractions(clientService);
+        }
+
+        @Test
+        @WithMockUser(roles = "ANALYST")
+        void analystCanAccessTrends() throws Exception {
+
+                mockMvc.perform(
+                                get("/api/reporting/trends")
+                                                .param(
+                                                                "startDate",
+                                                                "2026-10-01T00:00:00")
+                                                .param(
+                                                                "endDate",
+                                                                "2026-11-01T00:00:00"))
+                                .andExpect(status().isOk());
+        }
+
+        @Test
+        @WithMockUser(roles = "USER")
+        void ordinaryUserCannotAccessTrends() throws Exception {
+
+                mockMvc.perform(
+                                get("/api/reporting/trends")
+                                                .param(
+                                                                "startDate",
+                                                                "2026-10-01T00:00:00")
+                                                .param(
+                                                                "endDate",
+                                                                "2026-11-01T00:00:00"))
+                                .andExpect(status().isForbidden());
+
+                verifyNoInteractions(activityTrendService);
+        }
 }

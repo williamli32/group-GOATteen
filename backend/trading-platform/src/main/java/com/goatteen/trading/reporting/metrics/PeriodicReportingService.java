@@ -1,8 +1,9 @@
-
 package com.goatteen.trading.reporting.metrics;
 
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,38 +36,83 @@ public class PeriodicReportingService {
         }
 
         LocalDate start;
-
         LocalDate end;
+        LocalDate previousStart;
 
         switch (period) {
+
             case DAILY -> {
                 start = date;
                 end = date.plusDays(1);
+                previousStart = start.minusDays(1);
             }
+
             case WEEKLY -> {
                 start = date.with(
                         TemporalAdjusters.previousOrSame(
                                 DayOfWeek.MONDAY));
+
                 end = start.plusWeeks(1);
+                previousStart = start.minusWeeks(1);
             }
+
             case MONTHLY -> {
                 start = date.withDayOfMonth(1);
                 end = start.plusMonths(1);
+                previousStart = start.minusMonths(1);
             }
+
             default -> throw new IllegalArgumentException(
                     "Unsupported reporting period");
         }
 
         LocalDateTime startDate = start.atStartOfDay();
+
         LocalDateTime endDate = end.atStartOfDay();
+
+        LocalDateTime previousStartDate = previousStart.atStartOfDay();
+
+        LocalDateTime previousEndDate = start.atStartOfDay();
+
+        TradingActivityMetrics current = tradingActivityService.calculate(
+                startDate,
+                endDate);
+
+        TradingActivityMetrics previous = tradingActivityService.calculate(
+                previousStartDate,
+                previousEndDate);
+
+        PeriodComparison comparison = new PeriodComparison(
+                previous,
+
+                percentChange(
+                        BigDecimal.valueOf(
+                                current.totalOrders()),
+                        BigDecimal.valueOf(
+                                previous.totalOrders())),
+
+                percentChange(
+                        BigDecimal.valueOf(
+                                current.filledOrders()),
+                        BigDecimal.valueOf(
+                                previous.filledOrders())),
+
+                percentChange(
+                        current.totalTradedValue(),
+                        previous.totalTradedValue()));
 
         return new PeriodicReport(
                 period,
                 startDate,
                 endDate,
-                tradingActivityService.calculate(startDate, endDate),
-                instrumentMetricsService.calculate(startDate, endDate),
-                clientMetricsService.calculate(startDate, endDate));
+                current,
+                instrumentMetricsService.calculate(
+                        startDate,
+                        endDate),
+                clientMetricsService.calculate(
+                        startDate,
+                        endDate),
+                comparison);
     }
 
     private BigDecimal percentChange(
@@ -74,7 +120,7 @@ public class PeriodicReportingService {
             BigDecimal previous) {
 
         if (previous.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
+            return BigDecimal.ZERO.setScale(2);
         }
 
         return current

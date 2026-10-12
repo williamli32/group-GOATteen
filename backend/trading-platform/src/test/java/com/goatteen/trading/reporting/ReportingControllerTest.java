@@ -28,6 +28,7 @@ class ReportingControllerTest {
     private InstrumentMetricsService instrumentService;
     private ClientMetricsService clientService;
     private PeriodicReportingService periodicService;
+    private ActivityTrendService activityTrendService;
 
     private ReportingController controller;
 
@@ -38,13 +39,14 @@ class ReportingControllerTest {
         instrumentService = mock(InstrumentMetricsService.class);
         clientService = mock(ClientMetricsService.class);
         periodicService = mock(PeriodicReportingService.class);
+        activityTrendService = mock(ActivityTrendService.class);
 
         controller = new ReportingController(
                 tradingService,
                 instrumentService,
                 clientService,
-                periodicService
-        );
+                periodicService,
+                activityTrendService);
     }
 
     @Test
@@ -96,7 +98,21 @@ class ReportingControllerTest {
         assertNotNull(annotation);
         assertEquals(
                 "hasAnyRole('ADMIN', 'ANALYST')",
-                annotation.value()
-        );
+                annotation.value());
+    }
+
+    @Test
+    void trendsEndpointDelegatesToTrendService() {
+
+        LocalDateTime start = LocalDateTime.of(
+                2026, 10, 1, 0, 0);
+
+        LocalDateTime end = LocalDateTime.of(
+                2026, 11, 1, 0, 0);
+
+        controller.trends(start, end);
+
+        verify(activityTrendService)
+                .calculate(start, end);
     }
 }

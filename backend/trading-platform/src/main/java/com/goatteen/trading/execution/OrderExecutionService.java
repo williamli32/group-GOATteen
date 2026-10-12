@@ -95,6 +95,8 @@ public class OrderExecutionService {
 
                 order.setStatus(
                                 OrderStatus.ACCEPTED);
+                
+                order.setAcceptedAt(LocalDateTime.now());
 
                 orderRepository.save(order);
 

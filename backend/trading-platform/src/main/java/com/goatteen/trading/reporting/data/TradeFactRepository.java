@@ -127,27 +127,53 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
           GROUP BY tf.clientId, tf.currency
           ORDER BY COUNT(tf) DESC
       """)
+  List<Object[]> summarizeByClient(
+      @Param("startDate") LocalDateTime startDate,
+      @Param("endDate") LocalDateTime endDate);
+
+  /**
+   * Overall execution activity including BUY/SELL breakdown.
+   */
   @Query(value = """
       SELECT
           COALESCE(SUM(execution_quantity), 0),
           COALESCE(SUM(trade_value), 0),
 
           COUNT(*) FILTER (WHERE side = 'BUY'),
-          COALESCE(SUM(execution_quantity)
-              FILTER (WHERE side = 'BUY'), 0),
-          COALESCE(SUM(trade_value)
-              FILTER (WHERE side = 'BUY'), 0),
+          COALESCE(
+              SUM(execution_quantity)
+                  FILTER (WHERE side = 'BUY'),
+              0
+          ),
+          COALESCE(
+              SUM(trade_value)
+                  FILTER (WHERE side = 'BUY'),
+              0
+          ),
 
           COUNT(*) FILTER (WHERE side = 'SELL'),
-          COALESCE(SUM(execution_quantity)
-              FILTER (WHERE side = 'SELL'), 0),
-          COALESCE(SUM(trade_value)
-              FILTER (WHERE side = 'SELL'), 0)
+          COALESCE(
+              SUM(execution_quantity)
+                  FILTER (WHERE side = 'SELL'),
+              0
+          ),
+          COALESCE(
+              SUM(trade_value)
+                  FILTER (WHERE side = 'SELL'),
+              0
+          )
 
       FROM reporting.trade_facts
       WHERE order_filled_at >= :startDate
         AND order_filled_at < :endDate
       """, nativeQuery = true)
+  Object[] summarizeExecutionActivity(
+      @Param("startDate") LocalDateTime startDate,
+      @Param("endDate") LocalDateTime endDate);
+
+  /**
+   * Daily executed quantity and traded value.
+   */
   @Query(value = """
       SELECT
           DATE(order_filled_at),
@@ -165,13 +191,4 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
   List<Object[]> summarizeDailyExecution(
       @Param("startDate") LocalDateTime startDate,
       @Param("endDate") LocalDateTime endDate);
-
-  Object[] summarizeExecutionActivity(
-      @Param("startDate") LocalDateTime startDate,
-      @Param("endDate") LocalDateTime endDate);
-
-  List<Object[]> summarizeByClient(
-      @Param("startDate") LocalDateTime startDate,
-      @Param("endDate") LocalDateTime endDate);
-
 }

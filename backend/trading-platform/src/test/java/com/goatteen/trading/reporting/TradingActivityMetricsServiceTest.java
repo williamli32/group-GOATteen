@@ -1,7 +1,7 @@
-
 package com.goatteen.trading.reporting;
 
 import com.goatteen.trading.reporting.data.OrderFactRepository;
+import com.goatteen.trading.reporting.data.TradeFactRepository;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetrics;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
 
@@ -20,63 +20,166 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class TradingActivityMetricsServiceTest {
 
-    @Mock
-    private OrderFactRepository orderFactRepository;
+        @Mock
+        private OrderFactRepository orderFactRepository;
 
-    private TradingActivityMetricsService metricsService;
+        @Mock
+        private TradeFactRepository tradeFactRepository;
 
-    private final LocalDateTime start =
-            LocalDateTime.of(2026, 10, 1, 0, 0);
+        private TradingActivityMetricsService metricsService;
 
-    private final LocalDateTime end =
-            LocalDateTime.of(2026, 11, 1, 0, 0);
+        private final LocalDateTime start = LocalDateTime.of(2026, 10, 1, 0, 0);
 
-    @BeforeEach
-    void setUp() {
-        metricsService =
-                new TradingActivityMetricsService(orderFactRepository);
-    }
+        private final LocalDateTime end = LocalDateTime.of(2026, 11, 1, 0, 0);
 
-    @Test
-    void calculatesTradingActivityRates() {
-        when(orderFactRepository.countOrdersInDateRange(start, end))
-                .thenReturn(100L);
+        @BeforeEach
+        void setUp() {
 
-        when(orderFactRepository.countByStatusAndDateRange(
-                "FILLED", start, end)).thenReturn(75L);
+                metricsService = new TradingActivityMetricsService(
+                                orderFactRepository,
+                                tradeFactRepository);
+        }
 
-        when(orderFactRepository.countByStatusAndDateRange(
-                "REJECTED", start, end)).thenReturn(10L);
+        @Test
+        void calculatesCompleteTradingActivityMetrics() {
 
-        TradingActivityMetrics result =
-                metricsService.calculate(start, end);
+                when(orderFactRepository
+                                .countOrdersInDateRange(start, end))
+                                .thenReturn(100L);
 
-        assertEquals(100L, result.totalOrders());
-        assertEquals(75L, result.filledOrders());
-        assertEquals(10L, result.rejectedOrders());
+                when(orderFactRepository
+                                .countByStatusAndDateRange(
+                                                "FILLED",
+                                                start,
+                                                end))
+                                .thenReturn(75L);
 
-        assertEquals(new BigDecimal("75.00"), result.fillRate());
-        assertEquals(new BigDecimal("10.00"), result.rejectionRate());
-    }
+                when(orderFactRepository
+                                .countByStatusAndDateRange(
+                                                "REJECTED",
+                                                start,
+                                                end))
+                                .thenReturn(10L);
 
-    @Test
-    void returnsZeroRatesWhenThereAreNoOrders() {
-        TradingActivityMetrics result =
-                metricsService.calculate(start, end);
+                when(orderFactRepository
+                                .countActiveClients(start, end))
+                                .thenReturn(42L);
 
-        assertEquals(0L, result.totalOrders());
-        assertEquals(new BigDecimal("0.00"), result.fillRate());
-        assertEquals(new BigDecimal("0.00"), result.rejectionRate());
-    }
+                when(tradeFactRepository
+                                .summarizeExecutionActivity(start, end))
+                                .thenReturn(new Object[] {
+                                                new BigDecimal("1000"),
+                                                new BigDecimal("250000.00"),
 
-    @Test
-    void rejectsInvalidDateRange() {
-        assertThrows(IllegalArgumentException.class,
-                () -> metricsService.calculate(end, start));
+                                                50L,
+                                                new BigDecimal("700"),
+                                                new BigDecimal("175000.00"),
 
-        assertThrows(IllegalArgumentException.class,
-                () -> metricsService.calculate(start, start));
+                                                25L,
+                                                new BigDecimal("300"),
+                                                new BigDecimal("75000.00")
+                                });
 
-        verifyNoInteractions(orderFactRepository);
-    }
+                TradingActivityMetrics result = metricsService.calculate(start, end);
+
+                assertEquals(100L, result.totalOrders());
+                assertEquals(75L, result.filledOrders());
+                assertEquals(10L, result.rejectedOrders());
+                assertEquals(42L, result.activeClients());
+
+                assertEquals(
+                                new BigDecimal("75.00"),
+                                result.fillRate());
+
+                assertEquals(
+                                new BigDecimal("10.00"),
+                                result.rejectionRate());
+
+                assertEquals(
+                                new BigDecimal("1000"),
+                                result.totalExecutedQuantity());
+
+                assertEquals(
+                                new BigDecimal("250000.00"),
+                                result.totalTradedValue());
+
+                assertEquals(50L, result.buyFills());
+                assertEquals(
+                                new BigDecimal("700"),
+                                result.buyQuantity());
+
+                assertEquals(
+                                new BigDecimal("175000.00"),
+                                result.buyTradedValue());
+
+                assertEquals(25L, result.sellFills());
+
+                assertEquals(
+                                new BigDecimal("300"),
+                                result.sellQuantity());
+
+                assertEquals(
+                                new BigDecimal("75000.00"),
+                                result.sellTradedValue());
+        }
+
+        @Test
+        void returnsZeroMetricsWhenThereIsNoActivity() {
+
+                when(tradeFactRepository
+                                .summarizeExecutionActivity(start, end))
+                                .thenReturn(new Object[] {
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                0L,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO,
+                                                0L,
+                                                BigDecimal.ZERO,
+                                                BigDecimal.ZERO
+                                });
+
+                TradingActivityMetrics result = metricsService.calculate(start, end);
+
+                assertEquals(0L, result.totalOrders());
+                assertEquals(0L, result.filledOrders());
+                assertEquals(0L, result.rejectedOrders());
+                assertEquals(0L, result.activeClients());
+
+                assertEquals(
+                                new BigDecimal("0.00"),
+                                result.fillRate());
+
+                assertEquals(
+                                new BigDecimal("0.00"),
+                                result.rejectionRate());
+
+                assertEquals(
+                                BigDecimal.ZERO,
+                                result.totalExecutedQuantity());
+
+                assertEquals(
+                                BigDecimal.ZERO,
+                                result.totalTradedValue());
+        }
+
+        @Test
+        void rejectsInvalidDateRange() {
+
+                assertThrows(
+                                IllegalArgumentException.class,
+                                () -> metricsService.calculate(
+                                                end,
+                                                start));
+
+                assertThrows(
+                                IllegalArgumentException.class,
+                                () -> metricsService.calculate(
+                                                start,
+                                                start));
+
+                verifyNoInteractions(
+                                orderFactRepository,
+                                tradeFactRepository);
+        }
 }

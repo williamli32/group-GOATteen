@@ -1,4 +1,3 @@
-
 package com.goatteen.trading.reporting;
 
 import com.goatteen.trading.reporting.metrics.*;
@@ -9,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,108 +19,250 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PeriodicReportingServiceTest {
 
-    @Mock
-    private TradingActivityMetricsService tradingActivityService;
+        @Mock
+        private TradingActivityMetricsService tradingActivityService;
 
-    @Mock
-    private InstrumentMetricsService instrumentMetricsService;
+        @Mock
+        private InstrumentMetricsService instrumentMetricsService;
 
-    @Mock
-    private ClientMetricsService clientMetricsService;
+        @Mock
+        private ClientMetricsService clientMetricsService;
 
-    private PeriodicReportingService reportingService;
+        private PeriodicReportingService reportingService;
 
-    @BeforeEach
-    void setUp() {
-        reportingService = new PeriodicReportingService(
-                tradingActivityService,
-                instrumentMetricsService,
-                clientMetricsService
-        );
-    }
+        @BeforeEach
+        void setUp() {
 
-    @Test
-    void generatesDailyReport() {
-        PeriodicReport report = reportingService.generate(
-                ReportingPeriod.DAILY,
-                LocalDate.of(2026, 10, 12)
-        );
+                reportingService = new PeriodicReportingService(
+                                tradingActivityService,
+                                instrumentMetricsService,
+                                clientMetricsService);
+        }
 
-        assertEquals(ReportingPeriod.DAILY, report.period());
-        assertEquals(LocalDateTime.of(2026, 10, 12, 0, 0),
-                report.startDate());
-        assertEquals(LocalDateTime.of(2026, 10, 13, 0, 0),
-                report.endDate());
+        @Test
+        void generatesDailyReportWithPreviousDayComparison() {
 
-        verifyMetricsCalled(report.startDate(), report.endDate());
-    }
+                LocalDateTime currentStart = LocalDateTime.of(2026, 10, 12, 0, 0);
 
-    @Test
-    void generatesWeeklyReportStartingMonday() {
-        PeriodicReport report = reportingService.generate(
-                ReportingPeriod.WEEKLY,
-                LocalDate.of(2026, 10, 14)
-        );
+                LocalDateTime currentEnd = LocalDateTime.of(2026, 10, 13, 0, 0);
 
-        assertEquals(LocalDateTime.of(2026, 10, 12, 0, 0),
-                report.startDate());
-        assertEquals(LocalDateTime.of(2026, 10, 19, 0, 0),
-                report.endDate());
+                LocalDateTime previousStart = LocalDateTime.of(2026, 10, 11, 0, 0);
 
-        verifyMetricsCalled(report.startDate(), report.endDate());
-    }
+                TradingActivityMetrics current = metrics(
+                                100,
+                                75,
+                                new BigDecimal("125000"));
 
-    @Test
-    void generatesMonthlyReport() {
-        PeriodicReport report = reportingService.generate(
-                ReportingPeriod.MONTHLY,
-                LocalDate.of(2026, 10, 15)
-        );
+                TradingActivityMetrics previous = metrics(
+                                80,
+                                60,
+                                new BigDecimal("100000"));
 
-        assertEquals(LocalDateTime.of(2026, 10, 1, 0, 0),
-                report.startDate());
-        assertEquals(LocalDateTime.of(2026, 11, 1, 0, 0),
-                report.endDate());
+                when(tradingActivityService.calculate(
+                                currentStart,
+                                currentEnd))
+                                .thenReturn(current);
 
-        verifyMetricsCalled(report.startDate(), report.endDate());
-    }
+                when(tradingActivityService.calculate(
+                                previousStart,
+                                currentStart))
+                                .thenReturn(previous);
 
-    @Test
-    void handlesYearBoundary() {
-        PeriodicReport report = reportingService.generate(
-                ReportingPeriod.MONTHLY,
-                LocalDate.of(2026, 12, 31)
-        );
+                when(instrumentMetricsService.calculate(
+                                currentStart,
+                                currentEnd))
+                                .thenReturn(List.of());
 
-        assertEquals(LocalDateTime.of(2026, 12, 1, 0, 0),
-                report.startDate());
-        assertEquals(LocalDateTime.of(2027, 1, 1, 0, 0),
-                report.endDate());
-    }
+                when(clientMetricsService.calculate(
+                                currentStart,
+                                currentEnd))
+                                .thenReturn(List.of());
 
-    @Test
-    void rejectsMissingInputs() {
-        assertThrows(IllegalArgumentException.class,
-                () -> reportingService.generate(
-                        null, LocalDate.of(2026, 10, 12)));
+                PeriodicReport report = reportingService.generate(
+                                ReportingPeriod.DAILY,
+                                LocalDate.of(2026, 10, 12));
 
-        assertThrows(IllegalArgumentException.class,
-                () -> reportingService.generate(
-                        ReportingPeriod.DAILY, null));
+                assertEquals(
+                                ReportingPeriod.DAILY,
+                                report.period());
 
-        verifyNoInteractions(
-                tradingActivityService,
-                instrumentMetricsService,
-                clientMetricsService
-        );
-    }
+                assertEquals(
+                                currentStart,
+                                report.startDate());
 
-    private void verifyMetricsCalled(
-            LocalDateTime start,
-            LocalDateTime end) {
+                assertEquals(
+                                currentEnd,
+                                report.endDate());
 
-        verify(tradingActivityService).calculate(start, end);
-        verify(instrumentMetricsService).calculate(start, end);
-        verify(clientMetricsService).calculate(start, end);
-    }
+                assertNotNull(report.comparison());
+
+                assertEquals(
+                                previous,
+                                report.comparison()
+                                                .previousPeriod());
+
+                assertEquals(
+                                new BigDecimal("25.00"),
+                                report.comparison()
+                                                .orderChangePercent());
+
+                assertEquals(
+                                new BigDecimal("25.00"),
+                                report.comparison()
+                                                .filledOrderChangePercent());
+
+                assertEquals(
+                                new BigDecimal("25.00"),
+                                report.comparison()
+                                                .tradedValueChangePercent());
+        }
+
+        @Test
+        void comparesWeeklyReportToPreviousWeek() {
+
+                stubZeroResults();
+
+                PeriodicReport report = reportingService.generate(
+                                ReportingPeriod.WEEKLY,
+                                LocalDate.of(2026, 10, 14));
+
+                assertEquals(
+                                LocalDateTime.of(
+                                                2026, 10, 12, 0, 0),
+                                report.startDate());
+
+                assertEquals(
+                                LocalDateTime.of(
+                                                2026, 10, 19, 0, 0),
+                                report.endDate());
+
+                verify(tradingActivityService)
+                                .calculate(
+                                                LocalDateTime.of(
+                                                                2026, 10, 5, 0, 0),
+                                                LocalDateTime.of(
+                                                                2026, 10, 12, 0, 0));
+        }
+
+        @Test
+        void comparesMonthlyReportToPreviousMonth() {
+
+                stubZeroResults();
+
+                PeriodicReport report = reportingService.generate(
+                                ReportingPeriod.MONTHLY,
+                                LocalDate.of(2026, 10, 15));
+
+                assertEquals(
+                                LocalDateTime.of(
+                                                2026, 10, 1, 0, 0),
+                                report.startDate());
+
+                assertEquals(
+                                LocalDateTime.of(
+                                                2026, 11, 1, 0, 0),
+                                report.endDate());
+
+                verify(tradingActivityService)
+                                .calculate(
+                                                LocalDateTime.of(
+                                                                2026, 9, 1, 0, 0),
+                                                LocalDateTime.of(
+                                                                2026, 10, 1, 0, 0));
+        }
+
+        @Test
+        void handlesYearBoundary() {
+
+                stubZeroResults();
+
+                PeriodicReport report = reportingService.generate(
+                                ReportingPeriod.MONTHLY,
+                                LocalDate.of(2026, 12, 31));
+
+                assertEquals(
+                                LocalDateTime.of(
+                                                2026, 12, 1, 0, 0),
+                                report.startDate());
+
+                assertEquals(
+                                LocalDateTime.of(
+                                                2027, 1, 1, 0, 0),
+                                report.endDate());
+
+                verify(tradingActivityService)
+                                .calculate(
+                                                LocalDateTime.of(
+                                                                2026, 11, 1, 0, 0),
+                                                LocalDateTime.of(
+                                                                2026, 12, 1, 0, 0));
+        }
+
+        @Test
+        void rejectsMissingInputs() {
+
+                assertThrows(
+                                IllegalArgumentException.class,
+                                () -> reportingService.generate(
+                                                null,
+                                                LocalDate.of(
+                                                                2026, 10, 12)));
+
+                assertThrows(
+                                IllegalArgumentException.class,
+                                () -> reportingService.generate(
+                                                ReportingPeriod.DAILY,
+                                                null));
+
+                verifyNoInteractions(
+                                tradingActivityService,
+                                instrumentMetricsService,
+                                clientMetricsService);
+        }
+
+        private void stubZeroResults() {
+
+                TradingActivityMetrics zero = metrics(
+                                0,
+                                0,
+                                BigDecimal.ZERO);
+
+                when(tradingActivityService
+                                .calculate(any(), any()))
+                                .thenReturn(zero);
+
+                when(instrumentMetricsService
+                                .calculate(any(), any()))
+                                .thenReturn(List.of());
+
+                when(clientMetricsService
+                                .calculate(any(), any()))
+                                .thenReturn(List.of());
+        }
+
+        private TradingActivityMetrics metrics(
+                        long totalOrders,
+                        long filledOrders,
+                        BigDecimal tradedValue) {
+
+                return new TradingActivityMetrics(
+                                totalOrders,
+                                filledOrders,
+                                totalOrders - filledOrders,
+                                0,
+
+                                BigDecimal.ZERO,
+                                BigDecimal.ZERO,
+
+                                BigDecimal.ZERO,
+                                tradedValue,
+
+                                0,
+                                BigDecimal.ZERO,
+                                BigDecimal.ZERO,
+
+                                0,
+                                BigDecimal.ZERO,
+                                BigDecimal.ZERO);
+        }
 }

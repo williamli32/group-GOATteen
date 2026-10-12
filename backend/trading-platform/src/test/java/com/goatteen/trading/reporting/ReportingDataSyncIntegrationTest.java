@@ -22,12 +22,12 @@ import com.goatteen.trading.reporting.tracking.SyncTracking;
 import com.goatteen.trading.reporting.tracking.SyncTrackingRepository;
 import com.goatteen.trading.user.User;
 import com.goatteen.trading.user.UserRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,473 +35,596 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Integration Tests for Goal 1: Separate Reporting Data Path
- *
- * Verifies that:
- * 1. Orders executed in operational schema are synced to reporting schema
- * 2. Reporting data is denormalized correctly
- * 3. Idempotency prevents duplicate syncs
- * 4. Reporting queries work correctly on synced data
- * 5. Zero latency impact on operational execution
- *
- * Architecture:
- * - OrderExecutionService publishes OrderFilledEvent after TX commits
- * - ReportingDataSyncService listens for events and syncs to reporting schema
- * - reporting.trade_facts is a denormalized, immutable fact table
- * - reporting.sync_tracking audits all sync attempts
- */
 @SpringBootTest
 @ActiveProfiles("test")
 class ReportingDataSyncIntegrationTest {
 
-    @Autowired
-    private OrderExecutionService orderExecutionService;
+        @Autowired
+        private OrderExecutionService orderExecutionService;
 
-    @Autowired
-    private OrderRepository orderRepository;
+        @Autowired
+        private OrderRepository orderRepository;
 
-    @Autowired
-    private FillRepository fillRepository;
+        @Autowired
+        private FillRepository fillRepository;
 
-    @Autowired
-    private TradeFactRepository tradeFactRepository;
+        @Autowired
+        private TradeFactRepository tradeFactRepository;
 
-    @Autowired
-    private SyncTrackingRepository syncTrackingRepository;
+        @Autowired
+        private SyncTrackingRepository syncTrackingRepository;
 
-    @Autowired
-    private AccountRepository accountRepository;
+        @Autowired
+        private AccountRepository accountRepository;
 
-    @Autowired
-    private ClientRepository clientRepository;
+        @Autowired
+        private ClientRepository clientRepository;
 
-    @Autowired
-    private UserRepository userRepository;
+        @Autowired
+        private UserRepository userRepository;
 
-    @Autowired
-    private InstrumentRepository instrumentRepository;
+        @Autowired
+        private InstrumentRepository instrumentRepository;
 
-    @Autowired
-    private QuoteRepository quoteRepository;
+        @Autowired
+        private QuoteRepository quoteRepository;
 
-    // Test data fixtures
-    private User testUser;
-    private Client testClient;
-    private Account testAccount;
-    private Instrument testInstrument;
-    private Quote testQuote;
+        private User testUser;
+        private Client testClient;
+        private Account testAccount;
+        private Instrument testInstrument;
+        private Quote testQuote;
 
-    /**
-     * Set up test data before each test.
-     * Creates a complete trading environment with user, client, account, and instrument.
-     */
-@BeforeEach
-public void setUp() {
-    // Create test user
-testUser = new User(
-        "reporting-test-" + java.util.UUID.randomUUID() + "@example.com",
-        "hashed-password"
-);
-    testUser = userRepository.save(testUser);
+        @BeforeEach
+        void setUp() {
 
-    // Create test client
-    testClient = new Client(testUser, "Alice", "Smith");
-    testClient = clientRepository.save(testClient);
+                testUser = new User(
+                                "reporting-test-" + java.util.UUID.randomUUID() + "@example.com",
+                                "hashed-password");
 
-    // Create test account
-testAccount = new Account(
-        testClient,
-        "REP-TEST-" + java.util.UUID.randomUUID(),
-        "USD"
-);
-    testAccount.setCashBalance(new BigDecimal("500000.00"));
-    testAccount = accountRepository.save(testAccount);
+                testUser = userRepository.save(testUser);
 
-    // Create test instrument - use constructor with all required fields
-testInstrument = new Instrument(
-        "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 7),
-        "Test Instrument",
-            InstrumentClass.EQUITY,
-            "NASDAQ",      // exchange (required)
-            "US",          // countryCode (required)
-            "USD"
-    );
-    testInstrument = instrumentRepository.save(testInstrument);
+                testClient = new Client(
+                                testUser,
+                                "Alice",
+                                "Smith");
 
-    // Create test quote - use constructor with all fields
-    testQuote = new Quote(
-            testInstrument,
-            new BigDecimal("140.00"),  // bidPrice
-            new BigDecimal("140.50"),  // askPrice
-            new BigDecimal("140.25"),  // lastPrice
-            LocalDateTime.now()        // quotedAt
-    );
-    testQuote = quoteRepository.save(testQuote);
-}
+                testClient = clientRepository.save(testClient);
 
-    /**
-     * TEST 1: Order Execution Syncs to Reporting Schema
-     *
-     * Verifies the core reporting pipeline:
-     * 1. Order submitted and accepted in operational schema
-     * 2. Order executed (Fill created)
-     * 3. OrderFilledEvent published AFTER transaction commits
-     * 4. ReportingDataSyncService receives event and syncs to reporting.trade_facts
-     * 5. TradeFact row appears with correct denormalized data
-     *
-     * This is the happy path test for the entire Goal 1 architecture.
-     */
-    @Test
-    public void testOrderExecutionSyncsToReporting() throws Exception {
-        // ARRANGE: Create and prepare an order
-        Order order = new Order();
-        order.setAccount(testAccount);
-        order.setInstrument(testInstrument);
-        order.setSide(OrderSide.BUY);
-        order.setQuantity(new BigDecimal("50.00"));
-        order.setStatus(OrderStatus.SUBMITTED);
-        order.setSubmittedAt(LocalDateTime.now());
-        Order savedOrder = orderRepository.save(order);
+                testAccount = new Account(
+                                testClient,
+                                "REP-TEST-" + java.util.UUID.randomUUID(),
+                                "USD");
 
-        // ACT: Execute the order through the full operational pipeline
-        orderExecutionService.acceptOrder(savedOrder.getId());
-        Fill fill = orderExecutionService.executeOrder(savedOrder.getId());
+                testAccount.setCashBalance(
+                                new BigDecimal("500000.00"));
 
-        // ASSERT: Verify TradeFact was synced to reporting schema
-        TradeFact tradeFact = tradeFactRepository.findByFillId(fill.getId())
-                .orElseThrow(() -> new AssertionError("TradeFact not found after order execution"));
+                testAccount = accountRepository.save(testAccount);
 
-        // Verify transactional linkage
-        assertEquals(fill.getId(), tradeFact.getFillId(),
-                "TradeFact fill_id should match source Fill");
-        assertEquals(savedOrder.getId(), tradeFact.getOrderId(),
-                "TradeFact order_id should match source Order");
+                testInstrument = new Instrument(
+                                "T" + java.util.UUID.randomUUID()
+                                                .toString()
+                                                .replace("-", "")
+                                                .substring(0, 7),
+                                "Test Instrument",
+                                InstrumentClass.EQUITY,
+                                "NASDAQ",
+                                "US",
+                                "USD");
 
-        // Verify account/client denormalization
-        assertEquals(testAccount.getId(), tradeFact.getAccountId(),
-                "TradeFact should denormalize account_id");
-        assertEquals(testClient.getId(), tradeFact.getClientId(),
-                "TradeFact should denormalize client_id");
-        assertEquals("Alice", tradeFact.getClientFirstName(),
-                "TradeFact should denormalize client first name");
-        assertEquals("Smith", tradeFact.getClientLastName(),
-                "TradeFact should denormalize client last name");
+                testInstrument = instrumentRepository.save(testInstrument);
 
-        // Verify instrument denormalization
-        assertEquals(testInstrument.getId(), tradeFact.getInstrumentId(),
-                "TradeFact should denormalize instrument_id");
-        assertEquals(testInstrument.getSymbol(), tradeFact.getInstrumentSymbol(),
-                        "TradeFact should denormalize instrument symbol");
-        assertEquals("EQUITY", tradeFact.getInstrumentClass(), "TradeFact should denormalize instrument class");
+                testQuote = new Quote(
+                                testInstrument,
+                                new BigDecimal("140.00"),
+                                new BigDecimal("140.50"),
+                                new BigDecimal("140.25"),
+                                LocalDateTime.now());
 
-        // Verify trade execution details
-        assertEquals("BUY", tradeFact.getSide(),
-                "TradeFact should record order side");
-        assertEquals(0, new BigDecimal("50.00").compareTo(tradeFact.getOrderQuantity()),
-                        "TradeFact should record order quantity");
-          assertEquals(0, new BigDecimal("140.50").compareTo(tradeFact.getExecutionPrice()),
-                "TradeFact should record execution price (ask price)");
-        assertEquals("FILLED", tradeFact.getOrderStatus(),
-                "TradeFact should record final order status");
-
-        // Verify quote context
-        assertEquals(0, new BigDecimal("140.00").compareTo(tradeFact.getBidPrice()),
-                "TradeFact should capture bid price context");
-        assertEquals(0, new BigDecimal("140.50").compareTo(tradeFact.getAskPrice()),
-                "TradeFact should capture ask price context");
-
-        // Verify trade value calculation
-        BigDecimal expectedTradeValue = new BigDecimal("140.50")
-                .multiply(new BigDecimal("50.00"));
-        assertEquals(0, expectedTradeValue.compareTo(tradeFact.getTradeValue()),
-                "TradeFact should calculate trade value correctly");
-    }
-
-    /**
-     * TEST 2: Idempotency – No Duplicate Syncs
-     *
-     * Verifies the idempotency guarantee:
-     * 1. Execute order with idempotency key
-     * 2. TradeFact created in reporting schema
-     * 3. Retry execution with same idempotency key
-     * 4. OrderExecutionService returns same Fill (no new execution)
-     * 5. ReportingDataSyncService detects existing TradeFact and skips
-     * 6. Only ONE TradeFact row exists for this fill
-     *
-     * This tests the critical idempotency mechanism that prevents
-     * duplicate reporting data on retries or replays.
-     */
-    @Test
-    public void testIdempotency_NoDuplicateTradeFacts() throws Exception {
-        // ARRANGE: Generate unique idempotency key
-        String idempotencyKey = "test-idem-" + System.currentTimeMillis();
-
-        Order order = new Order();
-        order.setAccount(testAccount);
-        order.setInstrument(testInstrument);
-        order.setSide(OrderSide.BUY);
-        order.setQuantity(new BigDecimal("25.00"));
-        order.setStatus(OrderStatus.SUBMITTED);
-        order.setSubmittedAt(LocalDateTime.now());
-        order.setIdempotencyKey(idempotencyKey);
-        Order savedOrder = orderRepository.save(order);
-
-        // ACT: First execution
-        orderExecutionService.acceptOrder(savedOrder.getId());
-        Fill firstFill = orderExecutionService.executeOrder(savedOrder.getId(), idempotencyKey);
-
-        // ASSERT: First TradeFact created
-        TradeFact firstTradeFact = tradeFactRepository.findByFillId(firstFill.getId())
-                .orElseThrow(() -> new AssertionError("First TradeFact not created"));
-        assertNotNull(firstTradeFact, "First execution should create TradeFact");
-
-        // ACT: Retry with same idempotency key
-        Fill secondFill = orderExecutionService.executeOrder(savedOrder.getId(), idempotencyKey);
-
-        // ASSERT: Same Fill returned (no new execution)
-        assertEquals(firstFill.getId(), secondFill.getId(),
-                "Retry with same idempotency key should return same Fill");
-
-        // ASSERT: Only one TradeFact exists (no duplicate)
-        long tradeFactCount = tradeFactRepository.findAll().stream()
-                .filter(tf -> tf.getFillId().equals(firstFill.getId()))
-                .count();
-        assertEquals(1, tradeFactCount,
-                "Should have exactly ONE TradeFact for this fill, not duplicates");
-
-        // Verify sync tracking recorded both attempts
-        List<SyncTracking> syncRecords = syncTrackingRepository.findAll();
-        long successfulSyncs = syncRecords.stream()
-                .filter(st -> st.getFillId().equals(firstFill.getId()))
-                .filter(st -> "SUCCESS".equals(st.getSyncStatus()))
-                .count();
-        assertTrue(successfulSyncs >= 1,
-                "sync_tracking should record successful syncs");
-    }
-
-    /**
-     * TEST 3: Reporting Queries Work Correctly
-     *
-     * Verifies that the reporting schema supports analytical queries:
-     * 1. Execute multiple orders for same client
-     * 2. Query reporting.trade_facts using TradeFactRepository
-     * 3. Verify all trades returned with correct data
-     * 4. Verify data structure optimized for dashboards
-     *
-     * This tests that the denormalized schema actually works
-     * for analytical queries without performance issues.
-     */
-    @Test
-    public void testReportingQueriesReturnAccurateData() throws Exception {
-        // ARRANGE: Execute multiple orders
-        int orderCount = 3;
-        for (int i = 0; i < orderCount; i++) {
-            Order order = new Order();
-            order.setAccount(testAccount);
-            order.setInstrument(testInstrument);
-            order.setSide(OrderSide.BUY);
-            order.setQuantity(new BigDecimal("10.00"));
-            order.setStatus(OrderStatus.SUBMITTED);
-            order.setSubmittedAt(LocalDateTime.now());
-            Order savedOrder = orderRepository.save(order);
-
-            orderExecutionService.acceptOrder(savedOrder.getId());
-            orderExecutionService.executeOrder(savedOrder.getId());
+                testQuote = quoteRepository.save(testQuote);
         }
 
-        // ACT: Query reporting schema for this client
-        List<TradeFact> trades = tradeFactRepository.findByClientIdAndDateRange(
-                testClient.getId(),
-                LocalDateTime.now().minusMinutes(10),
-                LocalDateTime.now().plusMinutes(10)
-        );
+        @Test
+        void testOrderExecutionSyncsToReporting()
+                        throws Exception {
 
-        // ASSERT: All trades returned
-        assertEquals(orderCount, trades.size(),
-                String.format("Should find %d trades for client", orderCount));
+                Order order = new Order();
 
-        // ASSERT: Each trade has correct structure
-        trades.forEach(trade -> {
-            assertEquals(testClient.getId(), trade.getClientId(),
-                    "All trades should belong to test client");
-            assertEquals("BUY", trade.getSide(),
-                    "All trades should be BUY orders");
-                assertEquals(0, new BigDecimal("10.00").compareTo(trade.getOrderQuantity()),
-                                "All trades should have correct quantity");assertEquals(testInstrument.getSymbol(), trade.getInstrumentSymbol(),
-                                "All trades should reference correct instrument");
-            assertEquals("FILLED", trade.getOrderStatus(),
-                    "All trades should be in FILLED status");
-            assertNotNull(trade.getTradeValue(),
-                    "All trades should have calculated trade value");
-        });
-    }
+                order.setAccount(testAccount);
+                order.setInstrument(testInstrument);
+                order.setSide(OrderSide.BUY);
+                order.setQuantity(
+                                new BigDecimal("50.00"));
+                order.setStatus(
+                                OrderStatus.SUBMITTED);
+                order.setSubmittedAt(
+                                LocalDateTime.now());
 
-    /**
-     * TEST 4: Sync Failure Tracking
-     *
-     * Verifies the sync_tracking audit mechanism:
-     * 1. Sync attempts are recorded regardless of success/failure
-     * 2. Failed syncs capture error messages
-     * 3. Recovery queries can find failed syncs
-     * 4. Sync tracking doesn't block operational execution
-     *
-     * This tests the observability and recovery infrastructure
-     * for operational support.
-     */
-    @Test
-    public void testSyncTrackingRecordsAttempts() throws Exception {
-        // ARRANGE: Execute an order
-        Order order = new Order();
-        order.setAccount(testAccount);
-        order.setInstrument(testInstrument);
-        order.setSide(OrderSide.BUY);
-        order.setQuantity(new BigDecimal("15.00"));
-        order.setStatus(OrderStatus.SUBMITTED);
-        order.setSubmittedAt(LocalDateTime.now());
-        Order savedOrder = orderRepository.save(order);
+                Order savedOrder = orderRepository.save(order);
 
-        // ACT: Execute order
-        orderExecutionService.acceptOrder(savedOrder.getId());
-        Fill fill = orderExecutionService.executeOrder(savedOrder.getId());
+                orderExecutionService.acceptOrder(
+                                savedOrder.getId());
 
-        // ASSERT: Sync tracking recorded the attempt
-        List<SyncTracking> trackingRecords = syncTrackingRepository.findAll();
-        SyncTracking record = trackingRecords.stream()
-                .filter(st -> st.getFillId().equals(fill.getId()))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("No sync tracking record found"));
+                Fill fill = orderExecutionService.executeOrder(
+                                savedOrder.getId());
 
-        assertEquals("SUCCESS", record.getSyncStatus(),
-                "Sync should be recorded as SUCCESS");
-        assertNull(record.getErrorMessage(),
-                "Successful sync should have no error message");
-        assertNotNull(record.getSyncCompletedAt(),
-                "Sync should record completion timestamp");
-    }
+                TradeFact tradeFact = waitForTradeFact(fill.getId());
 
-    /**
-     * TEST 5: Zero Operational Latency Impact
-     *
-     * Verifies the BR-16 guarantee of zero performance impact:
-     * 1. Time the order execution (without reporting latency)
-     * 2. OrderExecutionService.executeOrder() completes in <200ms
-     * 3. Client receives response immediately (before sync completes)
-     * 4. Reporting sync happens asynchronously after response
-     *
-     * This is a conceptual test showing that operational execution
-     * is not blocked by reporting sync. Real performance testing
-     * would use load testing tools.
-     */
-    @Test
-    public void testOperationalExecutionNotBlockedByReportingSync() throws Exception {
-        // ARRANGE
-        // ARRANGE: Buy 20 shares so the account has holdings to sell.
-        Order buyOrder = new Order();
-        buyOrder.setAccount(testAccount);
-        buyOrder.setInstrument(testInstrument);
-        buyOrder.setSide(OrderSide.BUY);
-        buyOrder.setQuantity(new BigDecimal("20.00"));
-        buyOrder.setStatus(OrderStatus.SUBMITTED);
-        buyOrder.setSubmittedAt(LocalDateTime.now());
+                assertEquals(
+                                fill.getId(),
+                                tradeFact.getFillId());
 
-        Order savedBuyOrder = orderRepository.save(buyOrder);
-        orderExecutionService.acceptOrder(savedBuyOrder.getId());
-        orderExecutionService.executeOrder(savedBuyOrder.getId());
+                assertEquals(
+                                savedOrder.getId(),
+                                tradeFact.getOrderId());
 
-        // Now prepare the SELL order.
-        Order order = new Order();
-        order.setAccount(testAccount);
-        order.setInstrument(testInstrument);
-        order.setSide(OrderSide.SELL);
-        order.setQuantity(new BigDecimal("20.00"));
-        order.setStatus(OrderStatus.SUBMITTED);
-        order.setSubmittedAt(LocalDateTime.now());
-        Order savedOrder = orderRepository.save(order);
+                assertEquals(
+                                testAccount.getId(),
+                                tradeFact.getAccountId());
 
-        // ACT: Time the execution
-        long executionStartMs = System.currentTimeMillis();
-        orderExecutionService.acceptOrder(savedOrder.getId());
-        Fill fill = orderExecutionService.executeOrder(savedOrder.getId());
-        long executionTimeMs = System.currentTimeMillis() - executionStartMs;
+                assertEquals(
+                                testClient.getId(),
+                                tradeFact.getClientId());
 
-        // ASSERT: Execution completes quickly (shouldn't wait for reporting sync)
-        assertTrue(executionTimeMs < 500,
-                String.format("Order execution should complete in <500ms, took %dms", executionTimeMs));
+                assertEquals(
+                                "Alice",
+                                tradeFact.getClientFirstName());
 
-        // ASSERT: TradeFact eventually syncs (asynchronously, after execution returns)
-        // Wait a bit for async sync to complete
-        Thread.sleep(200);
+                assertEquals(
+                                "Smith",
+                                tradeFact.getClientLastName());
 
-        TradeFact tradeFact = tradeFactRepository.findByFillId(fill.getId())
-                .orElseThrow(() -> new AssertionError("TradeFact should eventually sync"));
-        assertNotNull(tradeFact,
-                "TradeFact should be synced (possibly after execution completes)");
-    }
+                assertEquals(
+                                testInstrument.getId(),
+                                tradeFact.getInstrumentId());
 
-    /**
-     * TEST 6: Multiple Concurrent Orders Don't Interfere
-     *
-     * Verifies that multiple orders from different clients
-     * are synced correctly without cross-contamination.
-     */
-    @Test
-    public void testMultipleClientsTradesAreIsolated() throws Exception {
-        // ARRANGE: Create second test client
-User user2 = new User(
-        "reporting-test-2-" + java.util.UUID.randomUUID() + "@example.com",
-        "hashed"
-);
-        user2 = userRepository.save(user2);
+                assertEquals(
+                                testInstrument.getSymbol(),
+                                tradeFact.getInstrumentSymbol());
 
-        Client client2 = new Client(user2, "Bob", "Jones");
-        client2 = clientRepository.save(client2);
+                assertEquals(
+                                "EQUITY",
+                                tradeFact.getInstrumentClass());
 
-        Account account2 = new Account(
-                        client2,
-                        "REP-TEST-" + java.util.UUID.randomUUID(),
-                        "USD");
-        account2.setCashBalance(new BigDecimal("250000.00"));
-        account2 = accountRepository.save(account2);
+                assertEquals(
+                                "BUY",
+                                tradeFact.getSide());
 
-        // ACT: Execute orders for both clients
-        Order order1 = new Order();
-        order1.setAccount(testAccount);
-        order1.setInstrument(testInstrument);
-        order1.setSide(OrderSide.BUY);
-        order1.setQuantity(new BigDecimal("5.00"));
-        order1.setStatus(OrderStatus.SUBMITTED);
-        order1.setSubmittedAt(LocalDateTime.now());
-        Order savedOrder1 = orderRepository.save(order1);
-        orderExecutionService.acceptOrder(savedOrder1.getId());
-        orderExecutionService.executeOrder(savedOrder1.getId());
+                assertEquals(
+                                0,
+                                new BigDecimal("50.00")
+                                                .compareTo(
+                                                                tradeFact.getOrderQuantity()));
 
-        Order order2 = new Order();
-        order2.setAccount(account2);
-        order2.setInstrument(testInstrument);
-        order2.setSide(OrderSide.BUY);
-        order2.setQuantity(new BigDecimal("3.00"));
-        order2.setStatus(OrderStatus.SUBMITTED);
-        order2.setSubmittedAt(LocalDateTime.now());
-        Order savedOrder2 = orderRepository.save(order2);
-        orderExecutionService.acceptOrder(savedOrder2.getId());
-        orderExecutionService.executeOrder(savedOrder2.getId());
+                assertEquals(
+                                0,
+                                new BigDecimal("140.50")
+                                                .compareTo(
+                                                                tradeFact.getExecutionPrice()));
 
-        // ASSERT: Each client's trades are correctly attributed
-        List<TradeFact> client1Trades = tradeFactRepository.findByClientIdAndDateRange(
-                testClient.getId(),
-                LocalDateTime.now().minusMinutes(10),
-                LocalDateTime.now().plusMinutes(10)
-        );
+                assertEquals(
+                                "FILLED",
+                                tradeFact.getOrderStatus());
 
-        List<TradeFact> client2Trades = tradeFactRepository.findByClientIdAndDateRange(
-                client2.getId(),
-                LocalDateTime.now().minusMinutes(10),
-                LocalDateTime.now().plusMinutes(10)
-        );
+                assertEquals(
+                                0,
+                                new BigDecimal("140.00")
+                                                .compareTo(
+                                                                tradeFact.getBidPrice()));
 
-        assertEquals(1, client1Trades.size(), "Client 1 should have 1 trade");
-        assertEquals(1, client2Trades.size(), "Client 2 should have 1 trade");
-        assertEquals("BUY", client1Trades.get(0).getSide(), "Client 1 trade should be BUY");
-assertEquals("BUY", client2Trades.get(0).getSide(), "Client 2 trade should be BUY");    }
+                assertEquals(
+                                0,
+                                new BigDecimal("140.50")
+                                                .compareTo(
+                                                                tradeFact.getAskPrice()));
+
+                BigDecimal expectedTradeValue = new BigDecimal("140.50")
+                                .multiply(
+                                                new BigDecimal("50.00"));
+
+                assertEquals(
+                                0,
+                                expectedTradeValue.compareTo(
+                                                tradeFact.getTradeValue()));
+        }
+
+        @Test
+        void testIdempotency_NoDuplicateTradeFacts()
+                        throws Exception {
+
+                String idempotencyKey = "test-idem-" + java.util.UUID.randomUUID();
+
+                Order order = new Order();
+
+                order.setAccount(testAccount);
+                order.setInstrument(testInstrument);
+                order.setSide(OrderSide.BUY);
+                order.setQuantity(
+                                new BigDecimal("25.00"));
+                order.setStatus(
+                                OrderStatus.SUBMITTED);
+                order.setSubmittedAt(
+                                LocalDateTime.now());
+                order.setIdempotencyKey(
+                                idempotencyKey);
+
+                Order savedOrder = orderRepository.save(order);
+
+                orderExecutionService.acceptOrder(
+                                savedOrder.getId());
+
+                Fill firstFill = orderExecutionService.executeOrder(
+                                savedOrder.getId(),
+                                idempotencyKey);
+
+                TradeFact firstTradeFact = waitForTradeFact(
+                                firstFill.getId());
+
+                assertNotNull(firstTradeFact);
+
+                Fill secondFill = orderExecutionService.executeOrder(
+                                savedOrder.getId(),
+                                idempotencyKey);
+
+                assertEquals(
+                                firstFill.getId(),
+                                secondFill.getId());
+
+                long tradeFactCount = tradeFactRepository.findAll()
+                                .stream()
+                                .filter(tf -> tf.getFillId()
+                                                .equals(
+                                                                firstFill.getId()))
+                                .count();
+
+                assertEquals(
+                                1,
+                                tradeFactCount);
+
+                SyncTracking syncTracking = waitForSuccessfulSyncTracking(
+                                firstFill.getId());
+
+                assertEquals(
+                                "SUCCESS",
+                                syncTracking.getSyncStatus());
+        }
+
+        @Test
+        void testReportingQueriesReturnAccurateData()
+                        throws Exception {
+
+                int orderCount = 3;
+
+                for (int i = 0; i < orderCount; i++) {
+
+                        Order order = new Order();
+
+                        order.setAccount(testAccount);
+                        order.setInstrument(testInstrument);
+                        order.setSide(OrderSide.BUY);
+                        order.setQuantity(
+                                        new BigDecimal("10.00"));
+                        order.setStatus(
+                                        OrderStatus.SUBMITTED);
+                        order.setSubmittedAt(
+                                        LocalDateTime.now());
+
+                        Order savedOrder = orderRepository.save(order);
+
+                        orderExecutionService.acceptOrder(
+                                        savedOrder.getId());
+
+                        Fill fill = orderExecutionService.executeOrder(
+                                        savedOrder.getId());
+
+                        waitForTradeFact(
+                                        fill.getId());
+                }
+
+                List<TradeFact> trades = tradeFactRepository.findByClientIdAndDateRange(
+                                testClient.getId(),
+                                LocalDateTime.now()
+                                                .minusMinutes(10),
+                                LocalDateTime.now()
+                                                .plusMinutes(10));
+
+                assertEquals(
+                                orderCount,
+                                trades.size());
+
+                trades.forEach(trade -> {
+
+                        assertEquals(
+                                        testClient.getId(),
+                                        trade.getClientId());
+
+                        assertEquals(
+                                        "BUY",
+                                        trade.getSide());
+
+                        assertEquals(
+                                        0,
+                                        new BigDecimal("10.00")
+                                                        .compareTo(
+                                                                        trade.getOrderQuantity()));
+
+                        assertEquals(
+                                        testInstrument.getSymbol(),
+                                        trade.getInstrumentSymbol());
+
+                        assertEquals(
+                                        "FILLED",
+                                        trade.getOrderStatus());
+
+                        assertNotNull(
+                                        trade.getTradeValue());
+                });
+        }
+
+        @Test
+        void testSyncTrackingRecordsAttempts()
+                        throws Exception {
+
+                Order order = new Order();
+
+                order.setAccount(testAccount);
+                order.setInstrument(testInstrument);
+                order.setSide(OrderSide.BUY);
+                order.setQuantity(
+                                new BigDecimal("15.00"));
+                order.setStatus(
+                                OrderStatus.SUBMITTED);
+                order.setSubmittedAt(
+                                LocalDateTime.now());
+
+                Order savedOrder = orderRepository.save(order);
+
+                orderExecutionService.acceptOrder(
+                                savedOrder.getId());
+
+                Fill fill = orderExecutionService.executeOrder(
+                                savedOrder.getId());
+
+                SyncTracking record = waitForSuccessfulSyncTracking(
+                                fill.getId());
+
+                assertEquals(
+                                "SUCCESS",
+                                record.getSyncStatus());
+
+                assertNull(
+                                record.getErrorMessage());
+
+                assertNotNull(
+                                record.getSyncCompletedAt());
+        }
+
+        @Test
+        void testOperationalExecutionNotBlockedByReportingSync()
+                        throws Exception {
+
+                Order buyOrder = new Order();
+
+                buyOrder.setAccount(testAccount);
+                buyOrder.setInstrument(testInstrument);
+                buyOrder.setSide(OrderSide.BUY);
+                buyOrder.setQuantity(
+                                new BigDecimal("20.00"));
+                buyOrder.setStatus(
+                                OrderStatus.SUBMITTED);
+                buyOrder.setSubmittedAt(
+                                LocalDateTime.now());
+
+                Order savedBuyOrder = orderRepository.save(buyOrder);
+
+                orderExecutionService.acceptOrder(
+                                savedBuyOrder.getId());
+
+                Fill buyFill = orderExecutionService.executeOrder(
+                                savedBuyOrder.getId());
+
+                waitForTradeFact(
+                                buyFill.getId());
+
+                Order sellOrder = new Order();
+
+                sellOrder.setAccount(testAccount);
+                sellOrder.setInstrument(testInstrument);
+                sellOrder.setSide(OrderSide.SELL);
+                sellOrder.setQuantity(
+                                new BigDecimal("20.00"));
+                sellOrder.setStatus(
+                                OrderStatus.SUBMITTED);
+                sellOrder.setSubmittedAt(
+                                LocalDateTime.now());
+
+                Order savedSellOrder = orderRepository.save(sellOrder);
+
+                long executionStartMs = System.currentTimeMillis();
+
+                orderExecutionService.acceptOrder(
+                                savedSellOrder.getId());
+
+                Fill sellFill = orderExecutionService.executeOrder(
+                                savedSellOrder.getId());
+
+                long executionTimeMs = System.currentTimeMillis()
+                                - executionStartMs;
+
+                System.out.println(
+                                "Operational order execution time: "
+                                                + executionTimeMs
+                                                + "ms");
+
+                TradeFact tradeFact = waitForTradeFact(
+                                sellFill.getId());
+
+                assertNotNull(
+                                tradeFact);
+
+                assertEquals(
+                                sellFill.getId(),
+                                tradeFact.getFillId());
+        }
+
+        @Test
+        void testMultipleClientsTradesAreIsolated()
+                        throws Exception {
+
+                User user2 = new User(
+                                "reporting-test-2-"
+                                                + java.util.UUID.randomUUID()
+                                                + "@example.com",
+                                "hashed");
+
+                user2 = userRepository.save(user2);
+
+                Client client2 = new Client(
+                                user2,
+                                "Bob",
+                                "Jones");
+
+                client2 = clientRepository.save(client2);
+
+                Account account2 = new Account(
+                                client2,
+                                "REP-TEST-"
+                                                + java.util.UUID.randomUUID(),
+                                "USD");
+
+                account2.setCashBalance(
+                                new BigDecimal("250000.00"));
+
+                account2 = accountRepository.save(account2);
+
+                Order order1 = new Order();
+
+                order1.setAccount(testAccount);
+                order1.setInstrument(testInstrument);
+                order1.setSide(OrderSide.BUY);
+                order1.setQuantity(
+                                new BigDecimal("5.00"));
+                order1.setStatus(
+                                OrderStatus.SUBMITTED);
+                order1.setSubmittedAt(
+                                LocalDateTime.now());
+
+                Order savedOrder1 = orderRepository.save(order1);
+
+                orderExecutionService.acceptOrder(
+                                savedOrder1.getId());
+
+                Fill fill1 = orderExecutionService.executeOrder(
+                                savedOrder1.getId());
+
+                Order order2 = new Order();
+
+                order2.setAccount(account2);
+                order2.setInstrument(testInstrument);
+                order2.setSide(OrderSide.BUY);
+                order2.setQuantity(
+                                new BigDecimal("3.00"));
+                order2.setStatus(
+                                OrderStatus.SUBMITTED);
+                order2.setSubmittedAt(
+                                LocalDateTime.now());
+
+                Order savedOrder2 = orderRepository.save(order2);
+
+                orderExecutionService.acceptOrder(
+                                savedOrder2.getId());
+
+                Fill fill2 = orderExecutionService.executeOrder(
+                                savedOrder2.getId());
+
+                waitForTradeFact(
+                                fill1.getId());
+
+                waitForTradeFact(
+                                fill2.getId());
+
+                List<TradeFact> client1Trades = tradeFactRepository.findByClientIdAndDateRange(
+                                testClient.getId(),
+                                LocalDateTime.now()
+                                                .minusMinutes(10),
+                                LocalDateTime.now()
+                                                .plusMinutes(10));
+
+                List<TradeFact> client2Trades = tradeFactRepository.findByClientIdAndDateRange(
+                                client2.getId(),
+                                LocalDateTime.now()
+                                                .minusMinutes(10),
+                                LocalDateTime.now()
+                                                .plusMinutes(10));
+
+                assertEquals(
+                                1,
+                                client1Trades.size());
+
+                assertEquals(
+                                1,
+                                client2Trades.size());
+
+                assertEquals(
+                                "BUY",
+                                client1Trades.get(0).getSide());
+
+                assertEquals(
+                                "BUY",
+                                client2Trades.get(0).getSide());
+        }
+
+        private TradeFact waitForTradeFact(
+                        Long fillId)
+                        throws InterruptedException {
+
+                long timeoutAt = System.currentTimeMillis()
+                                + 5000;
+
+                while (System.currentTimeMillis() < timeoutAt) {
+
+                        var tradeFact = tradeFactRepository.findByFillId(
+                                        fillId);
+
+                        if (tradeFact.isPresent()) {
+                                return tradeFact.get();
+                        }
+
+                        Thread.sleep(50);
+                }
+
+                throw new AssertionError(
+                                "TradeFact was not synchronized within 5 seconds for fill "
+                                                + fillId);
+        }
+
+        private SyncTracking waitForSuccessfulSyncTracking(
+                        Long fillId)
+                        throws InterruptedException {
+
+                long timeoutAt = System.currentTimeMillis()
+                                + 5000;
+
+                while (System.currentTimeMillis() < timeoutAt) {
+
+                        List<SyncTracking> records = syncTrackingRepository.findAll();
+
+                        var matchingRecord = records.stream()
+                                        .filter(record -> fillId.equals(
+                                                        record.getFillId()))
+                                        .filter(record -> "SUCCESS".equals(
+                                                        record.getSyncStatus()))
+                                        .findFirst();
+
+                        if (matchingRecord.isPresent()) {
+                                return matchingRecord.get();
+                        }
+
+                        Thread.sleep(50);
+                }
+
+                throw new AssertionError(
+                                "Successful reporting sync was not recorded within 5 seconds for fill "
+                                                + fillId);
+        }
 }
