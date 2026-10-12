@@ -16,6 +16,7 @@ import com.goatteen.trading.portfolio.CashTransactionRepository;
 import com.goatteen.trading.portfolio.Position;
 import com.goatteen.trading.portfolio.PositionRepository;
 import com.goatteen.trading.reporting.event.OrderFilledEvent;
+import com.goatteen.trading.reporting.event.OrderStatusChangedEvent;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -562,14 +563,27 @@ public class OrderExecutionService {
                                 history);
         }
 
-        private void recordStatusChange(Order order, OrderStatus status, String note) {
+
+        private void recordStatusChange(
+                        Order order,
+                        OrderStatus status,
+                        String note) {
+
                 OrderStatusHistory history = new OrderStatusHistory();
+
                 history.setOrder(order);
                 history.setStatus(status);
                 history.setChangedAt(LocalDateTime.now());
                 history.setNote(note);
+
                 orderStatusHistoryRepository.save(history);
+
+                // Publish the status change event.
+                // The reporting listener will run after commit.
+                applicationEventPublisher.publishEvent(
+                                new OrderStatusChangedEvent(order.getId()));
         }
+
 
         public static class OrderExecutionException extends RuntimeException {
                 public OrderExecutionException(String message) {
