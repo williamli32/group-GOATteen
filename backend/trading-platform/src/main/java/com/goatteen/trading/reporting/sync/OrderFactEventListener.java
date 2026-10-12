@@ -2,6 +2,7 @@
 package com.goatteen.trading.reporting.sync;
 
 import com.goatteen.trading.reporting.event.OrderStatusChangedEvent;
+import org.springframework.scheduling.annotation.Async;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,7 @@ public class OrderFactEventListener {
         this.orderFactSyncService = orderFactSyncService;
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onOrderStatusChanged(OrderStatusChangedEvent event) {
 

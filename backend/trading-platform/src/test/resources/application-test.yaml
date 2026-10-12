@@ -3,9 +3,9 @@ spring:
     import: optional:file:.env[.properties]
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -30,3 +30,6 @@ app:
 
   recovery:
     enabled: false
+
+  reporting:
+    backfill-enabled: false

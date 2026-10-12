@@ -5,8 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -23,40 +21,7 @@ class OrderExecutionAccountIsolationTest {
      *
      * Never run this test against leap_trading.
      */
-    private static final String TEST_DB = "leap_sprint4_rollback_test";
-
-    private static final String TEST_USER = "leap_sprint4_test";
-
-    private static final String TEST_DB_URL = "jdbc:postgresql://localhost:5432/"
-            + TEST_DB;
-
-    @DynamicPropertySource
-    static void configureDatabase(
-            DynamicPropertyRegistry registry) {
-
-        String password = System.getenv(
-                "LEAP_TEST_DB_PASSWORD");
-
-        if (password == null
-                || password.isBlank()) {
-
-            throw new IllegalStateException(
-                    "Set LEAP_TEST_DB_PASSWORD before running "
-                            + "OrderExecutionAccountIsolationTest");
-        }
-
-        registry.add(
-                "spring.datasource.url",
-                () -> TEST_DB_URL);
-
-        registry.add(
-                "spring.datasource.username",
-                () -> TEST_USER);
-
-        registry.add(
-                "spring.datasource.password",
-                () -> password);
-    }
+    private static final String TEST_DB = "leap_trading_test";
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -333,12 +298,6 @@ class OrderExecutionAccountIsolationTest {
                         String.class),
                 "Refusing to run against an unexpected database");
 
-        assertEquals(
-                TEST_USER,
-                jdbc.queryForObject(
-                        "SELECT current_user",
-                        String.class),
-                "Refusing to run with an unexpected database user");
     }
 
     private Long createAccount(

@@ -8,8 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.goatteen.trading.recovery.RecoveryAssessment;
@@ -32,56 +30,9 @@ class OrderExecutionRollbackIntegrationTest {
 
         /*
          * Safety: this test connects only to the
-         * dedicated local Sprint 4 test database.
+         * shared integration-test database.
          */
-        private static final String TEST_DB_NAME = "leap_sprint4_rollback_test";
-
-        private static final String TEST_DB_USER = "leap_sprint4_test";
-
-        private static final String TEST_DB_URL = "jdbc:postgresql://localhost:5432/" + TEST_DB_NAME;
-
-        /*
-         * Read the test database password from an
-         * environment variable instead of storing
-         * it in source code.
-         */
-        private static String requireTestPassword() {
-
-                String password = System.getenv("LEAP_TEST_DB_PASSWORD");
-
-                if (password == null || password.isBlank()) {
-                        throw new IllegalStateException(
-                                        "Set LEAP_TEST_DB_PASSWORD before running " +
-                                                        "OrderExecutionRollbackIntegrationTest");
-                }
-
-                return password;
-        }
-
-        /*
-         * Override the application's normal database
-         * configuration with the dedicated test database.
-         *
-         * Flyway will run against this database.
-         */
-        @DynamicPropertySource
-        static void configureDatabase(
-                        DynamicPropertyRegistry registry) {
-
-                String password = requireTestPassword();
-
-                registry.add(
-                                "spring.datasource.url",
-                                () -> TEST_DB_URL);
-
-                registry.add(
-                                "spring.datasource.username",
-                                () -> TEST_DB_USER);
-
-                registry.add(
-                                "spring.datasource.password",
-                                () -> password);
-        }
+        private static final String TEST_DB_NAME = "leap_trading_test";
 
         @Autowired
         private OrderExecutionService executionService;
@@ -125,19 +76,10 @@ class OrderExecutionRollbackIntegrationTest {
                                 "SELECT current_database()",
                                 String.class);
 
-                String actualUser = jdbc.queryForObject(
-                                "SELECT current_user",
-                                String.class);
-
                 assertEquals(
                                 TEST_DB_NAME,
                                 actualDatabase,
                                 "Refusing to run against an unexpected database");
-
-                assertEquals(
-                                TEST_DB_USER,
-                                actualUser,
-                                "Refusing to run with an unexpected database user");
 
                 /*
                  * Generate unique identifiers so repeated

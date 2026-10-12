@@ -14,17 +14,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ApplicationRestartRecoveryIntegrationTest {
 
-    private static final String TEST_DB = "leap_sprint4_rollback_test";
-
-    private static final String TEST_USER = "leap_sprint4_test";
-
-    private static final String TEST_URL = "jdbc:postgresql://localhost:5432/"
-            + TEST_DB;
+    private static final String TEST_DB = "leap_trading_test";
 
     @Test
     void shouldRecoverAcceptedOrderAfterRestartWithoutDuplicateSettlement() {
 
-        String password = requireTestPassword();
 
         String suffix = UUID.randomUUID()
                 .toString()
@@ -47,7 +41,6 @@ class ApplicationRestartRecoveryIntegrationTest {
          * ---------------------------------------------------------
          */
         try (ConfigurableApplicationContext first = startApplication(
-                password,
                 false)) {
 
             JdbcTemplate jdbc = first.getBean(
@@ -228,7 +221,6 @@ class ApplicationRestartRecoveryIntegrationTest {
          * ---------------------------------------------------------
          */
         try (ConfigurableApplicationContext second = startApplication(
-                password,
                 true)) {
 
             JdbcTemplate jdbc = second.getBean(
@@ -331,7 +323,6 @@ class ApplicationRestartRecoveryIntegrationTest {
          * ---------------------------------------------------------
          */
         try (ConfigurableApplicationContext third = startApplication(
-                password,
                 true)) {
 
             JdbcTemplate jdbc = third.getBean(
@@ -434,7 +425,6 @@ class ApplicationRestartRecoveryIntegrationTest {
     }
 
     private ConfigurableApplicationContext startApplication(
-            String password,
             boolean recoveryEnabled) {
 
         return new SpringApplicationBuilder(
@@ -454,23 +444,8 @@ class ApplicationRestartRecoveryIntegrationTest {
                 .profiles(
                         "test")
 
-                /*
-                 * These are passed as command-line properties
-                 * so they override application-test.yaml and
-                 * any DB_URL / DB_USERNAME / DB_PASSWORD
-                 * environment variables.
-                 */
                 .run(
                         "--server.port=0",
-
-                        "--spring.datasource.url="
-                                + TEST_URL,
-
-                        "--spring.datasource.username="
-                                + TEST_USER,
-
-                        "--spring.datasource.password="
-                                + password,
 
                         "--spring.jpa.hibernate.ddl-auto=validate",
 
@@ -478,24 +453,10 @@ class ApplicationRestartRecoveryIntegrationTest {
 
                         "--app.market-simulator.enabled=false",
 
+                        "--app.reporting.backfill-enabled=false",
+
                         "--app.recovery.enabled="
                                 + recoveryEnabled);
-    }
-
-    private String requireTestPassword() {
-
-        String password = System.getenv(
-                "LEAP_TEST_DB_PASSWORD");
-
-        if (password == null
-                || password.isBlank()) {
-
-            throw new IllegalStateException(
-                    "Set LEAP_TEST_DB_PASSWORD before running "
-                            + "ApplicationRestartRecoveryIntegrationTest");
-        }
-
-        return password;
     }
 
     private void assertDedicatedDatabase(
@@ -507,11 +468,6 @@ class ApplicationRestartRecoveryIntegrationTest {
                         "SELECT current_database()",
                         String.class));
 
-        assertEquals(
-                TEST_USER,
-                jdbc.queryForObject(
-                        "SELECT current_user",
-                        String.class));
     }
 
     private String status(
