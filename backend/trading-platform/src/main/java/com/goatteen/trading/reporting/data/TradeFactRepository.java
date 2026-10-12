@@ -115,4 +115,25 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
                     @Param("endDate") LocalDateTime endDate);
 
 
+    /**
+     * Summarize executed fills by client and currency
+     * within a reporting period.
+     */
+    @Query("""
+                        SELECT
+                            tf.clientId,
+                            tf.currency,
+                            COUNT(tf),
+                            SUM(tf.executionQuantity),
+                            SUM(tf.tradeValue)
+                        FROM TradeFact tf
+                        WHERE tf.orderFilledAt >= :startDate
+                          AND tf.orderFilledAt < :endDate
+                        GROUP BY tf.clientId, tf.currency
+                        ORDER BY COUNT(tf) DESC
+                    """)
+    List<Object[]> summarizeByClient(
+                    @Param("startDate") LocalDateTime startDate,
+                    @Param("endDate") LocalDateTime endDate);
+
         }
