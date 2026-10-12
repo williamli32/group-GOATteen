@@ -88,4 +88,31 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
     BigDecimal totalTradeValueForClientOnDate(
             @Param("clientId") Long clientId,
             @Param("tradeDate") LocalDate tradeDate);
-}
+
+
+    /**
+     * Summarize executed fills by instrument for a reporting period.
+     *
+     * Group by instrument and currency so values in different
+     * currencies are never added together.
+     */
+    @Query("""
+                        SELECT
+                            tf.instrumentId,
+                            tf.instrumentSymbol,
+                            tf.currency,
+                            COUNT(tf),
+                            SUM(tf.executionQuantity),
+                            SUM(tf.tradeValue)
+                        FROM TradeFact tf
+                        WHERE tf.orderFilledAt >= :startDate
+                          AND tf.orderFilledAt < :endDate
+                        GROUP BY tf.instrumentId, tf.instrumentSymbol, tf.currency
+                        ORDER BY COUNT(tf) DESC
+                    """)
+    List<Object[]> summarizeByInstrument(
+                    @Param("startDate") LocalDateTime startDate,
+                    @Param("endDate") LocalDateTime endDate);
+
+
+        }
