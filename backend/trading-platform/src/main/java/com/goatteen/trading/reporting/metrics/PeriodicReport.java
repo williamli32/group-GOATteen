@@ -8,10 +8,13 @@ import java.util.List;
  * Reporting summary for a daily, weekly, or monthly period.
  */
 public record PeriodicReport(
-        ReportingPeriod period,
-        LocalDateTime startDate,
-        LocalDateTime endDate,
-        TradingActivityMetrics tradingActivity,
-        List<InstrumentMetrics> instruments,
-        List<ClientMetrics> clients) {
+                ReportingPeriod period,
+                LocalDateTime startDate,
+                LocalDateTime endDate,
+
+                TradingActivityMetrics tradingActivity,
+                List<InstrumentMetrics> instruments,
+                List<ClientMetrics> clients,
+
+                PeriodComparison comparison) {
 }

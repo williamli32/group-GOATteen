@@ -41,6 +41,16 @@ public class ReportingController {
         this.periodicService = periodicService;
     }
 
+    @GetMapping("/trends")
+    public List<ActivityTrendPoint> trends(
+            @RequestParam LocalDateTime startDate,
+            @RequestParam LocalDateTime endDate) {
+
+        return activityTrendService.calculate(
+                startDate,
+                endDate);
+    }
+
     @GetMapping("/trading")
     public TradingActivityMetrics trading(
             @RequestParam LocalDateTime startDate,
@@ -68,9 +78,7 @@ public class ReportingController {
     @GetMapping("/periodic")
     public PeriodicReport periodic(
             @RequestParam ReportingPeriod period,
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         return periodicService.generate(period, date);
     }

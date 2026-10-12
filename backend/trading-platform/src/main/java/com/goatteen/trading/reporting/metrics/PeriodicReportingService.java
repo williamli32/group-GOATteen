@@ -66,7 +66,23 @@ public class PeriodicReportingService {
                 endDate,
                 tradingActivityService.calculate(startDate, endDate),
                 instrumentMetricsService.calculate(startDate, endDate),
-                clientMetricsService.calculate(startDate, endDate)
-        );
+                clientMetricsService.calculate(startDate, endDate));
+    }
+
+    private BigDecimal percentChange(
+            BigDecimal current,
+            BigDecimal previous) {
+
+        if (previous.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return current
+                .subtract(previous)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(
+                        previous,
+                        2,
+                        RoundingMode.HALF_UP);
     }
 }
