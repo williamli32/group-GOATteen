@@ -18,6 +18,8 @@ import org.springframework.data.domain.Sort;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -92,5 +94,35 @@ class OrderFactBackfillServiceTest {
         verify(orderFactSyncService).syncOrderById(20L);
         verify(orderRepository).findAll(firstPage);
         verify(orderRepository).findAll(secondPage);
+    }
+
+        @Test
+    void backfillContinuesAfterOneOrderFails() {
+        Order firstOrder = mock(Order.class);
+        Order secondOrder = mock(Order.class);
+
+        when(firstOrder.getId()).thenReturn(1L);
+        when(secondOrder.getId()).thenReturn(2L);
+
+        var pageable = PageRequest.of(
+                0, 100, Sort.by(Sort.Direction.ASC, "id"));
+
+        when(orderRepository.findAll(pageable))
+                .thenReturn(new PageImpl<>(
+                        List.of(firstOrder, secondOrder)));
+
+        doThrow(new IllegalStateException("Simulated sync failure"))
+                .when(orderFactSyncService).syncOrderById(1L);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> backfillService.backfill()
+        );
+
+        assertTrue(exception.getMessage().contains("1"));
+        assertTrue(exception.getMessage().contains("Successfully synchronized: 1"));
+
+        verify(orderFactSyncService).syncOrderById(1L);
+        verify(orderFactSyncService).syncOrderById(2L);
     }
 }
