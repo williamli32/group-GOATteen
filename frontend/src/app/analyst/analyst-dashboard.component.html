@@ -3,9 +3,9 @@
         <div>
             <p class="eyebrow">INTERNAL OPERATIONS</p>
             <h1>Reporting desk</h1>
-            <p class="lede">Historical trading activity, reconstructed from the reporting data path.</p>
+            <p class="lede">Aggregate historical trading activity across all clients, reconstructed from the reporting data path.</p>
         </div>
-        <div class="status-mark"><span></span> READ-ONLY DATA</div>
+        <div class="status-mark"><span></span> ALL CLIENTS · READ-ONLY DATA</div>
     </header>
 
     <section class="filter-panel" aria-label="Reporting filters">
@@ -52,10 +52,6 @@
                     <option value="SUBMITTED">SUBMITTED</option>
                 </select>
             </label>
-            <label>
-                <span>Client / segment</span>
-                <input type="number" min="1" placeholder="Any client ID" [ngModel]="clientId() ?? ''" (ngModelChange)="updateClientId($event)">
-            </label>
             <button type="button" class="apply-button" (click)="applyFilters()" [disabled]="loading()">{{ loading() ? 'Loading...' : 'Apply filters' }}</button>
         </div>
     </section>
@@ -72,6 +68,7 @@
         <section class="section-block overview-section">
             <div class="section-title"><div><p class="eyebrow">AT A GLANCE</p><h2>Market pulse</h2></div><span class="period-label">{{ fromDate() }} → {{ toDate() }}</span></div>
             <div class="metric-grid">
+                <article class="metric-card accent-blue"><span>Total orders</span><strong>{{ formatNumber(summary()?.totalOrders) }}</strong><small>all client orders</small></article>
                 <article class="metric-card accent-cyan"><span>Total trades</span><strong>{{ formatNumber(summary()?.totalExecutedQuantity) }}</strong><small>executed quantity</small></article>
                 <article class="metric-card accent-green"><span>Filled orders</span><strong>{{ formatNumber(summary()?.filledOrders) }}</strong><small>{{ formatNumber(summary()?.fillRate) }}% fill rate</small></article>
                 <article class="metric-card accent-red"><span>Rejected orders</span><strong>{{ formatNumber(summary()?.rejectedOrders) }}</strong><small>{{ formatNumber(summary()?.rejectionRate) }}% rejection rate</small></article>
@@ -116,7 +113,7 @@
         </section>
 
         <section class="section-block analysis-section">
-            <div class="section-title"><div><p class="eyebrow">INSTRUMENT / CLIENT ANALYSIS</p><h2>Where activity is concentrated</h2></div></div>
+            <div class="section-title"><div><p class="eyebrow">AGGREGATE ANALYSIS</p><h2>Where activity is concentrated across all clients</h2></div></div>
             <div class="analysis-grid">
                 <article class="table-panel"><div class="panel-heading"><h3>Most active instruments</h3><span>by fill count</span></div><table><thead><tr><th>Instrument</th><th>Fills</th><th>Quantity</th><th>Value</th></tr></thead><tbody>@for (item of instruments().slice(0, 6); track trackByInstrument($index, item)) { <tr><td><strong>{{ item.instrumentSymbol }}</strong><small>{{ item.currency }}</small></td><td>{{ item.fillCount }}</td><td>{{ formatNumber(item.executedQuantity) }}</td><td>{{ formatMoney(item.tradedValue) }}</td></tr> } @empty { <tr><td colspan="4" class="empty-copy">No instrument data.</td></tr> }</tbody></table></article>
                 <article class="table-panel"><div class="panel-heading"><h3>Most active clients</h3><span>by orders</span></div><table><thead><tr><th>Client</th><th>Orders</th><th>Fills</th><th>Value</th></tr></thead><tbody>@for (item of clients().slice(0, 6); track trackByClient($index, item)) { <tr><td><strong>Client {{ item.clientId }}</strong><small>{{ item.currency }}</small></td><td>{{ item.orderCount }}</td><td>{{ item.fillCount }}</td><td>{{ formatMoney(item.tradedValue) }}</td></tr> } @empty { <tr><td colspan="4" class="empty-copy">No client data.</td></tr> }</tbody></table></article>

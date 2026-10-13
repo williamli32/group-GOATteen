@@ -78,15 +78,13 @@ describe('AnalystDashboardComponent', () => {
         component.toDate.set('2026-09-30');
         component.side.set('BUY');
         component.status.set('FILLED');
-        component.clientId.set(42);
         component.applyFilters();
 
         const expected = expect.objectContaining({
             fromDate: '2026-09-01',
             toDate: '2026-09-30',
             side: 'BUY',
-            status: 'FILLED',
-            clientId: 42
+            status: 'FILLED'
         });
 
         expect(reportingService.getSummary).toHaveBeenCalledWith(expected);
@@ -101,7 +99,7 @@ describe('AnalystDashboardComponent', () => {
         reportingService.getSummary.mockReturnValue(throwError(() => ({ status: 403 })));
         component.applyFilters();
 
-        expect(component.errorMessage()).toContain('internal reporting access');
+        expect(component.errorMessage()).toContain('regular clients are not permitted');
         expect(component.loading()).toBe(false);
     });
 
@@ -123,20 +121,17 @@ describe('AnalystDashboardComponent', () => {
         component.instrumentId.set(7);
         component.side.set('SELL');
         component.status.set('REJECTED');
-        component.clientId.set(42);
 
         component.resetFilters();
 
         expect(component.instrumentId()).toBeUndefined();
         expect(component.side()).toBeUndefined();
         expect(component.status()).toBeUndefined();
-        expect(component.clientId()).toBeUndefined();
         expect(reportingService.getSummary).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 instrumentId: undefined,
                 side: undefined,
-                status: undefined,
-                clientId: undefined
+                status: undefined
             })
         );
     });

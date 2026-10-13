@@ -32,7 +32,6 @@ export class AnalystDashboardComponent implements OnInit {
     readonly instrumentId = signal<number | undefined>(undefined);
     readonly side = signal<ReportingFilters['side'] | undefined>(undefined);
     readonly status = signal<string | undefined>(undefined);
-    readonly clientId = signal<number | undefined>(undefined);
     readonly loading = signal(false);
     readonly errorMessage = signal('');
     readonly accessDenied = signal(false);
@@ -63,7 +62,6 @@ export class AnalystDashboardComponent implements OnInit {
         this.instrumentId.set(undefined);
         this.side.set(undefined);
         this.status.set(undefined);
-        this.clientId.set(undefined);
         this.loadReporting();
     }
 
@@ -77,10 +75,6 @@ export class AnalystDashboardComponent implements OnInit {
 
     selectStatus(value: string): void {
         this.status.set(value || undefined);
-    }
-
-    updateClientId(value: string): void {
-        this.clientId.set(value ? Number(value) : undefined);
     }
 
     trendWidth(value: number, field: 'orders' | 'value'): string {
@@ -175,8 +169,7 @@ export class AnalystDashboardComponent implements OnInit {
             toDate: this.toDate(),
             instrumentId: this.instrumentId(),
             side: this.side(),
-            status: this.status(),
-            clientId: this.clientId()
+            status: this.status()
         };
     }
 
