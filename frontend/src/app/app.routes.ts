@@ -18,6 +18,10 @@ import {
   authGuard
 } from './core/guards/auth-guard';
 
+import {
+  AnalystDashboardComponent
+} from './analyst/analyst-dashboard.component';
+
 
 export const routes: Routes = [
 
@@ -34,6 +38,14 @@ export const routes: Routes = [
   {
     path: 'dashboard',
     component: DashboardComponent,
+    canActivate: [
+      authGuard
+    ]
+  },
+
+  {
+    path: 'analyst',
+    component: AnalystDashboardComponent,
     canActivate: [
       authGuard
     ]
