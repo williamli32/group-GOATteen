@@ -105,6 +105,20 @@ describe('AnalystDashboardComponent', () => {
         expect(component.loading()).toBe(false);
     });
 
+    it('explains when the session has expired', () => {
+        reportingService.getSummary.mockReturnValue(throwError(() => ({ status: 401 })));
+        component.applyFilters();
+
+        expect(component.errorMessage()).toContain('session has expired');
+    });
+
+    it('surfaces backend reporting failures', () => {
+        reportingService.getSummary.mockReturnValue(throwError(() => ({ status: 500 })));
+        component.applyFilters();
+
+        expect(component.errorMessage()).toContain('reporting service returned an error (500)');
+    });
+
     it('resets all optional filters before reloading the page', () => {
         component.instrumentId.set(7);
         component.side.set('SELL');

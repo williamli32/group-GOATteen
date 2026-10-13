@@ -287,6 +287,7 @@ personas who need historical activity without querying reporting tables.
 - Loads summary, activity, instrument, client, and trend data together
 - Applies one shared filter set to every reporting request
 - Handles loading, empty, retry, and forbidden-access states
+- Distinguishes expired sessions (`401`), missing analyst permissions (`403`), and backend failures (`5xx`)
 - Loads instrument choices from the existing market-data service
 
 **analyst-dashboard.component.html**

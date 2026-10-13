@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Array;
 
 @Service
 public class TradingActivityMetricsService {
@@ -80,9 +82,11 @@ long rejectedOrders =
                                                 filters.instrumentId(), filters.side(), filters.status(),
                                                 filters.clientId(), filters.accountId());
 
-                Object[] execution = tradeFactRepository.summarizeExecutionActivity(
+                Object[] executionResult = tradeFactRepository.summarizeExecutionActivity(
                                 startDate, endDate, filters.instrumentId(), filters.side(),
                                 filters.status(), filters.clientId(), filters.accountId());
+
+                Object[] execution = unwrapExecutionRow(executionResult);
 
                 BigDecimal totalExecutedQuantity = decimal(execution[0]);
 
@@ -134,6 +138,16 @@ long rejectedOrders =
                                                 RoundingMode.HALF_UP);
         }
 
+        private Object[] unwrapExecutionRow(Object[] result) {
+                if (result != null
+                                && result.length == 1
+                                && result[0] instanceof Object[] nestedRow) {
+                        return nestedRow;
+                }
+
+                return result;
+        }
+
         private BigDecimal decimal(Object value) {
 
                 if (value == null) {
@@ -144,6 +158,46 @@ long rejectedOrders =
                         return bigDecimal;
                 }
 
-                return new BigDecimal(value.toString());
+                try {
+                        if (value instanceof Number number) {
+                                return new BigDecimal(number.toString());
+                        }
+
+                        if (value instanceof char[] characters) {
+                                return new BigDecimal(new String(characters));
+                        }
+
+                        if (value instanceof Character[] characters) {
+                                StringBuilder text = new StringBuilder(characters.length);
+
+                                for (Character character : characters) {
+                                        text.append(character);
+                                }
+
+                                return new BigDecimal(text.toString());
+                        }
+
+                        if (value instanceof byte[] bytes) {
+                                return new BigDecimal(
+                                                new String(bytes, StandardCharsets.UTF_8));
+                        }
+
+                        if (value.getClass().isArray()) {
+                                int length = Array.getLength(value);
+                                StringBuilder text = new StringBuilder(length);
+
+                                for (int index = 0; index < length; index++) {
+                                        text.append(Array.get(value, index));
+                                }
+
+                                return new BigDecimal(text.toString());
+                        }
+
+                        return new BigDecimal(value.toString());
+                } catch (NumberFormatException exception) {
+                        throw new IllegalArgumentException(
+                                        "Invalid numeric value in reporting summary",
+                                        exception);
+                }
         }
 }

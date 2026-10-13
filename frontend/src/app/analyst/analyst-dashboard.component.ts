@@ -145,11 +145,25 @@ export class AnalystDashboardComponent implements OnInit {
             },
             error: response => {
                 this.loading.set(false);
-                this.errorMessage.set(response?.status === 403
-                    ? 'Your account does not have internal reporting access.'
-                    : 'Reporting data could not be loaded. Check the reporting service and try again.');
+                this.errorMessage.set(this.reportingErrorMessage(response?.status));
             }
         });
+    }
+
+    private reportingErrorMessage(status: number | undefined): string {
+        if (status === 401) {
+            return 'Your session has expired. Sign out and sign in again.';
+        }
+
+        if (status === 403) {
+            return 'Your account does not have internal reporting access.';
+        }
+
+        if (status && status >= 500) {
+            return `The reporting service returned an error (${status}). Check the backend logs and database connection.`;
+        }
+
+        return 'Reporting data could not be loaded. Check the reporting service and try again.';
     }
 
     private currentFilters(): ReportingFilters {

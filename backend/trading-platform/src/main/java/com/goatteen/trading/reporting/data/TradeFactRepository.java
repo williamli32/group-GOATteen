@@ -216,14 +216,14 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
       @Param("endDate") LocalDateTime endDate);
 
     @Query(value = """
-            SELECT COALESCE(SUM(execution_quantity), 0),
-                         COALESCE(SUM(trade_value), 0),
+                  SELECT CAST(COALESCE(SUM(execution_quantity), 0) AS TEXT),
+                      CAST(COALESCE(SUM(trade_value), 0) AS TEXT),
                          COUNT(*) FILTER (WHERE side = 'BUY'),
-                         COALESCE(SUM(execution_quantity) FILTER (WHERE side = 'BUY'), 0),
-                         COALESCE(SUM(trade_value) FILTER (WHERE side = 'BUY'), 0),
+                      CAST(COALESCE(SUM(execution_quantity) FILTER (WHERE side = 'BUY'), 0) AS TEXT),
+                      CAST(COALESCE(SUM(trade_value) FILTER (WHERE side = 'BUY'), 0) AS TEXT),
                          COUNT(*) FILTER (WHERE side = 'SELL'),
-                         COALESCE(SUM(execution_quantity) FILTER (WHERE side = 'SELL'), 0),
-                         COALESCE(SUM(trade_value) FILTER (WHERE side = 'SELL'), 0)
+                      CAST(COALESCE(SUM(execution_quantity) FILTER (WHERE side = 'SELL'), 0) AS TEXT),
+                      CAST(COALESCE(SUM(trade_value) FILTER (WHERE side = 'SELL'), 0) AS TEXT)
             FROM reporting.trade_facts
             WHERE order_filled_at >= :startDate AND order_filled_at < :endDate
                 AND (:instrumentId IS NULL OR instrument_id = :instrumentId)

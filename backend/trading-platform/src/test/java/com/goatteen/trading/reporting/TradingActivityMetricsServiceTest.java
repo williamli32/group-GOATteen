@@ -165,6 +165,32 @@ class TradingActivityMetricsServiceTest {
         }
 
         @Test
+        void unwrapsNestedExecutionSummaryRows() {
+
+                when(tradeFactRepository
+                                .summarizeExecutionActivity(start, end, null, null, null, null, null))
+                                .thenReturn(new Object[] {
+                                                new Object[] {
+                                                                new BigDecimal("40"),
+                                                                new BigDecimal("97.26"),
+                                                                2L,
+                                                                new BigDecimal("20"),
+                                                                new BigDecimal("48.66"),
+                                                                2L,
+                                                                new BigDecimal("20"),
+                                                                new BigDecimal("48.60")
+                                                }
+                                });
+
+                TradingActivityMetrics result = metricsService.calculate(start, end);
+
+                assertEquals(new BigDecimal("40"), result.totalExecutedQuantity());
+                assertEquals(new BigDecimal("97.26"), result.totalTradedValue());
+                assertEquals(2L, result.buyFills());
+                assertEquals(2L, result.sellFills());
+        }
+
+        @Test
         void rejectsInvalidDateRange() {
 
                 assertThrows(
