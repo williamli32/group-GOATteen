@@ -40,6 +40,9 @@ public class Order {
     @Column(name = "submitted_at", nullable = false)
     private LocalDateTime submittedAt;
 
+    @Column(nullable = true)
+    private LocalDateTime acceptedAt;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
@@ -78,6 +81,10 @@ public class Order {
         return submittedAt;
     }
 
+    public LocalDateTime getAcceptedAt() {
+        return acceptedAt;
+    }
+
     public LocalDateTime getCompletedAt() {
         return completedAt;
     }
@@ -96,6 +103,10 @@ public class Order {
 
     public void setCompletedAt(LocalDateTime completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public void setAcceptedAt(LocalDateTime acceptedAt) {
+        this.acceptedAt = acceptedAt;
     }
 
     public void setAccount(Account account) {

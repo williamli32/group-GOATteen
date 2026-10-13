@@ -13,6 +13,7 @@ import com.goatteen.trading.order.OrderRepository;
 import com.goatteen.trading.order.OrderSide;
 import com.goatteen.trading.order.OrderStatus;
 import com.goatteen.trading.order.OrderValidationService;
+import com.goatteen.trading.order.OrderValidationService.ValidationResult;
 import com.goatteen.trading.order.dto.OrderResponse;
 import com.goatteen.trading.order.dto.PlaceOrderRequest;
 import org.junit.jupiter.api.BeforeEach;

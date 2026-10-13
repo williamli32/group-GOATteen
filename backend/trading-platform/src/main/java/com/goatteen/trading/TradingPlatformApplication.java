@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
-
+import org.springframework.scheduling.annotation.EnableAsync;
 /**
  * LEAP Trading Platform Backend Application
  * 
@@ -18,6 +18,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  */
 @SpringBootApplication
 @EnableScheduling
+@EnableAsync
 @ConfigurationPropertiesScan("com.goatteen.trading.auth.security")
 public class TradingPlatformApplication {
 

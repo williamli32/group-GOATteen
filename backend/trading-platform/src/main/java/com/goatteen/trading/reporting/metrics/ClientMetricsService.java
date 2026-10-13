@@ -1,0 +1,146 @@
+package com.goatteen.trading.reporting.metrics;
+
+import com.goatteen.trading.reporting.data.OrderFactRepository;
+import com.goatteen.trading.reporting.data.TradeFactRepository;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class ClientMetricsService {
+
+        private final OrderFactRepository orderFactRepository;
+        private final TradeFactRepository tradeFactRepository;
+
+        public ClientMetricsService(
+                        OrderFactRepository orderFactRepository,
+                        TradeFactRepository tradeFactRepository) {
+
+                this.orderFactRepository = orderFactRepository;
+                this.tradeFactRepository = tradeFactRepository;
+        }
+
+        @Transactional(readOnly = true)
+        public List<ClientMetrics> calculate(
+                        LocalDateTime startDate,
+                        LocalDateTime endDate) {
+
+                if (startDate == null
+                                || endDate == null
+                                || !startDate.isBefore(endDate)) {
+
+                        throw new IllegalArgumentException(
+                                        "Start date must be before end date");
+                }
+
+                Map<ClientCurrencyKey, MutableClientMetrics> metrics = new HashMap<>();
+
+                /*
+                 * All orders, including rejected orders.
+                 */
+                for (Object[] row : orderFactRepository.summarizeOrdersByClient(
+                                startDate,
+                                endDate)) {
+
+                        Long clientId = ((Number) row[0]).longValue();
+
+                        String currency = (String) row[1];
+
+                        ClientCurrencyKey key = new ClientCurrencyKey(
+                                        clientId,
+                                        currency);
+
+                        MutableClientMetrics value = metrics.computeIfAbsent(
+                                        key,
+                                        ignored -> new MutableClientMetrics());
+
+                        value.orderCount = ((Number) row[2]).longValue();
+                }
+
+                /*
+                 * Successful executions only.
+                 */
+                for (Object[] row : tradeFactRepository.summarizeByClient(
+                                startDate,
+                                endDate)) {
+
+                        Long clientId = ((Number) row[0]).longValue();
+
+                        String currency = (String) row[1];
+
+                        ClientCurrencyKey key = new ClientCurrencyKey(
+                                        clientId,
+                                        currency);
+
+                        MutableClientMetrics value = metrics.computeIfAbsent(
+                                        key,
+                                        ignored -> new MutableClientMetrics());
+
+                        value.fillCount = ((Number) row[2]).longValue();
+
+                        value.executedQuantity = decimal(row[3]);
+
+                        value.tradedValue = decimal(row[4]);
+                }
+
+                return metrics.entrySet()
+                                .stream()
+                                .map(entry -> {
+
+                                        ClientCurrencyKey key = entry.getKey();
+
+                                        MutableClientMetrics value = entry.getValue();
+
+                                        return new ClientMetrics(
+                                                        key.clientId(),
+                                                        key.currency(),
+                                                        value.orderCount,
+                                                        value.fillCount,
+                                                        value.executedQuantity,
+                                                        value.tradedValue);
+                                })
+                                .sorted(
+                                                Comparator
+                                                                .comparingLong(
+                                                                                ClientMetrics::orderCount)
+                                                                .reversed()
+                                                                .thenComparing(
+                                                                                ClientMetrics::clientId))
+                                .toList();
+        }
+
+        private BigDecimal decimal(Object value) {
+
+                if (value == null) {
+                        return BigDecimal.ZERO;
+                }
+
+                if (value instanceof BigDecimal bigDecimal) {
+                        return bigDecimal;
+                }
+
+                return new BigDecimal(value.toString());
+        }
+
+        private record ClientCurrencyKey(
+                        Long clientId,
+                        String currency) {
+        }
+
+        private static class MutableClientMetrics {
+
+                private long orderCount;
+                private long fillCount;
+
+                private BigDecimal executedQuantity = BigDecimal.ZERO;
+
+                private BigDecimal tradedValue = BigDecimal.ZERO;
+        }
+}
