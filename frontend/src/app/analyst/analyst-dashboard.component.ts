@@ -35,6 +35,7 @@ export class AnalystDashboardComponent implements OnInit {
     readonly clientId = signal<number | undefined>(undefined);
     readonly loading = signal(false);
     readonly errorMessage = signal('');
+    readonly accessDenied = signal(false);
     readonly summary = signal<ReportingSummary | null>(null);
     readonly trends = signal<ActivityTrendPoint[]>([]);
     readonly instruments = signal<InstrumentMetrics[]>([]);
@@ -125,6 +126,7 @@ export class AnalystDashboardComponent implements OnInit {
 
     private loadReporting(): void {
         this.errorMessage.set('');
+        this.accessDenied.set(false);
         this.loading.set(true);
 
         const filters = this.currentFilters();
@@ -145,6 +147,7 @@ export class AnalystDashboardComponent implements OnInit {
             },
             error: response => {
                 this.loading.set(false);
+                this.accessDenied.set(response?.status === 403);
                 this.errorMessage.set(this.reportingErrorMessage(response?.status));
             }
         });
@@ -156,7 +159,7 @@ export class AnalystDashboardComponent implements OnInit {
         }
 
         if (status === 403) {
-            return 'Your account does not have internal reporting access.';
+            return 'Forbidden: regular clients are not permitted to access the advisor reporting view. This view is restricted to administrators and analysts.';
         }
 
         if (status && status >= 500) {

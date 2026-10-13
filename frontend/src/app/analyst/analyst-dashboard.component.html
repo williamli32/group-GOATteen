@@ -62,7 +62,7 @@
 
     @if (errorMessage()) {
         <section class="state-panel error-state">
-            <strong>Reporting unavailable</strong>
+            <strong>{{ accessDenied() ? 'Access forbidden' : 'Reporting unavailable' }}</strong>
             <span>{{ errorMessage() }}</span>
             <button type="button" class="apply-button compact" (click)="applyFilters()">Retry</button>
         </section>
