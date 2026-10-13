@@ -46,4 +46,84 @@ describe('ReportingService', () => {
         expect(request.request.method).toBe('GET');
         request.flush([]);
     });
+
+    it('requests reporting summary', () => {
+
+        service.getSummary({
+            fromDate: '2026-09-01',
+            toDate: '2026-09-30'
+        }).subscribe();
+
+        const request = httpTesting.expectOne(
+            `${environment.apiUrl}/internal/reporting/summary` +
+            '?fromDate=2026-09-01&toDate=2026-09-30'
+        );
+
+        expect(request.request.method).toBe('GET');
+
+        request.flush({
+            totalOrders: 0,
+            filledOrders: 0,
+            rejectedOrders: 0,
+            activeClients: 0,
+            fillRate: 0,
+            rejectionRate: 0,
+            totalExecutedQuantity: 0,
+            totalTradedValue: 0,
+            buyFills: 0,
+            buyQuantity: 0,
+            buyTradedValue: 0,
+            sellFills: 0,
+            sellQuantity: 0,
+            sellTradedValue: 0
+        });
+    });
+
+    it('requests reporting activity', () => {
+
+        service.getActivity({
+            fromDate: '2026-09-01',
+            toDate: '2026-09-30'
+        }).subscribe();
+
+        const request = httpTesting.expectOne(
+            `${environment.apiUrl}/internal/reporting/activity` +
+            '?fromDate=2026-09-01&toDate=2026-09-30'
+        );
+
+        expect(request.request.method).toBe('GET');
+        request.flush([]);
+    });
+
+    it('requests client metrics', () => {
+
+        service.getClients({
+            fromDate: '2026-09-01',
+            toDate: '2026-09-30'
+        }).subscribe();
+
+        const request = httpTesting.expectOne(
+            `${environment.apiUrl}/internal/reporting/clients` +
+            '?fromDate=2026-09-01&toDate=2026-09-30'
+        );
+
+        expect(request.request.method).toBe('GET');
+        request.flush([]);
+    });
+
+    it('requests reporting trends', () => {
+
+        service.getTrends({
+            fromDate: '2026-09-01',
+            toDate: '2026-09-30'
+        }).subscribe();
+
+        const request = httpTesting.expectOne(
+            `${environment.apiUrl}/internal/reporting/trends` +
+            '?fromDate=2026-09-01&toDate=2026-09-30'
+        );
+
+        expect(request.request.method).toBe('GET');
+        request.flush([]);
+    });
 });

@@ -4,6 +4,7 @@ import com.goatteen.trading.reporting.data.OrderFactRepository;
 import com.goatteen.trading.reporting.data.TradeFactRepository;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetrics;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
+import com.goatteen.trading.reporting.metrics.ReportingFilters;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -182,4 +183,135 @@ class TradingActivityMetricsServiceTest {
                                 orderFactRepository,
                                 tradeFactRepository);
         }
+        @Test
+void filledStatusFilterReturnsOnlyFilledOrderMetrics() {
+
+        ReportingFilters filters = new ReportingFilters(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "FILLED",
+                        null,
+                        null);
+
+        when(orderFactRepository
+                        .countOrdersInDateRange(
+                                        start, end,
+                                        null, null,
+                                        "FILLED",
+                                        null, null))
+                        .thenReturn(75L);
+
+        when(orderFactRepository
+                        .countByStatusAndDateRange(
+                                        "FILLED",
+                                        start,
+                                        end,
+                                        null,
+                                        null,
+                                        null,
+                                        null))
+                        .thenReturn(75L);
+
+        when(orderFactRepository
+                        .countActiveClients(
+                                        start, end,
+                                        null, null,
+                                        "FILLED",
+                                        null, null))
+                        .thenReturn(20L);
+
+        when(tradeFactRepository
+                        .summarizeExecutionActivity(
+                                        start, end,
+                                        null, null,
+                                        "FILLED",
+                                        null, null))
+                        .thenReturn(new Object[] {
+                                        new BigDecimal("1000"),
+                                        new BigDecimal("250000"),
+                                        50L,
+                                        new BigDecimal("700"),
+                                        new BigDecimal("175000"),
+                                        25L,
+                                        new BigDecimal("300"),
+                                        new BigDecimal("75000")
+                        });
+
+        TradingActivityMetrics result =
+                        metricsService.calculate(filters);
+
+        assertEquals(75L, result.totalOrders());
+        assertEquals(75L, result.filledOrders());
+        assertEquals(0L, result.rejectedOrders());
+        assertEquals(new BigDecimal("100.00"), result.fillRate());
+        assertEquals(new BigDecimal("0.00"), result.rejectionRate());
+}
+
+@Test
+void rejectedStatusFilterReturnsOnlyRejectedOrderMetrics() {
+
+        ReportingFilters filters = new ReportingFilters(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "REJECTED",
+                        null,
+                        null);
+
+        when(orderFactRepository
+                        .countOrdersInDateRange(
+                                        start, end,
+                                        null, null,
+                                        "REJECTED",
+                                        null, null))
+                        .thenReturn(10L);
+
+        when(orderFactRepository
+                        .countByStatusAndDateRange(
+                                        "REJECTED",
+                                        start,
+                                        end,
+                                        null,
+                                        null,
+                                        null,
+                                        null))
+                        .thenReturn(10L);
+
+        when(orderFactRepository
+                        .countActiveClients(
+                                        start, end,
+                                        null, null,
+                                        "REJECTED",
+                                        null, null))
+                        .thenReturn(8L);
+
+        when(tradeFactRepository
+                        .summarizeExecutionActivity(
+                                        start, end,
+                                        null, null,
+                                        "REJECTED",
+                                        null, null))
+                        .thenReturn(new Object[] {
+                                        BigDecimal.ZERO,
+                                        BigDecimal.ZERO,
+                                        0L,
+                                        BigDecimal.ZERO,
+                                        BigDecimal.ZERO,
+                                        0L,
+                                        BigDecimal.ZERO,
+                                        BigDecimal.ZERO
+                        });
+
+        TradingActivityMetrics result =
+                        metricsService.calculate(filters);
+
+        assertEquals(10L, result.totalOrders());
+        assertEquals(0L, result.filledOrders());
+        assertEquals(10L, result.rejectedOrders());
+        assertEquals(new BigDecimal("0.00"), result.fillRate());
+        assertEquals(new BigDecimal("100.00"), result.rejectionRate());
+}
 }

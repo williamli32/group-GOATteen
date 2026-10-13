@@ -49,21 +49,31 @@ public class TradingActivityMetricsService {
                                                 filters.instrumentId(), filters.side(), filters.status(),
                                                 filters.clientId(), filters.accountId());
 
-                long filledOrders = orderFactRepository
-                                .countByStatusAndDateRange(
-                                                OrderStatus.FILLED.name(),
-                                                startDate,
-                                                endDate,
-                                                filters.instrumentId(), filters.side(),
-                                                filters.clientId(), filters.accountId());
+                long filledOrders =
+        filters.status() == null
+                || OrderStatus.FILLED.name().equals(filters.status())
+        ? orderFactRepository.countByStatusAndDateRange(
+                OrderStatus.FILLED.name(),
+                startDate,
+                endDate,
+                filters.instrumentId(),
+                filters.side(),
+                filters.clientId(),
+                filters.accountId())
+        : 0L;
 
-                long rejectedOrders = orderFactRepository
-                                .countByStatusAndDateRange(
-                                                OrderStatus.REJECTED.name(),
-                                                startDate,
-                                                endDate,
-                                                filters.instrumentId(), filters.side(),
-                                                filters.clientId(), filters.accountId());
+long rejectedOrders =
+        filters.status() == null
+                || OrderStatus.REJECTED.name().equals(filters.status())
+        ? orderFactRepository.countByStatusAndDateRange(
+                OrderStatus.REJECTED.name(),
+                startDate,
+                endDate,
+                filters.instrumentId(),
+                filters.side(),
+                filters.clientId(),
+                filters.accountId())
+        : 0L;
 
                 long activeClients = orderFactRepository
                                 .countActiveClients(startDate, endDate,

@@ -196,4 +196,69 @@ public interface OrderFactRepository
         List<Object[]> summarizeDailyActivity(
                         @Param("startDate") LocalDateTime startDate,
                         @Param("endDate") LocalDateTime endDate);
+        
+        @Query(value = """
+        SELECT
+            o.order_id,
+            tf.fill_id,
+            o.account_id,
+            o.client_id,
+            o.instrument_id,
+            o.instrument_symbol,
+            o.side,
+            o.final_status,
+            o.order_quantity,
+            tf.execution_quantity,
+            tf.execution_price,
+            tf.trade_value,
+            COALESCE(
+                tf.order_filled_at,
+                o.completed_at,
+                o.submitted_at
+            ) AS occurred_at
+
+        FROM reporting.order_facts o
+
+        LEFT JOIN reporting.trade_facts tf
+            ON tf.order_id = o.order_id
+
+        WHERE o.submitted_at >= :startDate
+          AND o.submitted_at < :endDate
+
+          AND (
+              :instrumentId IS NULL
+              OR o.instrument_id = :instrumentId
+          )
+
+          AND (
+              :side IS NULL
+              OR o.side = :side
+          )
+
+          AND (
+              :status IS NULL
+              OR o.final_status = :status
+          )
+
+          AND (
+              :clientId IS NULL
+              OR o.client_id = :clientId
+          )
+
+          AND (
+              :accountId IS NULL
+              OR o.account_id = :accountId
+          )
+
+        ORDER BY occurred_at DESC
+        """,
+        nativeQuery = true)
+        List<Object[]> findReportingActivity(
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate,
+                        @Param("instrumentId") Long instrumentId,
+                        @Param("side") String side,
+                        @Param("status") String status,
+                        @Param("clientId") Long clientId,
+                        @Param("accountId") Long accountId);
 }

@@ -20,8 +20,10 @@ public class ReportingQuery {
     private Long accountId;
 
     public ReportingFilters toFilters() {
+
         if (fromDate == null || toDate == null) {
-            throw new IllegalArgumentException("fromDate and toDate are required");
+            throw new IllegalArgumentException(
+                    "fromDate and toDate are required");
         }
 
         return new ReportingFilters(

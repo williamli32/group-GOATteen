@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = InternalReportingController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class })
 class InternalReportingControllerSecurityTest {
 
     @Autowired
@@ -53,8 +53,8 @@ class InternalReportingControllerSecurityTest {
     @Test
     void unauthenticatedUserGets401() throws Exception {
         mockMvc.perform(get("/api/internal/reporting/summary")
-                        .param("fromDate", "2026-09-01")
-                        .param("toDate", "2026-09-30"))
+                .param("fromDate", "2026-09-01")
+                .param("toDate", "2026-09-30"))
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(tradingActivityService);
@@ -64,8 +64,8 @@ class InternalReportingControllerSecurityTest {
     @WithMockUser(roles = "USER")
     void ordinaryUserGets403() throws Exception {
         mockMvc.perform(get("/api/internal/reporting/instruments")
-                        .param("fromDate", "2026-09-01")
-                        .param("toDate", "2026-09-30"))
+                .param("fromDate", "2026-09-01")
+                .param("toDate", "2026-09-30"))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(instrumentService);
@@ -75,8 +75,41 @@ class InternalReportingControllerSecurityTest {
     @WithMockUser(roles = "ANALYST")
     void analystCanAccessInternalReporting() throws Exception {
         mockMvc.perform(get("/api/internal/reporting/trends")
-                        .param("fromDate", "2026-09-01")
-                        .param("toDate", "2026-09-30"))
+                .param("fromDate", "2026-09-01")
+                .param("toDate", "2026-09-30"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanAccessInternalReporting() throws Exception {
+
+        mockMvc.perform(
+                get("/api/internal/reporting/summary")
+                        .param(
+                                "fromDate",
+                                "2026-09-01")
+                        .param(
+                                "toDate",
+                                "2026-09-30"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ANALYST")
+    void invalidReportingFiltersReturn400() throws Exception {
+
+        mockMvc.perform(
+                get("/api/internal/reporting/summary")
+                        .param(
+                                "fromDate",
+                                "2026-09-01")
+                        .param(
+                                "toDate",
+                                "2026-09-30")
+                        .param(
+                                "side",
+                                "INVALID"))
+                .andExpect(status().isBadRequest());
     }
 }

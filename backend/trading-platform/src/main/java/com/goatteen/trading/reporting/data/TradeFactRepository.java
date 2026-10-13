@@ -284,27 +284,4 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
             @Param("status") String status,
             @Param("clientId") Long clientId,
             @Param("accountId") Long accountId);
-
-    @Query("""
-            SELECT tf.orderId, tf.fillId, tf.accountId, tf.clientId,
-                         tf.instrumentId, tf.instrumentSymbol, tf.side, tf.orderStatus,
-                         tf.orderQuantity, tf.executionQuantity, tf.executionPrice,
-                         tf.tradeValue, tf.orderFilledAt
-            FROM TradeFact tf
-            WHERE tf.orderFilledAt >= :startDate AND tf.orderFilledAt < :endDate
-                AND (:instrumentId IS NULL OR tf.instrumentId = :instrumentId)
-                AND (:side IS NULL OR tf.side = :side)
-                AND (:status IS NULL OR tf.orderStatus = :status)
-                AND (:clientId IS NULL OR tf.clientId = :clientId)
-                AND (:accountId IS NULL OR tf.accountId = :accountId)
-            ORDER BY tf.orderFilledAt DESC
-            """)
-    List<Object[]> findActivity(
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
-            @Param("instrumentId") Long instrumentId,
-            @Param("side") String side,
-            @Param("status") String status,
-            @Param("clientId") Long clientId,
-            @Param("accountId") Long accountId);
 }

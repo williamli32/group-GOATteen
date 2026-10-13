@@ -32,7 +32,7 @@ export interface ReportingSummary {
 
 export interface ReportingActivity {
     orderId: number;
-    fillId: number;
+    fillId: number | null;
     accountId: number;
     clientId: number;
     instrumentId: number;
@@ -40,9 +40,9 @@ export interface ReportingActivity {
     side: 'BUY' | 'SELL';
     status: string;
     orderQuantity: number;
-    executionQuantity: number;
-    executionPrice: number;
-    tradedValue: number;
+    executionQuantity: number | null;
+    executionPrice: number | null;
+    tradedValue: number | null;
     occurredAt: string;
 }
 
@@ -78,7 +78,7 @@ export interface ActivityTrendPoint {
 export class ReportingService {
     private readonly reportingUrl = `${environment.apiUrl}/internal/reporting`;
 
-    constructor(private readonly http: HttpClient) {}
+    constructor(private readonly http: HttpClient) { }
 
     getSummary(filters: ReportingFilters): Observable<ReportingSummary> {
         return this.http.get<ReportingSummary>(`${this.reportingUrl}/summary`, {
