@@ -25,6 +25,7 @@ The application provides:
   - [Root Level](#root-level)
   - [/core - Shared Infrastructure](#core---shared-infrastructure)
   - [/dashboard - Main Trading Interface](#dashboard---main-trading-interface)
+  - [/analyst - Internal Reporting Dashboard](#analyst---internal-reporting-dashboard)
   - [/features/auth - Auth Pages](#featuresauth---auth-pages)
   - [/environments - Environment Configuration](#environments---environment-configuration)
   - [Root Files](#root-files)
@@ -76,6 +77,11 @@ frontend/
 │   │   │   ├── dashboard.component.scss     # Dashboard styles
 │   │   │   ├── dashboard.component.spec.ts  # Dashboard tests
 │   │   │   └── resizable.directive.ts       # Drag-to-resize panels
+│   │   ├── analyst/
+│   │   │   ├── analyst-dashboard.component.ts       # Internal reporting dashboard
+│   │   │   ├── analyst-dashboard.component.html     # Reporting dashboard template
+│   │   │   ├── analyst-dashboard.component.scss     # Reporting dashboard styles
+│   │   │   └── analyst-dashboard.component.spec.ts  # Dashboard behavior tests
 │   │   └── features/
 │   │       └── auth/
 │   │           ├── login/
@@ -118,6 +124,7 @@ frontend/
   - `/login` - Login page (public)
   - `/register` - Registration page (public)
   - `/dashboard` - Main trading interface (protected by authGuard)
+  - `/analyst` - Internal reporting dashboard (protected by authGuard and backend reporting roles)
   - `` (default) - Redirects to login
   - `**` (wildcard) - Redirects to login
 
@@ -270,6 +277,30 @@ The core folder contains singleton services and utilities used throughout the ap
 - Emits `resizeEnd` event with new dimensions
 - Applied to panel dividers in template
 
+### `/analyst` - Internal Reporting Dashboard
+
+The analyst dashboard is a read-only operations view backed by the dedicated
+`/api/internal/reporting` endpoints. It is intended for analyst and operations
+personas who need historical activity without querying reporting tables.
+
+**analyst-dashboard.component.ts**
+- Loads summary, activity, instrument, client, and trend data together
+- Applies one shared filter set to every reporting request
+- Handles loading, empty, retry, and forbidden-access states
+- Loads instrument choices from the existing market-data service
+
+**analyst-dashboard.component.html**
+- Overview cards for trade volume, order outcomes, trading value, clients, and instruments
+- Daily order and trading-value charts
+- BUY versus SELL and FILLED versus REJECTED comparisons
+- Instrument, client, and recent activity tables
+- Date range, instrument, side, status, and client filters
+
+**analyst-dashboard.component.spec.ts**
+- Verifies shared filter fan-out across all reporting requests
+- Verifies reset behavior and instrument option loading
+- Verifies empty-result rendering and `403` access handling
+
 ### `/features/auth` - Auth Pages
 
 **features/auth/login/ - Login Page**
@@ -418,6 +449,22 @@ Dashboard displays:
   ├─ Account balance
   ├─ Market instruments table
   └─ Current positions
+```
+
+### 4. Analyst Reporting Dashboard
+
+```
+User navigates to /analyst
+  ↓
+authGuard checks for an authenticated session
+  ↓
+Analyst dashboard loads instrument choices and reporting datasets in parallel
+  ↓
+User selects date, instrument, side, status, or client filters
+  ↓
+Apply filters sends the same filter set to all five internal reporting endpoints
+  ↓
+Dashboard refreshes overview cards, charts, rankings, and recent activity together
 ```
 
 ### 4. Placing & Executing Order
@@ -777,6 +824,7 @@ ng serve --port 4300
 
 - **Unit Tests** - Services, components, guards with mocked HTTP
 - **Component Tests** - Template rendering, user interactions
+- **Reporting Dashboard Tests** - Shared-filter fan-out, reset behavior, instrument choices, empty data, and forbidden access
 - **Integration Tests** - Multiple components working together
 - **E2E Tests** - Full user workflows (future)
 
@@ -785,6 +833,9 @@ Run tests:
 npm test                    # Run once
 ng test --watch            # Watch mode
 ng test --code-coverage    # With coverage report
+
+# Run only the analyst dashboard tests
+ng test --watch=false --include=src/app/analyst/analyst-dashboard.component.spec.ts
 ```
 
 ## Project Standards
