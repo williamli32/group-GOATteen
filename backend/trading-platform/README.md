@@ -299,7 +299,21 @@ Example:
 GET /api/internal/reporting/instruments?fromDate=2026-09-01&toDate=2026-09-30
 ```
 
-### Grant Analyst Access (Development)
+## SQL Commands for Development/Testing Purposes
+
+### SQL Command to Add Cash into Account
+```SQL
+UPDATE accounts
+SET cash_balance = cash_balance + [amount]
+WHERE client_id = (
+  SELECT c.id
+  FROM clients c
+  JOIN users u ON c.user_id = u.id
+  WHERE u.email = '[replace with email]'
+);
+```
+
+### Grant Analyst Access
 
 New registrations receive the `CLIENT` role by default. To grant an existing
 user analyst access in the local development database, replace the email below
