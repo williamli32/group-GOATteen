@@ -161,6 +161,19 @@ select:focus {
     box-shadow: 0 0 0 2px rgba(114, 216, 192, .12);
 }
 
+input[type='date'] {
+    padding-right: 38px;
+    color-scheme: dark;
+    background-image: url('/calendar-icon.svg');
+    background-position: right 11px center;
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0;
+}
+
 .apply-button {
     min-height: 42px;
     padding: 0 17px;
