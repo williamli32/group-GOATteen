@@ -17,6 +17,7 @@ A high-performance REST API for order execution, portfolio management, and marke
 - [Configuration](#configuration)
 - [Database](#database)
 - [API Documentation](#api-documentation)
+- [Internal Reporting API](#internal-reporting-api)
 - [Development](#development)
 - [Testing](#testing)
 - [Deployment](#deployment)
@@ -264,6 +265,38 @@ GET    /api/accounts/{accountId}/blotter    # Get order history
 GET    /api/instruments                # List all instruments
 GET    /api/market/quotes?symbol=AAPL  # Get latest quotes
 GET    /api/market/history?symbol=AAPL # Get quote history
+```
+
+## Internal Reporting API
+
+The internal reporting API is read-only and uses the reporting schema through
+dedicated analytical endpoints. It is separate from normal client endpoints
+and requires an authenticated `ADMIN` or `ANALYST` role.
+
+```text
+GET /api/internal/reporting/summary
+GET /api/internal/reporting/activity
+GET /api/internal/reporting/instruments
+GET /api/internal/reporting/clients
+GET /api/internal/reporting/trends
+```
+
+All endpoints accept the following filters:
+
+```text
+fromDate=2026-09-01
+toDate=2026-09-30
+instrumentId=1       (optional)
+side=BUY              (optional)
+status=FILLED         (optional)
+clientId=10           (optional)
+accountId=20          (optional)
+```
+
+Example:
+
+```text
+GET /api/internal/reporting/instruments?fromDate=2026-09-01&toDate=2026-09-30
 ```
 
 ### Order State Machine
