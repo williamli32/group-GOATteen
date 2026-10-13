@@ -29,6 +29,15 @@ public class TradingActivityMetricsService {
                         LocalDateTime startDate,
                         LocalDateTime endDate) {
 
+                return calculate(ReportingFilters.forPeriod(startDate, endDate));
+        }
+
+        @Transactional(readOnly = true)
+        public TradingActivityMetrics calculate(ReportingFilters filters) {
+
+                LocalDateTime startDate = filters.fromDate();
+                LocalDateTime endDate = filters.toDate();
+
                 if (startDate == null || endDate == null ||
                                 !startDate.isBefore(endDate)) {
                         throw new IllegalArgumentException(
@@ -36,26 +45,34 @@ public class TradingActivityMetricsService {
                 }
 
                 long totalOrders = orderFactRepository
-                                .countOrdersInDateRange(startDate, endDate);
+                                .countOrdersInDateRange(startDate, endDate,
+                                                filters.instrumentId(), filters.side(), filters.status(),
+                                                filters.clientId(), filters.accountId());
 
                 long filledOrders = orderFactRepository
                                 .countByStatusAndDateRange(
                                                 OrderStatus.FILLED.name(),
                                                 startDate,
-                                                endDate);
+                                                endDate,
+                                                filters.instrumentId(), filters.side(),
+                                                filters.clientId(), filters.accountId());
 
                 long rejectedOrders = orderFactRepository
                                 .countByStatusAndDateRange(
                                                 OrderStatus.REJECTED.name(),
                                                 startDate,
-                                                endDate);
+                                                endDate,
+                                                filters.instrumentId(), filters.side(),
+                                                filters.clientId(), filters.accountId());
 
                 long activeClients = orderFactRepository
-                                .countActiveClients(startDate, endDate);
+                                .countActiveClients(startDate, endDate,
+                                                filters.instrumentId(), filters.side(), filters.status(),
+                                                filters.clientId(), filters.accountId());
 
                 Object[] execution = tradeFactRepository.summarizeExecutionActivity(
-                                startDate,
-                                endDate);
+                                startDate, endDate, filters.instrumentId(), filters.side(),
+                                filters.status(), filters.clientId(), filters.accountId());
 
                 BigDecimal totalExecutedQuantity = decimal(execution[0]);
 

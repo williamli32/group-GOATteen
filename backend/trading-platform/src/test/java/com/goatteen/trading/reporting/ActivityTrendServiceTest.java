@@ -46,7 +46,7 @@ class ActivityTrendServiceTest {
     void combinesOrderAndExecutionActivityByDate() {
 
         when(orderFactRepository
-                .summarizeDailyActivity(start, end))
+                .summarizeDailyActivity(start, end, null, null, null, null, null))
                 .thenReturn(List.of(
                         new Object[] {
                                 LocalDate.of(2026, 10, 10),
@@ -71,7 +71,7 @@ class ActivityTrendServiceTest {
                         }));
 
         when(tradeFactRepository
-                .summarizeDailyExecution(start, end))
+                .summarizeDailyExecution(start, end, null, null, null, null, null))
                 .thenReturn(List.of(
                         new Object[] {
                                 LocalDate.of(2026, 10, 10),
@@ -132,11 +132,11 @@ class ActivityTrendServiceTest {
     void returnsEmptyListWhenThereIsNoActivity() {
 
         when(orderFactRepository
-                .summarizeDailyActivity(start, end))
+                .summarizeDailyActivity(start, end, null, null, null, null, null))
                 .thenReturn(List.of());
 
         when(tradeFactRepository
-                .summarizeDailyExecution(start, end))
+                .summarizeDailyExecution(start, end, null, null, null, null, null))
                 .thenReturn(List.of());
 
         assertTrue(

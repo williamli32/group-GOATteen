@@ -31,13 +31,11 @@ public class ActivityTrendService {
     public List<ActivityTrendPoint> calculate(
             LocalDateTime startDate,
             LocalDateTime endDate) {
-
-        if (startDate == null || endDate == null
-                || !startDate.isBefore(endDate)) {
-
-            throw new IllegalArgumentException(
-                    "Start date must be before end date");
+        return calculate(ReportingFilters.forPeriod(startDate, endDate));
         }
+
+        @Transactional(readOnly = true)
+        public List<ActivityTrendPoint> calculate(ReportingFilters filters) {
 
         /*
          * TreeMap keeps the results automatically sorted by date.
@@ -54,8 +52,8 @@ public class ActivityTrendService {
          * active clients
          */
         List<Object[]> orderRows = orderFactRepository.summarizeDailyActivity(
-                startDate,
-                endDate);
+            filters.fromDate(), filters.toDate(), filters.instrumentId(), filters.side(),
+            filters.status(), filters.clientId(), filters.accountId());
 
         for (Object[] row : orderRows) {
 
@@ -82,8 +80,8 @@ public class ActivityTrendService {
          * traded value
          */
         List<Object[]> executionRows = tradeFactRepository.summarizeDailyExecution(
-                startDate,
-                endDate);
+            filters.fromDate(), filters.toDate(), filters.instrumentId(), filters.side(),
+            filters.status(), filters.clientId(), filters.accountId());
 
         for (Object[] row : executionRows) {
 

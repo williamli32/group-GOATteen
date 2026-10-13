@@ -59,7 +59,7 @@ class InstrumentMetricsServiceTest {
                 new BigDecimal("20000.00")
         };
 
-        when(tradeFactRepository.summarizeByInstrument(start, end))
+        when(tradeFactRepository.summarizeByInstrument(start, end, null, null, null, null, null))
                 .thenReturn(List.<Object[]>of(appleRow, microsoftRow));
 
         List<InstrumentMetrics> result =
@@ -83,7 +83,7 @@ class InstrumentMetricsServiceTest {
     @Test
     void returnsEmptyListWhenThereAreNoTrades() {
 
-        when(tradeFactRepository.summarizeByInstrument(start, end))
+        when(tradeFactRepository.summarizeByInstrument(start, end, null, null, null, null, null))
                 .thenReturn(List.of());
 
         List<InstrumentMetrics> result =

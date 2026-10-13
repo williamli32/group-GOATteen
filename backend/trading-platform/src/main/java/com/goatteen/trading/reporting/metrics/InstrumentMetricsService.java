@@ -23,15 +23,16 @@ public class InstrumentMetricsService {
     public List<InstrumentMetrics> calculate(
             LocalDateTime startDate,
             LocalDateTime endDate) {
+        return calculate(ReportingFilters.forPeriod(startDate, endDate));
+    }
 
-        if (startDate == null || endDate == null ||
-                !startDate.isBefore(endDate)) {
-            throw new IllegalArgumentException(
-                    "Start date must be before end date");
-        }
+    @Transactional(readOnly = true)
+    public List<InstrumentMetrics> calculate(ReportingFilters filters) {
 
         return tradeFactRepository
-                .summarizeByInstrument(startDate, endDate)
+                .summarizeByInstrument(
+                        filters.fromDate(), filters.toDate(), filters.instrumentId(),
+                        filters.side(), filters.status(), filters.clientId(), filters.accountId())
                 .stream()
                 .map(row -> new InstrumentMetrics(
                         (Long) row[0],

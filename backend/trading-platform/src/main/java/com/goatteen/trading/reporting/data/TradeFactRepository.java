@@ -110,6 +110,28 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
       @Param("startDate") LocalDateTime startDate,
       @Param("endDate") LocalDateTime endDate);
 
+    @Query("""
+            SELECT tf.instrumentId, tf.instrumentSymbol, tf.currency,
+                         COUNT(tf), SUM(tf.executionQuantity), SUM(tf.tradeValue)
+            FROM TradeFact tf
+            WHERE tf.orderFilledAt >= :startDate AND tf.orderFilledAt < :endDate
+                AND (:instrumentId IS NULL OR tf.instrumentId = :instrumentId)
+                AND (:side IS NULL OR tf.side = :side)
+                AND (:status IS NULL OR tf.orderStatus = :status)
+                AND (:clientId IS NULL OR tf.clientId = :clientId)
+                AND (:accountId IS NULL OR tf.accountId = :accountId)
+            GROUP BY tf.instrumentId, tf.instrumentSymbol, tf.currency
+            ORDER BY COUNT(tf) DESC
+            """)
+    List<Object[]> summarizeByInstrument(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId);
+
   /**
    * Summarize executed fills by client and currency
    * within a reporting period.
@@ -130,6 +152,28 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
   List<Object[]> summarizeByClient(
       @Param("startDate") LocalDateTime startDate,
       @Param("endDate") LocalDateTime endDate);
+
+    @Query("""
+            SELECT tf.clientId, tf.currency, COUNT(tf),
+                         SUM(tf.executionQuantity), SUM(tf.tradeValue)
+            FROM TradeFact tf
+            WHERE tf.orderFilledAt >= :startDate AND tf.orderFilledAt < :endDate
+                AND (:instrumentId IS NULL OR tf.instrumentId = :instrumentId)
+                AND (:side IS NULL OR tf.side = :side)
+                AND (:status IS NULL OR tf.orderStatus = :status)
+                AND (:clientId IS NULL OR tf.clientId = :clientId)
+                AND (:accountId IS NULL OR tf.accountId = :accountId)
+            GROUP BY tf.clientId, tf.currency
+            ORDER BY COUNT(tf) DESC
+            """)
+    List<Object[]> summarizeByClient(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId);
 
   /**
    * Overall execution activity including BUY/SELL breakdown.
@@ -171,6 +215,32 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
       @Param("startDate") LocalDateTime startDate,
       @Param("endDate") LocalDateTime endDate);
 
+    @Query(value = """
+            SELECT COALESCE(SUM(execution_quantity), 0),
+                         COALESCE(SUM(trade_value), 0),
+                         COUNT(*) FILTER (WHERE side = 'BUY'),
+                         COALESCE(SUM(execution_quantity) FILTER (WHERE side = 'BUY'), 0),
+                         COALESCE(SUM(trade_value) FILTER (WHERE side = 'BUY'), 0),
+                         COUNT(*) FILTER (WHERE side = 'SELL'),
+                         COALESCE(SUM(execution_quantity) FILTER (WHERE side = 'SELL'), 0),
+                         COALESCE(SUM(trade_value) FILTER (WHERE side = 'SELL'), 0)
+            FROM reporting.trade_facts
+            WHERE order_filled_at >= :startDate AND order_filled_at < :endDate
+                AND (:instrumentId IS NULL OR instrument_id = :instrumentId)
+                AND (:side IS NULL OR side = :side)
+                AND (:status IS NULL OR order_status = :status)
+                AND (:clientId IS NULL OR client_id = :clientId)
+                AND (:accountId IS NULL OR account_id = :accountId)
+            """, nativeQuery = true)
+    Object[] summarizeExecutionActivity(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId);
+
   /**
    * Daily executed quantity and traded value.
    */
@@ -191,4 +261,50 @@ public interface TradeFactRepository extends JpaRepository<TradeFact, Long> {
   List<Object[]> summarizeDailyExecution(
       @Param("startDate") LocalDateTime startDate,
       @Param("endDate") LocalDateTime endDate);
+
+    @Query(value = """
+            SELECT DATE(order_filled_at),
+                         COALESCE(SUM(execution_quantity), 0),
+                         COALESCE(SUM(trade_value), 0)
+            FROM reporting.trade_facts
+            WHERE order_filled_at >= :startDate AND order_filled_at < :endDate
+                AND (:instrumentId IS NULL OR instrument_id = :instrumentId)
+                AND (:side IS NULL OR side = :side)
+                AND (:status IS NULL OR order_status = :status)
+                AND (:clientId IS NULL OR client_id = :clientId)
+                AND (:accountId IS NULL OR account_id = :accountId)
+            GROUP BY DATE(order_filled_at)
+            ORDER BY DATE(order_filled_at)
+            """, nativeQuery = true)
+    List<Object[]> summarizeDailyExecution(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId);
+
+    @Query("""
+            SELECT tf.orderId, tf.fillId, tf.accountId, tf.clientId,
+                         tf.instrumentId, tf.instrumentSymbol, tf.side, tf.orderStatus,
+                         tf.orderQuantity, tf.executionQuantity, tf.executionPrice,
+                         tf.tradeValue, tf.orderFilledAt
+            FROM TradeFact tf
+            WHERE tf.orderFilledAt >= :startDate AND tf.orderFilledAt < :endDate
+                AND (:instrumentId IS NULL OR tf.instrumentId = :instrumentId)
+                AND (:side IS NULL OR tf.side = :side)
+                AND (:status IS NULL OR tf.orderStatus = :status)
+                AND (:clientId IS NULL OR tf.clientId = :clientId)
+                AND (:accountId IS NULL OR tf.accountId = :accountId)
+            ORDER BY tf.orderFilledAt DESC
+            """)
+    List<Object[]> findActivity(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId);
 }

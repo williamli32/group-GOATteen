@@ -31,14 +31,11 @@ public class ClientMetricsService {
         public List<ClientMetrics> calculate(
                         LocalDateTime startDate,
                         LocalDateTime endDate) {
+                return calculate(ReportingFilters.forPeriod(startDate, endDate));
+        }
 
-                if (startDate == null
-                                || endDate == null
-                                || !startDate.isBefore(endDate)) {
-
-                        throw new IllegalArgumentException(
-                                        "Start date must be before end date");
-                }
+        @Transactional(readOnly = true)
+        public List<ClientMetrics> calculate(ReportingFilters filters) {
 
                 Map<ClientCurrencyKey, MutableClientMetrics> metrics = new HashMap<>();
 
@@ -46,8 +43,10 @@ public class ClientMetricsService {
                  * All orders, including rejected orders.
                  */
                 for (Object[] row : orderFactRepository.summarizeOrdersByClient(
-                                startDate,
-                                endDate)) {
+                                filters.fromDate(),
+                                filters.toDate(),
+                                filters.instrumentId(), filters.side(), filters.status(),
+                                filters.clientId(), filters.accountId())) {
 
                         Long clientId = ((Number) row[0]).longValue();
 
@@ -68,8 +67,10 @@ public class ClientMetricsService {
                  * Successful executions only.
                  */
                 for (Object[] row : tradeFactRepository.summarizeByClient(
-                                startDate,
-                                endDate)) {
+                                filters.fromDate(),
+                                filters.toDate(),
+                                filters.instrumentId(), filters.side(), filters.status(),
+                                filters.clientId(), filters.accountId())) {
 
                         Long clientId = ((Number) row[0]).longValue();
 

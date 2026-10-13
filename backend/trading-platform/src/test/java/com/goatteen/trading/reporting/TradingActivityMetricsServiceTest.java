@@ -44,29 +44,29 @@ class TradingActivityMetricsServiceTest {
         void calculatesCompleteTradingActivityMetrics() {
 
                 when(orderFactRepository
-                                .countOrdersInDateRange(start, end))
+                                .countOrdersInDateRange(start, end, null, null, null, null, null))
                                 .thenReturn(100L);
 
                 when(orderFactRepository
                                 .countByStatusAndDateRange(
                                                 "FILLED",
                                                 start,
-                                                end))
+                                                end, null, null, null, null))
                                 .thenReturn(75L);
 
                 when(orderFactRepository
                                 .countByStatusAndDateRange(
                                                 "REJECTED",
                                                 start,
-                                                end))
+                                                end, null, null, null, null))
                                 .thenReturn(10L);
 
                 when(orderFactRepository
-                                .countActiveClients(start, end))
+                                .countActiveClients(start, end, null, null, null, null, null))
                                 .thenReturn(42L);
 
                 when(tradeFactRepository
-                                .summarizeExecutionActivity(start, end))
+                                .summarizeExecutionActivity(start, end, null, null, null, null, null))
                                 .thenReturn(new Object[] {
                                                 new BigDecimal("1000"),
                                                 new BigDecimal("250000.00"),
@@ -127,7 +127,7 @@ class TradingActivityMetricsServiceTest {
         void returnsZeroMetricsWhenThereIsNoActivity() {
 
                 when(tradeFactRepository
-                                .summarizeExecutionActivity(start, end))
+                                .summarizeExecutionActivity(start, end, null, null, null, null, null))
                                 .thenReturn(new Object[] {
                                                 BigDecimal.ZERO,
                                                 BigDecimal.ZERO,

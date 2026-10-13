@@ -66,7 +66,7 @@ class ClientMetricsServiceTest {
                 };
 
                 when(orderFactRepository
-                                .summarizeOrdersByClient(start, end))
+                                .summarizeOrdersByClient(start, end, null, null, null, null, null))
                                 .thenReturn(List.of(
                                                 client1Orders,
                                                 client2Orders,
@@ -89,7 +89,7 @@ class ClientMetricsServiceTest {
                 };
 
                 when(tradeFactRepository
-                                .summarizeByClient(start, end))
+                                .summarizeByClient(start, end, null, null, null, null, null))
                                 .thenReturn(List.of(
                                                 client1Trades,
                                                 client2Trades));
@@ -130,11 +130,11 @@ class ClientMetricsServiceTest {
         void returnsEmptyListWhenThereIsNoActivity() {
 
                 when(orderFactRepository
-                                .summarizeOrdersByClient(start, end))
+                                .summarizeOrdersByClient(start, end, null, null, null, null, null))
                                 .thenReturn(List.of());
 
                 when(tradeFactRepository
-                                .summarizeByClient(start, end))
+                                .summarizeByClient(start, end, null, null, null, null, null))
                                 .thenReturn(List.of());
 
                 List<ClientMetrics> result = metricsService.calculate(start, end);
