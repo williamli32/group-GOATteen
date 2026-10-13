@@ -10,25 +10,23 @@ pipeline {
     environment {
 
         /*
-         * PostgreSQL CI container.
-         *
-         * We intentionally use the same database user expected
-         * by the Sprint 4 PostgreSQL integration tests.
+         * Ephemeral PostgreSQL container used only by CI.
          */
         CI_DB_CONTAINER = 'leap-postgres-ci'
 
-        DB_USERNAME = 'leap_sprint4_test'
+        /*
+         * All backend integration tests now share one
+         * dedicated test database.
+         */
+        CI_TEST_DB = 'leap_trading_test'
 
         /*
-         * Main database used by the normal backend test profile.
+         * Dedicated CI/test database user.
+         *
+         * This user exists only inside the temporary
+         * PostgreSQL container created during the build.
          */
-        CI_APP_DB = 'leap_trading_test'
-
-        /*
-         * Dedicated database expected by the Sprint 4
-         * rollback/concurrency/lifecycle integration tests.
-         */
-        CI_SPRINT4_DB = 'leap_sprint4_rollback_test'
+        TEST_DB_USERNAME = 'leap_test'
 
         /*
          * Stored in:
@@ -43,7 +41,7 @@ pipeline {
          * Credential ID:
          *   leap-ci-db-password
          */
-        DB_PASSWORD = credentials('leap-ci-db-password')
+        TEST_DB_PASSWORD = credentials('leap-ci-db-password')
     }
 
     stages {
@@ -89,9 +87,9 @@ pipeline {
 
                     docker run -d \
                         --name ${CI_DB_CONTAINER} \
-                        -e POSTGRES_DB=${CI_SPRINT4_DB} \
-                        -e POSTGRES_USER=${DB_USERNAME} \
-                        -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
+                        -e POSTGRES_DB=${CI_TEST_DB} \
+                        -e POSTGRES_USER=${TEST_DB_USERNAME} \
+                        -e POSTGRES_PASSWORD="${TEST_DB_PASSWORD}" \
                         postgres:17
 
 
@@ -100,8 +98,8 @@ pipeline {
                     until docker exec \
                         ${CI_DB_CONTAINER} \
                         pg_isready \
-                        -U ${DB_USERNAME} \
-                        -d ${CI_SPRINT4_DB}
+                        -U ${TEST_DB_USERNAME} \
+                        -d ${CI_TEST_DB}
                     do
                         sleep 1
                     done
@@ -109,23 +107,8 @@ pipeline {
 
                     echo "PostgreSQL is ready."
 
-
-                    echo "Creating normal backend test database..."
-
-                    docker exec \
-                        -e PGPASSWORD="${DB_PASSWORD}" \
-                        ${CI_DB_CONTAINER} \
-                        createdb \
-                        -U ${DB_USERNAME} \
-                        -O ${DB_USERNAME} \
-                        ${CI_APP_DB}
-
-
-                    echo "CI databases are ready."
-
-                    echo "Created:"
-                    echo "  ${CI_APP_DB}"
-                    echo "  ${CI_SPRINT4_DB}"
+                    echo "CI test database:"
+                    echo "  ${CI_TEST_DB}"
                 '''
             }
         }
@@ -137,8 +120,6 @@ pipeline {
                 dir('backend/trading-platform') {
 
                     /*
-                     * Important:
-                     *
                      * The Maven container shares the PostgreSQL
                      * container's network namespace.
                      *
@@ -146,22 +127,27 @@ pipeline {
                      *
                      * jdbc:postgresql://localhost:5432/...
                      *
-                     * points directly at the CI PostgreSQL
-                     * container.
+                     * points directly at the PostgreSQL
+                     * CI container.
                      *
-                     * This also allows the Sprint 4 integration
-                     * tests, which intentionally use
-                     * localhost:5432, to run unchanged.
+                     * application-test.yaml reads:
+                     *
+                     * TEST_DB_URL
+                     * TEST_DB_USERNAME
+                     * TEST_DB_PASSWORD
+                     *
+                     * Every database-backed test therefore uses
+                     * leap_trading_test.
                      */
                     sh '''
                         docker run --rm \
                             --network container:${CI_DB_CONTAINER} \
                             -u "$(id -u):$(id -g)" \
                             -e HOME=/tmp \
-                            -e DB_URL="jdbc:postgresql://localhost:5432/${CI_APP_DB}" \
-                            -e DB_USERNAME="${DB_USERNAME}" \
-                            -e DB_PASSWORD="${DB_PASSWORD}" \
-                            -e LEAP_TEST_DB_PASSWORD="${DB_PASSWORD}" \
+                            -e TEST_DB_URL="jdbc:postgresql://localhost:5432/${CI_TEST_DB}" \
+                            -e TEST_DB_USERNAME="${TEST_DB_USERNAME}" \
+                            -e TEST_DB_PASSWORD="${TEST_DB_PASSWORD}" \
+                            -e JWT_SECRET="${JWT_SECRET}" \
                             -v "$PWD:/app" \
                             -w /app \
                             maven:3.9.9-eclipse-temurin-21 \
@@ -195,7 +181,10 @@ pipeline {
             Backend tests:        PASSED
             Backend build:        PASSED
             PostgreSQL tests:     PASSED
-            Sprint 4 integration: PASSED
+            Integration tests:    PASSED
+
+            Test database:
+            leap_trading_test
 
             ==========================================
             '''
