@@ -42,6 +42,9 @@ pipeline {
          *   leap-ci-db-password
          */
         TEST_DB_PASSWORD = credentials('leap-ci-db-password')
+
+        /* JWT token used for authentication in the backend tests */
+        JWT_SECRET = credentials('leap-ci-jwt-secret')
     }
 
     stages {
@@ -140,6 +143,11 @@ pipeline {
                      * leap_trading_test.
                      */
                     sh '''
+                        if [ -z "${JWT_SECRET}" ]; then
+                            echo "ERROR: JWT_SECRET is empty"
+                            exit 1
+                        fi
+
                         docker run --rm \
                             --network container:${CI_DB_CONTAINER} \
                             -u "$(id -u):$(id -g)" \
