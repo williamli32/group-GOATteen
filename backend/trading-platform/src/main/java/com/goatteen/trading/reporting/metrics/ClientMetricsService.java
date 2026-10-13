@@ -1,7 +1,10 @@
 package com.goatteen.trading.reporting.metrics;
 
+import com.goatteen.trading.client.Client;
+import com.goatteen.trading.client.ClientRepository;
 import com.goatteen.trading.reporting.data.OrderFactRepository;
 import com.goatteen.trading.reporting.data.TradeFactRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,13 +21,23 @@ public class ClientMetricsService {
 
         private final OrderFactRepository orderFactRepository;
         private final TradeFactRepository tradeFactRepository;
+        private final ClientRepository clientRepository;
+
+        @Autowired
+        public ClientMetricsService(
+                        OrderFactRepository orderFactRepository,
+                        TradeFactRepository tradeFactRepository,
+                        ClientRepository clientRepository) {
+
+                this.orderFactRepository = orderFactRepository;
+                this.tradeFactRepository = tradeFactRepository;
+                this.clientRepository = clientRepository;
+        }
 
         public ClientMetricsService(
                         OrderFactRepository orderFactRepository,
                         TradeFactRepository tradeFactRepository) {
-
-                this.orderFactRepository = orderFactRepository;
-                this.tradeFactRepository = tradeFactRepository;
+                this(orderFactRepository, tradeFactRepository, null);
         }
 
         @Transactional(readOnly = true)
@@ -91,6 +104,17 @@ public class ClientMetricsService {
                         value.tradedValue = decimal(row[4]);
                 }
 
+                Map<Long, String> clientNames = clientRepository == null
+                                ? Map.of()
+                                : clientRepository.findAllById(
+                                                metrics.keySet().stream()
+                                                                .map(ClientCurrencyKey::clientId)
+                                                                .distinct()
+                                                                .toList()).stream()
+                                                .collect(java.util.stream.Collectors.toMap(
+                                                                Client::getId,
+                                                                client -> client.getFirstName() + " " + client.getLastName()));
+
                 return metrics.entrySet()
                                 .stream()
                                 .map(entry -> {
@@ -101,6 +125,9 @@ public class ClientMetricsService {
 
                                         return new ClientMetrics(
                                                         key.clientId(),
+                                                        clientNames.getOrDefault(
+                                                                        key.clientId(),
+                                                                        "Client " + key.clientId()),
                                                         key.currency(),
                                                         value.orderCount,
                                                         value.fillCount,

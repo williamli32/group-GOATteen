@@ -111,6 +111,11 @@ export class AnalystDashboardComponent implements OnInit {
         return item.orderId;
     }
 
+    clientName(clientId: number): string {
+        return this.clients().find(client => client.clientId === clientId)?.clientName
+            ?? `Client ${clientId}`;
+    }
+
     private loadMarketInstruments(): void {
         this.marketDataService.getInstruments().subscribe({
             next: instruments => this.marketInstruments.set(instruments),

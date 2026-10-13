@@ -8,6 +8,7 @@ import java.math.BigDecimal;
  */
 public record ClientMetrics(
                 Long clientId,
+                String clientName,
                 String currency,
 
                 long orderCount,

@@ -57,6 +57,7 @@ export interface InstrumentMetrics {
 
 export interface ClientMetrics {
     clientId: number;
+    clientName: string;
     currency: string;
     orderCount: number;
     fillCount: number;
