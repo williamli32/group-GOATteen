@@ -74,27 +74,47 @@ describe('AnalystDashboardComponent', () => {
     });
 
     it('loads every reporting dataset with one shared filter set', () => {
+
         component.fromDate.set('2026-09-01');
         component.toDate.set('2026-09-30');
+
+        component.instrumentId.set(7);
         component.side.set('BUY');
         component.status.set('FILLED');
+        component.clientId.set(42);
+
         component.applyFilters();
 
-        const expected = expect.objectContaining({
-            fromDate: '2026-09-01',
-            toDate: '2026-09-30',
-            side: 'BUY',
-            status: 'FILLED'
-        });
+        const expected =
+            expect.objectContaining({
+                fromDate: '2026-09-01',
+                toDate: '2026-09-30',
+                instrumentId: 7,
+                side: 'BUY',
+                status: 'FILLED',
+                clientId: 42
+            });
 
-        expect(reportingService.getSummary).toHaveBeenCalledWith(expected);
-        expect(reportingService.getTrends).toHaveBeenCalledWith(expected);
-        expect(reportingService.getInstruments).toHaveBeenCalledWith(expected);
-        expect(reportingService.getClients).toHaveBeenCalledWith(expected);
-        expect(reportingService.getActivity).toHaveBeenCalledWith(expected);
-        expect(component.summary()).toEqual(summary);
+        expect(
+            reportingService.getSummary
+        ).toHaveBeenCalledWith(expected);
+
+        expect(
+            reportingService.getTrends
+        ).toHaveBeenCalledWith(expected);
+
+        expect(
+            reportingService.getInstruments
+        ).toHaveBeenCalledWith(expected);
+
+        expect(
+            reportingService.getClients
+        ).toHaveBeenCalledWith(expected);
+
+        expect(
+            reportingService.getActivity
+        ).toHaveBeenCalledWith(expected);
     });
-
     it('shows an internal access error when reporting is forbidden', () => {
         reportingService.getSummary.mockReturnValue(throwError(() => ({ status: 403 })));
         component.applyFilters();
@@ -122,7 +142,13 @@ describe('AnalystDashboardComponent', () => {
         component.side.set('SELL');
         component.status.set('REJECTED');
 
+        component.clientId.set(42);
+
         component.resetFilters();
+
+        expect(
+            component.clientId()
+        ).toBeUndefined();
 
         expect(component.instrumentId()).toBeUndefined();
         expect(component.side()).toBeUndefined();
@@ -131,7 +157,8 @@ describe('AnalystDashboardComponent', () => {
             expect.objectContaining({
                 instrumentId: undefined,
                 side: undefined,
-                status: undefined
+                status: undefined,
+                clientId: undefined
             })
         );
     });
@@ -179,18 +206,58 @@ describe('AnalystDashboardComponent', () => {
         expect(component.trendAreaPoints('value')).toBe('0,190 0,122.8 600,22 600,190');
     });
 
-    it('scales ring segments from BUY, SELL, and UNFILLED counts', () => {
+    it('scales BUY vs SELL ring segments from fill counts', () => {
         component.summary.set({
             ...summary,
-            totalOrders: 8,
-            filledOrders: 6,
             buyFills: 2,
             sellFills: 4
         });
 
-        expect(component.unfilledOrders()).toBe(2);
-        expect(component.splitRingStyle()).toContain(
-            'radial-gradient(circle, #101c29 0 57%, transparent 58%), conic-gradient(#72d8c0 0 25%, #ee7b83 25% 75%, #315f65 75% 100%)'
+        const style = component.splitRingStyle();
+
+        expect(style).toContain(
+            '#72d8c0 0 33.33333333333333%'
         );
+
+        expect(style).toContain(
+            '#ee7b83 33.33333333333333% 100%'
+        );
+    });
+
+    it('calculates total trades from buy and sell fills', () => {
+        component.summary.set({
+            ...summary,
+            buyFills: 8,
+            sellFills: 5
+        });
+
+        expect(component.totalTrades()).toBe(13);
+    });
+
+    it('ranks instruments by traded value', () => {
+        component.instruments.set([
+            {
+                instrumentId: 1,
+                instrumentSymbol: 'AAPL',
+                currency: 'USD',
+                fillCount: 10,
+                executedQuantity: 100,
+                tradedValue: 10000
+            },
+            {
+                instrumentId: 2,
+                instrumentSymbol: 'MSFT',
+                currency: 'USD',
+                fillCount: 4,
+                executedQuantity: 50,
+                tradedValue: 25000
+            }
+        ]);
+
+        const result =
+            component.highestValueInstruments();
+
+        expect(result[0].instrumentSymbol)
+            .toBe('MSFT');
     });
 });

@@ -1,163 +1,1275 @@
 <main class="analyst-shell">
+
     <header class="masthead">
         <div>
             <p class="eyebrow">INTERNAL OPERATIONS</p>
             <h1>Reporting desk</h1>
-            <p class="lede">Aggregate historical trading activity across all clients, reconstructed from the reporting data path.</p>
+            <p class="lede">
+                Aggregate historical trading activity across all clients,
+                reconstructed from the reporting data path.
+            </p>
         </div>
-        <div class="status-mark"><span></span> ALL CLIENTS · READ-ONLY DATA</div>
+
+        <div class="status-mark">
+            <span></span>
+            ALL CLIENTS · READ-ONLY DATA
+        </div>
     </header>
 
+
     <section class="filter-panel" aria-label="Reporting filters">
+
         <div class="filter-heading">
             <div>
                 <p class="eyebrow">REPORTING WINDOW</p>
             </div>
-            <button type="button" class="text-button" (click)="resetFilters()">Reset filters</button>
+
+            <button type="button" class="text-button" (click)="resetFilters()">
+                Reset filters
+            </button>
         </div>
+
         <div class="filter-grid">
+
             <label>
                 <span>From date</span>
+
                 <input type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" [max]="toDate()">
             </label>
+
             <label>
                 <span>To date</span>
-                <input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" [min]="fromDate()" [max]="today">
+
+                <input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" [min]="fromDate()"
+                    [max]="today">
             </label>
+
             <label>
                 <span>Instrument</span>
+
                 <select [ngModel]="instrumentId() ?? ''" (ngModelChange)="selectInstrument($event)">
-                    <option value="">All instruments</option>
-                    @for (instrument of marketInstruments(); track instrument.instrumentId) {
-                        <option [value]="instrument.instrumentId">{{ instrument.symbol }} · {{ instrument.name }}</option>
+
+                    <option value="">
+                        All instruments
+                    </option>
+
+                    @for (
+                    instrument of marketInstruments();
+                    track instrument.instrumentId
+                    ) {
+                    <option [value]="instrument.instrumentId">
+                        {{ instrument.symbol }} · {{ instrument.name }}
+                    </option>
                     }
+
                 </select>
             </label>
+
             <label>
                 <span>Side</span>
+
                 <select [ngModel]="side() ?? ''" (ngModelChange)="selectSide($event)">
-                    <option value="">BUY and SELL</option>
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
+
+                    <option value="">
+                        BUY and SELL
+                    </option>
+
+                    <option value="BUY">
+                        BUY
+                    </option>
+
+                    <option value="SELL">
+                        SELL
+                    </option>
+
                 </select>
             </label>
+
             <label>
                 <span>Status</span>
+
                 <select [ngModel]="status() ?? ''" (ngModelChange)="selectStatus($event)">
-                    <option value="">All statuses</option>
-                    <option value="FILLED">FILLED</option>
-                    <option value="REJECTED">REJECTED</option>
-                    <option value="ACCEPTED">ACCEPTED</option>
-                    <option value="SUBMITTED">SUBMITTED</option>
+
+                    <option value="">
+                        All statuses
+                    </option>
+
+                    <option value="FILLED">
+                        FILLED
+                    </option>
+
+                    <option value="REJECTED">
+                        REJECTED
+                    </option>
+
+                    <option value="ACCEPTED">
+                        ACCEPTED
+                    </option>
+
+                    <option value="SUBMITTED">
+                        SUBMITTED
+                    </option>
+
                 </select>
             </label>
-            <button type="button" class="apply-button" (click)="applyFilters()" [disabled]="loading()">{{ loading() ? 'Loading...' : 'Apply filters' }}</button>
+
+            <label>
+                <span>Client</span>
+
+                <select [ngModel]="clientId() ?? ''" (ngModelChange)="selectClient($event)">
+
+                    <option value="">
+                        All clients
+                    </option>
+
+                    @for (
+                    client of uniqueClientOptions();
+                    track client.clientId
+                    ) {
+                    <option [value]="client.clientId">
+                        {{ client.clientName }}
+                    </option>
+                    }
+
+                </select>
+            </label>
+
+            <button type="button" class="apply-button" (click)="applyFilters()" [disabled]="loading()">
+
+                {{
+                loading()
+                ? 'Loading...'
+                : 'Apply filters'
+                }}
+
+            </button>
+
         </div>
+
     </section>
 
+
     @if (errorMessage()) {
-        <section class="state-panel error-state">
-            <strong>{{ accessDenied() ? 'Access forbidden' : 'Reporting unavailable' }}</strong>
-            <span>{{ errorMessage() }}</span>
-            <button type="button" class="apply-button compact" (click)="applyFilters()">Retry</button>
-        </section>
+
+    <section class="state-panel error-state">
+
+        <strong>
+            {{
+            accessDenied()
+            ? 'Access forbidden'
+            : 'Reporting unavailable'
+            }}
+        </strong>
+
+        <span>
+            {{ errorMessage() }}
+        </span>
+
+        <button type="button" class="apply-button compact" (click)="applyFilters()">
+            Retry
+        </button>
+
+    </section>
+
     } @else if (loading() && !summary()) {
-        <section class="state-panel"><span class="loader"></span><span>Loading historical activity...</span></section>
+
+    <section class="state-panel">
+
+        <span class="loader"></span>
+
+        <span>
+            Loading historical activity...
+        </span>
+
+    </section>
+
     } @else {
-        <section class="section-block overview-section">
-            <div class="section-title"><div><p class="eyebrow">AT A GLANCE</p><h2>Market pulse</h2></div><span class="period-label">{{ fromDate() }} → {{ toDate() }}</span></div>
-            <div class="metric-grid">
-                <article class="metric-card accent-blue"><span>Total orders</span><strong>{{ formatNumber(summary()?.totalOrders) }}</strong><small>all client orders</small></article>
-                <article class="metric-card accent-cyan"><span>Executed quantity</span><strong>{{ formatNumber(summary()?.totalExecutedQuantity) }}</strong><small>units filled</small></article>
-                <article class="metric-card accent-green"><span>Filled orders</span><strong>{{ formatNumber(summary()?.filledOrders) }}</strong><small>{{ formatNumber(summary()?.fillRate) }}% fill rate</small></article>
-                <article class="metric-card accent-red"><span>Rejected orders</span><strong>{{ formatNumber(summary()?.rejectedOrders) }}</strong><small>{{ formatNumber(summary()?.rejectionRate) }}% rejection rate</small></article>
-                <article class="metric-card accent-gold"><span>Trading value</span><strong>{{ formatMoney(summary()?.totalTradedValue) }}</strong><small>reported notional</small></article>
-                <article class="metric-card accent-violet"><span>Active clients</span><strong>{{ formatNumber(summary()?.activeClients) }}</strong><small>with submitted orders</small></article>
-                <article class="metric-card accent-blue"><span>Active instruments</span><strong>{{ instruments().length }}</strong><small>with executed trades</small></article>
-            </div>
-        </section>
 
-        <section class="section-block trend-section">
-            <div class="section-title"><div><p class="eyebrow">ACTIVITY AND TRENDS</p><h2>Volume, value and outcomes</h2></div><span class="legend"><i class="orders-key"></i>Orders <i class="value-key"></i>Value</span></div>
-            <div class="trend-grid">
-                <article class="chart-panel wide-panel">
-                    <div class="panel-heading"><h3>Trades over time</h3><span>daily filled orders</span></div>
-                    <div class="line-chart" role="img" aria-label="Trades over time line chart">
-                        @if (trends().length) {
-                            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
-                                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
-                                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
-                                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
-                                <polygon class="orders-area" [attr.points]="trendAreaPoints('orders')" />
-                                <polyline class="orders-line" [attr.points]="trendPoints('orders')" />
-                                @for (point of trends(); track point.date; let index = $index) {
-                                    <circle class="orders-point" [attr.cx]="trendPointX(index)" [attr.cy]="trendPointY(index, 'orders')" r="3">
-                                        <title>{{ point.date | date:'MMM d' }}: {{ point.filledOrders }} trades</title>
-                                    </circle>
-                                }
-                            </svg>
-                            <div class="chart-labels">@for (point of trends(); track point.date; let index = $index) { @if (showTrendLabel(index)) { <small>{{ point.date | date:'MMM d' }}</small> } @else { <small></small> } }</div>
-                        } @else { <p class="empty-copy">No daily activity for this period.</p> }
-                    </div>
-                </article>
-                <article class="chart-panel wide-panel">
-                    <div class="panel-heading"><h3>Trading value over time</h3><span>reported notional</span></div>
-                    <div class="line-chart value-line-chart" role="img" aria-label="Trading value over time line chart">
-                        @if (trends().length) {
-                            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
-                                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
-                                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
-                                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
-                                <polygon class="value-area" [attr.points]="trendAreaPoints('value')" />
-                                <polyline class="value-line" [attr.points]="trendPoints('value')" />
-                                @for (point of trends(); track point.date; let index = $index) {
-                                    <circle class="value-point" [attr.cx]="trendPointX(index)" [attr.cy]="trendPointY(index, 'value')" r="3">
-                                        <title>{{ point.date | date:'MMM d' }}: {{ formatMoney(point.tradedValue) }}</title>
-                                    </circle>
-                                }
-                            </svg>
-                            <div class="chart-labels">@for (point of trends(); track point.date; let index = $index) { @if (showTrendLabel(index)) { <small>{{ point.date | date:'MMM d' }}</small> } @else { <small></small> } }</div>
-                        } @else { <p class="empty-copy">No traded value for this period.</p> }
-                    </div>
-                </article>
-                <article class="chart-panel split-panel">
-                    <div class="panel-heading"><h3>BUY vs SELL</h3><span>fills</span></div>
-                    <div class="donut-copy"><div class="split-ring" [style.background]="splitRingStyle()"><span>{{ formatNumber((summary()?.buyFills ?? 0) + (summary()?.sellFills ?? 0)) }}</span><small>fills</small></div><div class="split-legend"><span><i class="buy-dot"></i>BUY <b>{{ summary()?.buyFills ?? 0 }}</b></span><span><i class="sell-dot"></i>SELL <b>{{ summary()?.sellFills ?? 0 }}</b></span><span><i class="track-dot"></i>UNFILLED <b>{{ unfilledOrders() }}</b></span></div></div>
-                </article>
-                <article class="chart-panel split-panel">
-                    <div class="panel-heading"><h3>FILLED vs REJECTED</h3><span>orders</span></div>
-                    <div class="outcome-bars"><div><span>FILLED <b>{{ summary()?.filledOrders ?? 0 }}</b></span><i class="filled-bar" [style.width.%]="summary()?.filledOrders ? ((summary()?.filledOrders ?? 0) / ((summary()?.filledOrders ?? 0) + (summary()?.rejectedOrders ?? 0))) * 100 : 0"></i></div><div><span>REJECTED <b>{{ summary()?.rejectedOrders ?? 0 }}</b></span><i class="rejected-bar" [style.width.%]="summary()?.rejectedOrders ? ((summary()?.rejectedOrders ?? 0) / ((summary()?.filledOrders ?? 0) + (summary()?.rejectedOrders ?? 0))) * 100 : 0"></i></div></div>
-                </article>
-                <article class="chart-panel wide-panel client-trend-panel">
-                    <div class="panel-heading"><h3>Client activity over time</h3><span>distinct active clients</span></div>
-                    <div class="line-chart client-line-chart" role="img" aria-label="Client activity over time line chart">
-                        @if (trends().length) {
-                            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
-                                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
-                                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
-                                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
-                                <polygon class="client-area" [attr.points]="clientTrendAreaPoints()" />
-                                <polyline class="client-line" [attr.points]="clientTrendPoints()" />
-                                @for (point of trends(); track point.date; let index = $index) {
-                                    <circle class="client-point" [attr.cx]="clientTrendPointX(index)" [attr.cy]="clientTrendPointY(index)" r="4">
-                                        <title>{{ point.date | date:'MMM d' }}: {{ point.activeClients }} active clients</title>
-                                    </circle>
-                                }
-                            </svg>
-                            <div class="chart-labels">@for (point of trends(); track point.date; let index = $index) { @if (showTrendLabel(index)) { <small>{{ point.date | date:'MMM d' }}</small> } @else { <small></small> } }</div>
-                        } @else { <p class="empty-copy">No client activity for this period.</p> }
-                    </div>
-                </article>
-            </div>
-        </section>
+    <section class="section-block overview-section">
 
-        <section class="section-block analysis-section">
-            <div class="section-title"><div><p class="eyebrow">AGGREGATE ANALYSIS</p><h2>Where activity is concentrated across all clients</h2></div></div>
-            <div class="analysis-grid">
-                <article class="table-panel"><div class="panel-heading"><h3>Most active instruments</h3><span>by fill count</span></div><table><thead><tr><th>Instrument</th><th>Fills</th><th>Quantity</th><th>Value</th></tr></thead><tbody>@for (item of instruments().slice(0, 6); track trackByInstrument($index, item)) { <tr><td><strong>{{ item.instrumentSymbol }}</strong><small>{{ item.currency }}</small></td><td>{{ item.fillCount }}</td><td>{{ formatNumber(item.executedQuantity) }}</td><td>{{ formatMoney(item.tradedValue) }}</td></tr> } @empty { <tr><td colspan="4" class="empty-copy">No instrument data.</td></tr> }</tbody></table></article>
-                <article class="table-panel"><div class="panel-heading"><h3>Most active clients</h3><span>by orders</span></div><table><thead><tr><th>Client</th><th>Orders</th><th>Fills</th><th>Value</th></tr></thead><tbody>@for (item of clients().slice(0, 6); track trackByClient($index, item)) { <tr><td><strong>{{ item.clientName }}</strong><small>ID {{ item.clientId }} · {{ item.currency }}</small></td><td>{{ item.orderCount }}</td><td>{{ item.fillCount }}</td><td>{{ formatMoney(item.tradedValue) }}</td></tr> } @empty { <tr><td colspan="4" class="empty-copy">No client data.</td></tr> }</tbody></table></article>
-                <article class="table-panel"><div class="panel-heading"><h3>Recent trading activity</h3><span>latest executions</span></div><table><thead><tr><th>Time</th><th>Instrument</th><th>Side</th><th>Value</th></tr></thead><tbody>@for (item of activity().slice(0, 8); track trackByActivity($index, item)) { <tr><td>{{ item.occurredAt | date:'MMM d, HH:mm' }}</td><td><strong>{{ item.instrumentSymbol }}</strong><small>{{ clientName(item.clientId) }} · ID {{ item.clientId }}</small></td><td><span class="side-pill" [class.buy-pill]="item.side === 'BUY'" [class.sell-pill]="item.side === 'SELL'">{{ item.side }}</span></td><td>{{ formatMoney(item.tradedValue) }}</td></tr> } @empty { <tr><td colspan="4" class="empty-copy">No recent activity.</td></tr> }</tbody></table></article>
+        <div class="section-title">
+
+            <div>
+                <p class="eyebrow">
+                    AT A GLANCE
+                </p>
+
+                <h2>
+                    Market pulse
+                </h2>
             </div>
-        </section>
+
+            <span class="period-label">
+                {{ fromDate() }} → {{ toDate() }}
+            </span>
+
+        </div>
+
+
+        <div class="metric-grid">
+
+            <article class="metric-card accent-blue">
+
+                <span>
+                    Total trades
+                </span>
+
+                <strong>
+                    {{ formatNumber(totalTrades()) }}
+                </strong>
+
+                <small>
+                    executed trades
+                </small>
+
+            </article>
+
+
+            <article class="metric-card accent-cyan">
+
+                <span>
+                    Executed quantity
+                </span>
+
+                <strong>
+                    {{
+                    formatNumber(
+                    summary()?.totalExecutedQuantity
+                    )
+                    }}
+                </strong>
+
+                <small>
+                    units filled
+                </small>
+
+            </article>
+
+
+            <article class="metric-card accent-green">
+
+                <span>
+                    Filled orders
+                </span>
+
+                <strong>
+                    {{
+                    formatNumber(
+                    summary()?.filledOrders
+                    )
+                    }}
+                </strong>
+
+                <small>
+                    {{
+                    formatNumber(
+                    summary()?.fillRate
+                    )
+                    }}% fill rate
+                </small>
+
+            </article>
+
+
+            <article class="metric-card accent-red">
+
+                <span>
+                    Rejected orders
+                </span>
+
+                <strong>
+                    {{
+                    formatNumber(
+                    summary()?.rejectedOrders
+                    )
+                    }}
+                </strong>
+
+                <small>
+                    {{
+                    formatNumber(
+                    summary()?.rejectionRate
+                    )
+                    }}% rejection rate
+                </small>
+
+            </article>
+
+
+            <article class="metric-card accent-gold">
+
+                <span>
+                    Trading value
+                </span>
+
+                <strong>
+                    {{
+                    formatMoney(
+                    summary()?.totalTradedValue
+                    )
+                    }}
+                </strong>
+
+                <small>
+                    reported notional
+                </small>
+
+            </article>
+
+
+            <article class="metric-card accent-violet">
+
+                <span>
+                    Active clients
+                </span>
+
+                <strong>
+                    {{
+                    formatNumber(
+                    summary()?.activeClients
+                    )
+                    }}
+                </strong>
+
+                <small>
+                    with submitted orders
+                </small>
+
+            </article>
+
+
+            <article class="metric-card accent-blue">
+
+                <span>
+                    Active instruments
+                </span>
+
+                <strong>
+                    {{ instruments().length }}
+                </strong>
+
+                <small>
+                    with executed trades
+                </small>
+
+            </article>
+
+        </div>
+
+    </section>
+
+
+    <section class="section-block trend-section">
+
+        <div class="section-title">
+
+            <div>
+                <p class="eyebrow">
+                    ACTIVITY AND TRENDS
+                </p>
+
+                <h2>
+                    Volume, value and outcomes
+                </h2>
+            </div>
+
+            <span class="legend">
+                <i class="orders-key"></i>
+                Orders
+
+                <i class="value-key"></i>
+                Value
+            </span>
+
+        </div>
+
+
+        <div class="trend-grid">
+
+            <article class="chart-panel wide-panel">
+
+                <div class="panel-heading">
+                    <h3>
+                        Trades over time
+                    </h3>
+
+                    <span>
+                        daily filled orders
+                    </span>
+                </div>
+
+
+                <div class="line-chart" role="img" aria-label="Trades over time line chart">
+
+                    @if (trends().length) {
+
+                    <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+
+                        <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+
+                        <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+
+                        <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+
+                        <polygon class="orders-area" [attr.points]="trendAreaPoints('orders')" />
+
+                        <polyline class="orders-line" [attr.points]="trendPoints('orders')" />
+
+
+                        @for (
+                        point of trends();
+                        track point.date;
+                        let index = $index
+                        ) {
+
+                        <circle class="orders-point" [attr.cx]="trendPointX(index)"
+                            [attr.cy]="trendPointY(index, 'orders')" r="3">
+
+                            <title>
+                                {{
+                                point.date
+                                | date:'MMM d'
+                                }}:
+                                {{
+                                point.filledOrders
+                                }}
+                                trades
+                            </title>
+
+                        </circle>
+
+                        }
+
+                    </svg>
+
+
+                    <div class="chart-labels">
+
+                        @for (
+                        point of trends();
+                        track point.date;
+                        let index = $index
+                        ) {
+
+                        @if (showTrendLabel(index)) {
+
+                        <small>
+                            {{
+                            point.date
+                            | date:'MMM d'
+                            }}
+                        </small>
+
+                        } @else {
+
+                        <small></small>
+
+                        }
+
+                        }
+
+                    </div>
+
+                    } @else {
+
+                    <p class="empty-copy">
+                        No daily activity for this period.
+                    </p>
+
+                    }
+
+                </div>
+
+            </article>
+
+
+            <article class="chart-panel wide-panel">
+
+                <div class="panel-heading">
+                    <h3>
+                        Trading value over time
+                    </h3>
+
+                    <span>
+                        reported notional
+                    </span>
+                </div>
+
+
+                <div class="line-chart value-line-chart" role="img" aria-label="Trading value over time line chart">
+
+                    @if (trends().length) {
+
+                    <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+
+                        <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+
+                        <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+
+                        <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+
+                        <polygon class="value-area" [attr.points]="trendAreaPoints('value')" />
+
+                        <polyline class="value-line" [attr.points]="trendPoints('value')" />
+
+
+                        @for (
+                        point of trends();
+                        track point.date;
+                        let index = $index
+                        ) {
+
+                        <circle class="value-point" [attr.cx]="trendPointX(index)"
+                            [attr.cy]="trendPointY(index, 'value')" r="3">
+
+                            <title>
+                                {{
+                                point.date
+                                | date:'MMM d'
+                                }}:
+                                {{
+                                formatMoney(
+                                point.tradedValue
+                                )
+                                }}
+                            </title>
+
+                        </circle>
+
+                        }
+
+                    </svg>
+
+
+                    <div class="chart-labels">
+
+                        @for (
+                        point of trends();
+                        track point.date;
+                        let index = $index
+                        ) {
+
+                        @if (showTrendLabel(index)) {
+
+                        <small>
+                            {{
+                            point.date
+                            | date:'MMM d'
+                            }}
+                        </small>
+
+                        } @else {
+
+                        <small></small>
+
+                        }
+
+                        }
+
+                    </div>
+
+                    } @else {
+
+                    <p class="empty-copy">
+                        No traded value for this period.
+                    </p>
+
+                    }
+
+                </div>
+
+            </article>
+
+
+            <article class="chart-panel split-panel">
+
+                <div class="panel-heading">
+                    <h3>
+                        BUY vs SELL
+                    </h3>
+
+                    <span>
+                        fills
+                    </span>
+                </div>
+
+
+                <div class="donut-copy">
+
+                    <div class="split-ring" [style.background]="splitRingStyle()">
+
+                        <span>
+                            {{
+                            formatNumber(
+                            (summary()?.buyFills ?? 0)
+                            +
+                            (summary()?.sellFills ?? 0)
+                            )
+                            }}
+                        </span>
+
+                        <small>
+                            trades
+                        </small>
+
+                    </div>
+
+
+                    <div class="split-legend">
+
+                        <span>
+                            <i class="buy-dot"></i>
+
+                            BUY
+
+                            <b>
+                                {{ summary()?.buyFills ?? 0 }}
+                            </b>
+                        </span>
+
+
+                        <span>
+                            <i class="sell-dot"></i>
+
+                            SELL
+
+                            <b>
+                                {{ summary()?.sellFills ?? 0 }}
+                            </b>
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </article>
+
+
+            <article class="chart-panel split-panel">
+
+                <div class="panel-heading">
+                    <h3>
+                        FILLED vs REJECTED
+                    </h3>
+
+                    <span>
+                        orders
+                    </span>
+                </div>
+
+
+                <div class="outcome-bars">
+
+                    <div>
+
+                        <span>
+                            FILLED
+                            <b>
+                                {{ summary()?.filledOrders ?? 0 }}
+                            </b>
+                        </span>
+
+                        <i class="filled-bar" [style.width.%]="
+                                    summary()?.filledOrders
+                                        ? (
+                                            (summary()?.filledOrders ?? 0)
+                                            /
+                                            (
+                                                (summary()?.filledOrders ?? 0)
+                                                +
+                                                (summary()?.rejectedOrders ?? 0)
+                                            )
+                                        ) * 100
+                                        : 0
+                                ">
+                        </i>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            REJECTED
+                            <b>
+                                {{ summary()?.rejectedOrders ?? 0 }}
+                            </b>
+                        </span>
+
+                        <i class="rejected-bar" [style.width.%]="
+                                    summary()?.rejectedOrders
+                                        ? (
+                                            (summary()?.rejectedOrders ?? 0)
+                                            /
+                                            (
+                                                (summary()?.filledOrders ?? 0)
+                                                +
+                                                (summary()?.rejectedOrders ?? 0)
+                                            )
+                                        ) * 100
+                                        : 0
+                                ">
+                        </i>
+
+                    </div>
+
+                </div>
+
+            </article>
+
+
+            <article class="chart-panel wide-panel client-trend-panel">
+
+                <div class="panel-heading">
+                    <h3>
+                        Client activity over time
+                    </h3>
+
+                    <span>
+                        distinct active clients
+                    </span>
+                </div>
+
+
+                <div class="line-chart client-line-chart" role="img" aria-label="Client activity over time line chart">
+
+                    @if (trends().length) {
+
+                    <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+
+                        <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+
+                        <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+
+                        <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+
+                        <polygon class="client-area" [attr.points]="clientTrendAreaPoints()" />
+
+                        <polyline class="client-line" [attr.points]="clientTrendPoints()" />
+
+
+                        @for (
+                        point of trends();
+                        track point.date;
+                        let index = $index
+                        ) {
+
+                        <circle class="client-point" [attr.cx]="clientTrendPointX(index)"
+                            [attr.cy]="clientTrendPointY(index)" r="4">
+
+                            <title>
+                                {{
+                                point.date
+                                | date:'MMM d'
+                                }}:
+                                {{
+                                point.activeClients
+                                }}
+                                active clients
+                            </title>
+
+                        </circle>
+
+                        }
+
+                    </svg>
+
+
+                    <div class="chart-labels">
+
+                        @for (
+                        point of trends();
+                        track point.date;
+                        let index = $index
+                        ) {
+
+                        @if (showTrendLabel(index)) {
+
+                        <small>
+                            {{
+                            point.date
+                            | date:'MMM d'
+                            }}
+                        </small>
+
+                        } @else {
+
+                        <small></small>
+
+                        }
+
+                        }
+
+                    </div>
+
+                    } @else {
+
+                    <p class="empty-copy">
+                        No client activity for this period.
+                    </p>
+
+                    }
+
+                </div>
+
+            </article>
+
+        </div>
+
+    </section>
+
+
+    <section class="section-block analysis-section">
+
+        <div class="section-title">
+
+            <div>
+                <p class="eyebrow">
+                    AGGREGATE ANALYSIS
+                </p>
+
+                <h2>
+                    Where activity is concentrated across all clients
+                </h2>
+            </div>
+
+        </div>
+
+
+        <div class="analysis-grid">
+
+            <article class="table-panel">
+
+                <div class="panel-heading">
+                    <h3>
+                        Most active instruments
+                    </h3>
+
+                    <span>
+                        by fill count
+                    </span>
+                </div>
+
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>
+                                Instrument
+                            </th>
+
+                            <th>
+                                Fills
+                            </th>
+
+                            <th>
+                                Quantity
+                            </th>
+
+                            <th>
+                                Value
+                            </th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                        @for (
+                        item of instruments().slice(0, 6);
+                        track trackByInstrument($index, item)
+                        ) {
+
+                        <tr>
+
+                            <td>
+                                <strong>
+                                    {{ item.instrumentSymbol }}
+                                </strong>
+
+                                <small>
+                                    {{ item.currency }}
+                                </small>
+                            </td>
+
+                            <td>
+                                {{ item.fillCount }}
+                            </td>
+
+                            <td>
+                                {{
+                                formatNumber(
+                                item.executedQuantity
+                                )
+                                }}
+                            </td>
+
+                            <td>
+                                {{
+                                formatMoney(
+                                item.tradedValue,
+                                item.currency
+                                )
+                                }}
+                            </td>
+
+                        </tr>
+
+                        } @empty {
+
+                        <tr>
+                            <td colspan="4" class="empty-copy">
+
+                                No instrument data.
+
+                            </td>
+                        </tr>
+
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </article>
+
+
+            <article class="table-panel">
+
+                <div class="panel-heading">
+
+                    <h3>
+                        Highest trading value instruments
+                    </h3>
+
+                    <span>
+                        by traded value
+                    </span>
+
+                </div>
+
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>
+                                Instrument
+                            </th>
+
+                            <th>
+                                Fills
+                            </th>
+
+                            <th>
+                                Quantity
+                            </th>
+
+                            <th>
+                                Value
+                            </th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                        @for (
+                        item of highestValueInstruments();
+                        track item.instrumentId
+                        ) {
+
+                        <tr>
+
+                            <td>
+                                <strong>
+                                    {{ item.instrumentSymbol }}
+                                </strong>
+
+                                <small>
+                                    {{ item.currency }}
+                                </small>
+                            </td>
+
+                            <td>
+                                {{ item.fillCount }}
+                            </td>
+
+                            <td>
+                                {{
+                                formatNumber(
+                                item.executedQuantity
+                                )
+                                }}
+                            </td>
+
+                            <td>
+                                {{
+                                formatMoney(
+                                item.tradedValue,
+                                item.currency
+                                )
+                                }}
+                            </td>
+
+                        </tr>
+
+                        } @empty {
+
+                        <tr>
+                            <td colspan="4" class="empty-copy">
+
+                                No instrument data.
+
+                            </td>
+                        </tr>
+
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </article>
+
+
+            <article class="table-panel">
+
+                <div class="panel-heading">
+
+                    <h3>
+                        Most active clients
+                    </h3>
+
+                    <span>
+                        by orders
+                    </span>
+
+                </div>
+
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>
+                                Client
+                            </th>
+
+                            <th>
+                                Orders
+                            </th>
+
+                            <th>
+                                Fills
+                            </th>
+
+                            <th>
+                                Value
+                            </th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                        @for (
+                        item of mostActiveClients();
+                        track item.clientId
+                        ) {
+
+                        <tr>
+
+                            <td>
+                                <strong>
+                                    {{ item.clientName }}
+                                </strong>
+
+                                <small>
+                                    ID {{ item.clientId }}
+                                </small>
+                            </td>
+
+                            <td>
+                                {{ item.orderCount }}
+                            </td>
+
+                            <td>
+                                {{ item.fillCount }}
+                            </td>
+
+                            <td>
+
+                                @for (
+                                value of item.values;
+                                track value.currency
+                                ) {
+
+                                <div>
+                                    {{
+                                    formatMoney(
+                                    value.tradedValue,
+                                    value.currency
+                                    )
+                                    }}
+
+                                    <small>
+                                        {{ value.currency }}
+                                    </small>
+                                </div>
+
+                                }
+
+                            </td>
+
+                        </tr>
+
+                        } @empty {
+
+                        <tr>
+                            <td colspan="4" class="empty-copy">
+
+                                No client data.
+
+                            </td>
+                        </tr>
+
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </article>
+
+
+            <article class="table-panel">
+
+                <div class="panel-heading">
+
+                    <h3>
+                        Recent trading activity
+                    </h3>
+
+                    <span>
+                        latest orders and executions
+                    </span>
+
+                </div>
+
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>
+                                Time
+                            </th>
+
+                            <th>
+                                Instrument
+                            </th>
+
+                            <th>
+                                Side
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                            <th>
+                                Value
+                            </th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                        @for (
+                        item of activity().slice(0, 8);
+                        track trackByActivity($index, item)
+                        ) {
+
+                        <tr>
+
+                            <td>
+                                {{
+                                item.occurredAt
+                                | date:'MMM d, HH:mm'
+                                }}
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ item.instrumentSymbol }}
+                                </strong>
+
+                                <small>
+                                    {{ clientName(item.clientId) }}
+                                    · ID {{ item.clientId }}
+                                </small>
+                            </td>
+
+                            <td>
+                                <span class="side-pill" [class.buy-pill]="item.side === 'BUY'"
+                                    [class.sell-pill]="item.side === 'SELL'">
+
+                                    {{ item.side }}
+
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ item.status }}
+                            </td>
+
+                            <td>
+
+                                @if (
+                                item.tradedValue !== null
+                                ) {
+
+                                {{
+                                formatMoney(
+                                item.tradedValue
+                                )
+                                }}
+
+                                } @else {
+
+                                —
+
+                                }
+
+                            </td>
+
+                        </tr>
+
+                        } @empty {
+
+                        <tr>
+                            <td colspan="5" class="empty-copy">
+
+                                No recent activity.
+
+                            </td>
+                        </tr>
+
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </article>
+
+        </div>
+
+    </section>
+
     }
+
 </main>

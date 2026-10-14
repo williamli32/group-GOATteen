@@ -16,6 +16,19 @@ import {
     MarketInstrumentResponse
 } from '../core/services/market-data';
 
+interface ClientCurrencyValue {
+    currency: string;
+    tradedValue: number;
+}
+
+interface AggregatedClientMetrics {
+    clientId: number;
+    clientName: string;
+    orderCount: number;
+    fillCount: number;
+    values: ClientCurrencyValue[];
+}
+
 @Component({
     selector: 'app-analyst-dashboard',
     standalone: true,
@@ -41,6 +54,8 @@ export class AnalystDashboardComponent implements OnInit {
     readonly clients = signal<ClientMetrics[]>([]);
     readonly activity = signal<ReportingActivity[]>([]);
     readonly marketInstruments = signal<MarketInstrumentResponse[]>([]);
+    readonly clientId = signal<number | undefined>(undefined);
+    readonly clientOptions = signal<ClientMetrics[]>([]);
 
     constructor(
         private readonly reportingService: ReportingService,
@@ -49,10 +64,16 @@ export class AnalystDashboardComponent implements OnInit {
 
     ngOnInit(): void {
         this.loadMarketInstruments();
+        this.loadClientOptions();
         this.loadReporting();
     }
 
+    selectClient(value: string): void {
+        this.clientId.set(value ? Number(value) : undefined);
+    }
+
     applyFilters(): void {
+        this.loadClientOptions();
         this.loadReporting();
     }
 
@@ -62,6 +83,8 @@ export class AnalystDashboardComponent implements OnInit {
         this.instrumentId.set(undefined);
         this.side.set(undefined);
         this.status.set(undefined);
+        this.clientId.set(undefined);
+
         this.loadReporting();
     }
 
@@ -169,10 +192,13 @@ export class AnalystDashboardComponent implements OnInit {
         }));
     }
 
-    formatMoney(value: number | null | undefined): string {
+    formatMoney(
+        value: number | null | undefined,
+        currency: string = 'GBP'
+    ): string {
         return new Intl.NumberFormat('en-GB', {
             style: 'currency',
-            currency: 'GBP',
+            currency,
             maximumFractionDigits: 2
         }).format(value ?? 0);
     }
@@ -189,19 +215,34 @@ export class AnalystDashboardComponent implements OnInit {
     }
 
     splitRingStyle(): string {
-        const buy = this.summary()?.buyFills ?? 0;
-        const sell = this.summary()?.sellFills ?? 0;
-        const unfilled = this.unfilledOrders();
-        const total = buy + sell + unfilled;
+
+        const buy =
+            this.summary()?.buyFills ?? 0;
+
+        const sell =
+            this.summary()?.sellFills ?? 0;
+
+        const total =
+            buy + sell;
 
         if (total <= 0) {
             return '#315f65';
         }
 
-        const buyEnd = (buy / total) * 100;
-        const sellEnd = buyEnd + ((sell / total) * 100);
+        const buyEnd =
+            (buy / total) * 100;
 
-        return `radial-gradient(circle, #101c29 0 57%, transparent 58%), conic-gradient(#72d8c0 0 ${buyEnd}%, #ee7b83 ${buyEnd}% ${sellEnd}%, #315f65 ${sellEnd}% 100%)`;
+        return `
+        radial-gradient(
+            circle,
+            #101c29 0 57%,
+            transparent 58%
+        ),
+        conic-gradient(
+            #72d8c0 0 ${buyEnd}%,
+            #ee7b83 ${buyEnd}% 100%
+        )
+    `;
     }
 
     trackByInstrument(_: number, item: InstrumentMetrics): number {
@@ -279,13 +320,97 @@ export class AnalystDashboardComponent implements OnInit {
             toDate: this.toDate(),
             instrumentId: this.instrumentId(),
             side: this.side(),
+            status: this.status(),
+            clientId: this.clientId()
+        };
+    }
+
+    private loadClientOptions(): void {
+
+        const filters: ReportingFilters = {
+            fromDate: this.fromDate(),
+            toDate: this.toDate(),
+            instrumentId: this.instrumentId(),
+            side: this.side(),
             status: this.status()
         };
+
+        this.reportingService.getClients(filters).subscribe({
+            next: clients => this.clientOptions.set(clients),
+            error: () => this.clientOptions.set([])
+        });
     }
 
     private dateDaysAgo(days: number): string {
         const date = new Date();
         date.setDate(date.getDate() - days);
         return date.toISOString().slice(0, 10);
+    }
+
+    highestValueInstruments(): InstrumentMetrics[] {
+
+        return [...this.instruments()]
+            .sort(
+                (a, b) =>
+                    Number(b.tradedValue) -
+                    Number(a.tradedValue)
+            )
+            .slice(0, 6);
+    }
+
+    totalTrades(): number {
+
+        return (this.summary()?.buyFills ?? 0)
+            + (this.summary()?.sellFills ?? 0);
+    }
+
+    mostActiveClients(): AggregatedClientMetrics[] {
+
+        const grouped = new Map<number, AggregatedClientMetrics>();
+
+        for (const client of this.clients()) {
+
+            const existing = grouped.get(client.clientId);
+
+            if (existing) {
+
+                existing.orderCount += client.orderCount;
+                existing.fillCount += client.fillCount;
+
+                existing.values.push({
+                    currency: client.currency,
+                    tradedValue: Number(client.tradedValue)
+                });
+
+            } else {
+
+                grouped.set(client.clientId, {
+                    clientId: client.clientId,
+                    clientName: client.clientName,
+                    orderCount: client.orderCount,
+                    fillCount: client.fillCount,
+                    values: [{
+                        currency: client.currency,
+                        tradedValue: Number(client.tradedValue)
+                    }]
+                });
+            }
+        }
+
+        return [...grouped.values()]
+            .sort((a, b) => b.orderCount - a.orderCount)
+            .slice(0, 6);
+    }
+
+    uniqueClientOptions(): ClientMetrics[] {
+
+        return Array.from(
+            new Map(
+                this.clientOptions().map(client => [
+                    client.clientId,
+                    client
+                ])
+            ).values()
+        );
     }
 }
