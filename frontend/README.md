@@ -26,6 +26,7 @@ The application provides:
   - [/core - Shared Infrastructure](#core---shared-infrastructure)
   - [/dashboard - Main Trading Interface](#dashboard---main-trading-interface)
   - [/analyst - Internal Reporting Dashboard](#analyst---internal-reporting-dashboard)
+  - [/operations - Trade Investigation Dashboard](#operations---trade-investigation-dashboard)
   - [/features/auth - Auth Pages](#featuresauth---auth-pages)
   - [/environments - Environment Configuration](#environments---environment-configuration)
   - [Root Files](#root-files)
@@ -302,6 +303,17 @@ personas who need historical activity without querying reporting tables.
 - Verifies reset behavior and instrument option loading
 - Verifies empty-result rendering and `403` access handling
 
+### `/operations` - Trade Investigation Dashboard
+
+The Operations dashboard is a read-only workspace for analysts and
+administrators investigating disputed orders through persisted records.
+
+- Search across authorized clients by order, client, account, instrument, date, side, and status
+- Review lifecycle timestamps, notes, and rejection reasons
+- Inspect quote, execution price, quantity, and fill details
+- Review cash movement, resulting balance, and holdings before/after execution
+- Distinguish pending orders from incomplete audit records with integrity status
+
 ### `/features/auth` - Auth Pages
 
 **features/auth/login/ - Login Page**
@@ -466,6 +478,18 @@ User selects date, instrument, side, status, or client filters
 Apply filters sends the same filter set to all five internal reporting endpoints
   ↓
 Dashboard refreshes overview cards, charts, rankings, and recent activity together
+```
+
+### 5. Operations Trade Investigation
+
+```
+Authorized analyst or administrator navigates to /operations
+  ↓
+Search filters query the internal operations order endpoint
+  ↓
+User selects an order from the blotter
+  ↓
+Investigation panel loads persisted lifecycle, pricing, settlement, holdings, and integrity evidence
 ```
 
 ### 4. Placing & Executing Order
@@ -826,6 +850,7 @@ ng serve --port 4300
 - **Unit Tests** - Services, components, guards with mocked HTTP
 - **Component Tests** - Template rendering, user interactions
 - **Reporting Dashboard Tests** - Shared-filter fan-out, reset behavior, instrument choices, empty data, and forbidden access
+- **Operations Dashboard Tests** - Filter serialization, order search, and investigation panel behavior
 - **Integration Tests** - Multiple components working together
 - **E2E Tests** - Full user workflows (future)
 
@@ -837,6 +862,7 @@ ng test --code-coverage    # With coverage report
 
 # Run only the analyst dashboard tests
 ng test --watch=false --include=src/app/analyst/analyst-dashboard.component.spec.ts
+ng test --watch=false --include=src/app/operations/operations.component.spec.ts
 ```
 
 ## Project Standards
