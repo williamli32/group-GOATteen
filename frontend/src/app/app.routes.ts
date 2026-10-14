@@ -26,6 +26,10 @@ import {
   AnalystDashboardComponent
 } from './analyst/analyst-dashboard.component';
 
+import {
+  OperationsComponent
+} from './operations/operations.component';
+
 
 export const routes: Routes = [
 
@@ -50,6 +54,15 @@ export const routes: Routes = [
   {
     path: 'analyst',
     component: AnalystDashboardComponent,
+    canActivate: [
+      authGuard,
+      analystGuard
+    ]
+  },
+
+  {
+    path: 'operations',
+    component: OperationsComponent,
     canActivate: [
       authGuard,
       analystGuard

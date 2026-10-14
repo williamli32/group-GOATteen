@@ -31,10 +31,16 @@ export class SidebarComponent implements OnInit {
       icon: '📈',
       route: '/analyst',
     },
+    {
+      label: 'Operations',
+      icon: '🔎',
+      route: '/operations',
+    },
   ];
 
   navItems = computed(() => this.allNavItems.filter(item =>
-    item.route !== '/analyst' || this.auth.hasAnalystAccess()
+    (item.route !== '/analyst' && item.route !== '/operations')
+      || this.auth.hasAnalystAccess()
   ));
 
   constructor(

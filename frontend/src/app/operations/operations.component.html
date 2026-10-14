@@ -1,0 +1,47 @@
+<main class="operations-shell">
+    <header class="operations-header">
+        <div><p class="eyebrow">INTERNAL OPERATIONS</p><h1>Trade investigation</h1><p>Read-only evidence for disputed orders and audit review.</p></div>
+        <span class="access-badge">PERSISTED RECORDS</span>
+    </header>
+
+    <section class="search-panel">
+        <div class="panel-title"><div><p class="eyebrow">ORDER SEARCH</p><h2>Find an order</h2></div><span>ADMIN / ANALYST ACCESS</span></div>
+        <div class="search-grid">
+            <label><span>Order ID</span><input type="number" placeholder="Any order" [ngModel]="orderId() ?? ''" (ngModelChange)="setNumber('orderId', $event)"></label>
+            <label><span>Client first name</span><input type="text" placeholder="Any first name" [ngModel]="clientFirstName()" (ngModelChange)="setClientFirstName($event)"></label>
+            <label><span>Client last name</span><input type="text" placeholder="Any last name" [ngModel]="clientLastName()" (ngModelChange)="setClientLastName($event)"></label>
+            <label><span>Account ID</span><input type="number" placeholder="Any account" [ngModel]="accountId() ?? ''" (ngModelChange)="setNumber('accountId', $event)"></label>
+            <label><span>Symbol</span><input type="text" placeholder="Any symbol" [ngModel]="instrumentSymbol()" (ngModelChange)="setInstrumentSymbol($event)"></label>
+            <label><span>Side</span><select [ngModel]="side() ?? ''" (ngModelChange)="setSide($event)"><option value="">BUY and SELL</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
+            <label><span>Status</span><select [ngModel]="status() ?? ''" (ngModelChange)="setStatus($event)"><option value="">All statuses</option><option value="SUBMITTED">SUBMITTED</option><option value="ACCEPTED">ACCEPTED</option><option value="FILLED">FILLED</option><option value="REJECTED">REJECTED</option></select></label>
+            <label><span>From</span><input type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)"></label>
+            <label><span>To</span><input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)"></label>
+            <button class="search-button" type="button" (click)="search()" [disabled]="loading()">{{ loading() ? 'Searching...' : 'Search orders' }}</button>
+        </div>
+    </section>
+
+    @if (errorMessage()) { <div class="error-banner">{{ errorMessage() }}</div> }
+
+    <div class="operations-layout">
+        <section class="blotter-panel">
+            <div class="panel-title"><div><p class="eyebrow">ORDER BLOTTER</p><h2>{{ orders().length }} matching orders</h2></div><span>SELECT TO INVESTIGATE</span></div>
+            <div class="table-scroll"><table><thead><tr><th>Order</th><th>Client / Account</th><th>Instrument</th><th>Side</th><th>Status</th><th>Submitted</th></tr></thead><tbody>
+                @for (order of orders(); track order.orderId) {
+                    <tr [class.selected-row]="selectedOrder()?.orderId === order.orderId" (click)="inspect(order)"><td><strong>#{{ order.orderId }}</strong><small>{{ formatNumber(order.quantity) }} units</small></td><td><strong>{{ order.clientName }}</strong><small>Client {{ order.clientId }} · {{ order.accountNumber }}</small></td><td>{{ order.instrumentSymbol }}<small>ID {{ order.instrumentId }}</small></td><td><span class="side-pill" [class.buy]="order.side === 'BUY'" [class.sell]="order.side === 'SELL'">{{ order.side }}</span></td><td><span class="status-pill" [class]="'status-' + order.status.toLowerCase()">{{ order.status }}</span></td><td>{{ order.submittedAt | date:'MMM d, HH:mm' }}</td></tr>
+                } @empty { <tr><td colspan="6" class="empty">No orders match the selected filters.</td></tr> }
+            </tbody></table></div>
+        </section>
+
+        <aside class="detail-panel">
+            @if (!selectedOrder()) { <div class="detail-empty"><p class="eyebrow">INVESTIGATION PANEL</p><h2>Select an order</h2><p>Choose a blotter row to inspect its persisted lifecycle and settlement evidence.</p></div> }
+            @else if (detailLoading()) { <div class="detail-empty"><span class="loader"></span><p>Loading persisted evidence...</p></div> }
+            @else if (audit(); as result) {
+                <div class="detail-heading"><div><p class="eyebrow">ORDER #{{ result.evidence.order.orderId }}</p><h2>{{ selectedOrder()?.instrumentSymbol }} · {{ result.evidence.currentStatus }}</h2></div><button type="button" class="close-button" (click)="clearSelection()">×</button></div>
+                <div class="integrity-banner" [class.integrity-ok]="result.integrity.valid"><strong>{{ result.pending ? 'AWAITING EXECUTION' : result.integrity.valid ? 'INTEGRITY VERIFIED' : 'AUDIT EXCEPTION' }}</strong><span>{{ result.integrity.message }}</span></div>
+                <section class="detail-section"><h3>Lifecycle timeline</h3><div class="timeline">@for (entry of result.evidence.statusHistory; track entry.historyId) { <div class="timeline-entry"><i></i><div><strong>{{ entry.status }}</strong><span>{{ entry.changedAt | date:'MMM d, y · HH:mm:ss' }}</span>@if (entry.note) { <small>{{ entry.note }}</small> }</div></div> } @empty { <p class="muted">No status history persisted.</p> }</div><div class="detail-fact"><span>Rejection reason</span><strong>{{ result.evidence.rejectionReason || 'None recorded' }}</strong></div></section>
+                <section class="detail-section"><h3>Pricing and execution</h3>@if (result.evidence.execution; as execution) { <div class="fact-grid"><div><span>Fill ID</span><strong>{{ execution.fillId }}</strong></div><div><span>Execution price</span><strong>{{ formatMoney(execution.executionPrice) }}</strong></div><div><span>Quantity</span><strong>{{ formatNumber(execution.fillQuantity) }}</strong></div><div><span>Quote</span><strong>#{{ execution.quoteId }}</strong></div><div><span>Bid / Ask</span><strong>{{ formatMoney(execution.bidPrice) }} / {{ formatMoney(execution.askPrice) }}</strong></div><div><span>Quoted at</span><strong>{{ execution.quotedAt | date:'MMM d, HH:mm:ss' }}</strong></div></div> } @else { <p class="muted">No execution or quote is persisted for this order.</p> }</section>
+                <section class="detail-section"><h3>Cash and holdings impact</h3><div class="fact-grid"><div><span>Cash movement</span><strong>{{ formatMoney(result.evidence.cashImpact.totalMovement) }}</strong></div><div><span>Balance after</span><strong>{{ result.evidence.cashImpact.balanceAfter === null ? 'Not available' : formatMoney(result.evidence.cashImpact.balanceAfter) }}</strong></div>@if (result.evidence.positionImpact; as position) { <div><span>Holdings before</span><strong>{{ formatNumber(position.quantityBefore) }}</strong></div><div><span>Holdings after</span><strong>{{ formatNumber(position.quantityAfter) }}</strong></div><div><span>Change</span><strong>{{ formatNumber(position.quantityChange) }}</strong></div> } @else { <div><span>Holdings</span><strong>Not available</strong></div> }</div></section>
+            }
+        </aside>
+    </div>
+</main>
