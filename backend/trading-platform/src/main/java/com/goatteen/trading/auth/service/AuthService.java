@@ -29,6 +29,8 @@ import java.util.UUID;
 public class AuthService {
 
         private static final String CLIENT_ROLE = "CLIENT";
+        private static final String ANALYST_ROLE = "ANALYST";
+        private static final String ANALYST_ACCESS_CODE = "goatteen14";
         private static final String DEFAULT_ACCOUNT_CURRENCY = "GBP";
 
         private final UserRepository userRepository;
@@ -68,6 +70,12 @@ public class AuthService {
                 String requestedRole = request.getRole() == null
                                 ? CLIENT_ROLE
                                 : request.getRole().trim().toUpperCase(Locale.ROOT);
+
+                if (ANALYST_ROLE.equals(requestedRole)
+                                && !ANALYST_ACCESS_CODE.equals(request.getAccessCode())) {
+                        throw new IllegalArgumentException(
+                                        "A valid analyst access code is required");
+                }
 
                 Role clientRole = roleRepository.findByName(requestedRole)
                                 .orElseThrow(() -> new IllegalStateException(

@@ -20,9 +20,11 @@ export class Register {
   password = '';
   confirmPassword = '';
   role: 'CLIENT' | 'ANALYST' = 'CLIENT';
+  accessCode = '';
 
   showPassword = false;
   showConfirmPassword = false;
+  showAccessCode = false;
 
   loading = signal(false);
   errorMessage = signal('');
@@ -68,6 +70,13 @@ export class Register {
       return;
     }
 
+    if (this.role === 'ANALYST' && !this.accessCode.trim()) {
+      this.validationMessage.set(
+        'An analyst access code is required.'
+      );
+      return;
+    }
+
     this.loading.set(true);
 
     this.auth.register({
@@ -75,7 +84,8 @@ export class Register {
       lastName: this.lastName.trim(),
       email: this.email.trim(),
       password: this.password,
-      role: this.role
+      role: this.role,
+      accessCode: this.role === 'ANALYST' ? this.accessCode : undefined
     })
       .pipe(
         finalize(() => {

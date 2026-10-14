@@ -120,4 +120,32 @@ describe('Register', () => {
 
     }
   );
+
+  it('should require an access code for analyst registration', () => {
+    component.firstName = 'Joanna';
+    component.lastName = 'Smith';
+    component.email = 'joanna@example.com';
+    component.password = 'Password123!';
+    component.confirmPassword = 'Password123!';
+    component.role = 'ANALYST';
+
+    component.register();
+
+    expect(component.validationMessage()).toBe(
+      'An analyst access code is required.'
+    );
+  });
+
+  it('does not require an access code for client registration', () => {
+    component.firstName = 'Joanna';
+    component.lastName = 'Smith';
+    component.email = 'joanna@example.com';
+    component.password = 'Password123!';
+    component.confirmPassword = 'Password123!';
+    component.role = 'CLIENT';
+
+    component.register();
+
+    expect(component.validationMessage()).toBe('');
+  });
 });

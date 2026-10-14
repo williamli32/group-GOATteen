@@ -31,6 +31,8 @@ public class RegisterRequest {
     @Pattern(regexp = "CLIENT|ANALYST", message = "Account type must be CLIENT or ANALYST")
     private String role = "CLIENT";
 
+    private String accessCode;
+
     public RegisterRequest() {
     }
 
@@ -54,6 +56,10 @@ public class RegisterRequest {
         return role;
     }
 
+    public String getAccessCode() {
+        return accessCode;
+    }
+
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
@@ -72,5 +78,9 @@ public class RegisterRequest {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public void setAccessCode(String accessCode) {
+        this.accessCode = accessCode;
     }
 }

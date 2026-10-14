@@ -87,6 +87,7 @@ export class Auth {
     email: string;
     password: string;
     role: 'CLIENT' | 'ANALYST';
+    accessCode?: string;
   }) {
     return this.http.post(
       `${this.apiUrl}/register`,
