@@ -55,6 +55,19 @@ export class OperationsComponent implements OnInit {
         });
     }
 
+    resetFilters(): void {
+        this.fromDate.set(this.dateDaysAgo(30));
+        this.toDate.set(this.today);
+        this.orderId.set(undefined);
+        this.clientFirstName.set('');
+        this.clientLastName.set('');
+        this.accountId.set(undefined);
+        this.instrumentSymbol.set('');
+        this.side.set(undefined);
+        this.status.set(undefined);
+        this.search();
+    }
+
     inspect(order: OperationsOrder): void {
         this.selectedOrder.set(order);
         this.audit.set(null);

@@ -60,6 +60,7 @@ h3 {
     monospace;
   letter-spacing: 0.6px;
 }
+.search-actions{display:flex;align-items:center;gap:14px}.reset-button{min-height:32px;padding:0 10px;border:1px solid #365464;border-radius:3px;background:transparent;color:#72d8c0;cursor:pointer;font:600 11px 'JetBrains Mono',monospace}
 .search-panel,
 .blotter-panel,
 .detail-panel,
@@ -71,7 +72,7 @@ h3 {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
 }
 .search-panel {
-  padding: 20px;
+  padding: 20px 32px;
   border-top: 2px solid #5dd6c0;
 }
 .search-grid {
@@ -85,6 +86,8 @@ label {
   gap: 6px;
 }
 label span {
+  width: 75%;
+  margin-inline: auto;
   color: #9babba;
   font:
     600 10px 'JetBrains Mono',
@@ -93,7 +96,8 @@ label span {
 }
 input,
 select {
-  width: 100%;
+  width: 75%;
+  margin-inline: auto;
   min-height: 40px;
   padding: 0 10px;
   border: 1px solid #33475a;
@@ -109,9 +113,22 @@ select:focus {
   border-color: #72d8c0;
   outline: 0;
 }
+input[type='date'] {
+  padding-right: 11px;
+  border-width: 2px;
+  color-scheme: dark;
+}
+input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  opacity: .9;
+  transform: scale(1.15);
+}
 .search-button {
   align-self: end;
-  width: 100%;
+  width: 75%;
+  margin-inline: auto;
   height: 40px;
   min-height: 40px;
   padding: 0 10px;
@@ -120,7 +137,7 @@ select:focus {
   background: #68d391;
   color: #07130e;
   font:
-    700 11px 'JetBrains Mono',
+    700 15px/1 'JetBrains Mono',
     monospace;
   cursor: pointer;
 }
@@ -341,6 +358,9 @@ td small {
 @media (max-width: 650px) {
   .operations-shell {
     padding: 24px 14px 40px;
+  }
+  .search-panel {
+    padding: 16px;
   }
   .operations-header,
   .panel-title {
