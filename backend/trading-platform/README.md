@@ -18,6 +18,7 @@ A high-performance REST API for order execution, portfolio management, and marke
 - [Database](#database)
 - [API Documentation](#api-documentation)
 - [Internal Reporting API](#internal-reporting-api)
+- [Operations Audit API](#operations-audit-api)
 - [Development](#development)
 - [Testing](#testing)
 - [Deployment](#deployment)
@@ -298,6 +299,22 @@ Example:
 ```text
 GET /api/internal/reporting/instruments?fromDate=2026-09-01&toDate=2026-09-30
 ```
+
+## Operations Audit API
+
+Read-only operations endpoints are protected for authenticated `ADMIN` and
+`ANALYST` users. They support cross-client order investigation without direct
+frontend access to reporting tables.
+
+```text
+GET /api/internal/operations/orders
+GET /api/internal/operations/orders/{orderId}/audit
+```
+
+Order search accepts `orderId`, `clientId`, `accountId`, `instrumentId`,
+`side`, `status`, `fromDate`, and `toDate`. The audit response includes the
+persisted lifecycle, quote, execution, cash, holdings, pending state, and
+integrity result.
 
 ## SQL Commands for Development/Testing Purposes
 

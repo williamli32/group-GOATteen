@@ -154,6 +154,34 @@ public class TradeReconstructionService {
     }
 
     /**
+     * Builds the available persisted evidence without requiring a terminal,
+     * fully reconstructable lifecycle. Operations can inspect pending and
+     * incomplete records while the integrity report explains what is missing.
+     */
+    public TradeAuditResponse inspectAvailableTradeResponse(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new TradeReconstructionException(
+                        "Order not found: " + orderId));
+
+        List<OrderStatusHistory> statusHistory = orderStatusHistoryRepository
+                .findByOrderIdOrderByChangedAtAscIdAsc(orderId);
+        Fill fill = fillRepository.findByOrderId(orderId).orElse(null);
+        List<CashTransaction> cashTransactions = fill == null
+                ? List.of()
+                : cashTransactionRepository.findByFillIdOrderByCreatedAtAsc(fill.getId());
+        PositionHistory positionHistory = fill == null
+                ? null
+                : positionHistoryRepository.findByFillId(fill.getId()).orElse(null);
+
+        return TradeAuditResponse.from(new TradeAuditTrail(
+                order,
+                statusHistory,
+                fill,
+                cashTransactions,
+                positionHistory));
+    }
+
+    /**
      * Verify persisted trade integrity without exposing the underlying
      * reconstruction exception to callers.
      */
