@@ -133,6 +133,10 @@ export class ReportingService {
             params = params.set('accountId', filters.accountId);
         }
 
+        if (filters.currency !== undefined) {
+            params = params.set('currency', filters.currency);
+        }
+
         return params;
     }
 }

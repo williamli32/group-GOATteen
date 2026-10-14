@@ -34,13 +34,14 @@ describe('ReportingService', () => {
             side: 'BUY',
             status: 'FILLED',
             clientId: 2,
-            accountId: 3
+            accountId: 3,
+            currency: 'USD'
         }).subscribe();
 
         const request = httpTesting.expectOne(
             `${environment.apiUrl}/internal/reporting/instruments` +
             '?fromDate=2026-09-01&toDate=2026-09-30&instrumentId=1&side=BUY' +
-            '&status=FILLED&clientId=2&accountId=3'
+            '&status=FILLED&clientId=2&accountId=3&currency=USD'
         );
 
         expect(request.request.method).toBe('GET');
