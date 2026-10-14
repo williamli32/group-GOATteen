@@ -11,6 +11,7 @@ export interface ReportingFilters {
     status?: string;
     clientId?: number;
     accountId?: number;
+    currency?: string;
 }
 
 export interface ReportingSummary {

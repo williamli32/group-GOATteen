@@ -1,4 +1,3 @@
-
 package com.goatteen.trading.reporting;
 
 import com.goatteen.trading.reporting.data.TradeFactRepository;
@@ -21,88 +20,147 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class InstrumentMetricsServiceTest {
 
-    @Mock
-    private TradeFactRepository tradeFactRepository;
+        @Mock
+        private TradeFactRepository tradeFactRepository;
 
-    private InstrumentMetricsService metricsService;
+        private InstrumentMetricsService metricsService;
 
-    private final LocalDateTime start =
-            LocalDateTime.of(2026, 10, 1, 0, 0);
+        private final LocalDateTime start = LocalDateTime.of(
+                        2026,
+                        10,
+                        1,
+                        0,
+                        0);
 
-    private final LocalDateTime end =
-            LocalDateTime.of(2026, 11, 1, 0, 0);
+        private final LocalDateTime end = LocalDateTime.of(
+                        2026,
+                        11,
+                        1,
+                        0,
+                        0);
 
-    @BeforeEach
-    void setUp() {
-        metricsService =
-                new InstrumentMetricsService(tradeFactRepository);
-    }
+        @BeforeEach
+        void setUp() {
 
-    @Test
-    void calculatesInstrumentMetrics() {
+                metricsService = new InstrumentMetricsService(
+                                tradeFactRepository);
+        }
 
-        Object[] appleRow = {
-                1L,
-                "AAPL",
-                "USD",
-                5L,
-                new BigDecimal("100"),
-                new BigDecimal("15000.00")
-        };
+        @Test
+        void calculatesInstrumentMetrics() {
 
-        Object[] microsoftRow = {
-                2L,
-                "MSFT",
-                "USD",
-                3L,
-                new BigDecimal("50"),
-                new BigDecimal("20000.00")
-        };
+                Object[] appleRow = {
+                                1L,
+                                "AAPL",
+                                "USD",
+                                5L,
+                                new BigDecimal("100"),
+                                new BigDecimal("15000.00")
+                };
 
-        when(tradeFactRepository.summarizeByInstrument(start, end, null, null, null, null, null))
-                .thenReturn(List.<Object[]>of(appleRow, microsoftRow));
+                Object[] microsoftRow = {
+                                2L,
+                                "MSFT",
+                                "USD",
+                                3L,
+                                new BigDecimal("50"),
+                                new BigDecimal("20000.00")
+                };
 
-        List<InstrumentMetrics> result =
-                metricsService.calculate(start, end);
+                when(
+                                tradeFactRepository.summarizeByInstrument(
+                                                start,
+                                                end,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null))
+                                .thenReturn(
+                                                List.<Object[]>of(
+                                                                appleRow,
+                                                                microsoftRow));
 
-        assertEquals(2, result.size());
+                List<InstrumentMetrics> result = metricsService.calculate(
+                                start,
+                                end);
 
-        assertEquals("AAPL", result.get(0).instrumentSymbol());
-        assertEquals(5L, result.get(0).fillCount());
-        assertEquals(
-                new BigDecimal("100"),
-                result.get(0).executedQuantity());
-        assertEquals(
-                new BigDecimal("15000.00"),
-                result.get(0).tradedValue());
+                assertEquals(
+                                2,
+                                result.size());
 
-        assertEquals("MSFT", result.get(1).instrumentSymbol());
-        assertEquals(3L, result.get(1).fillCount());
-    }
+                assertEquals(
+                                "AAPL",
+                                result.get(0)
+                                                .instrumentSymbol());
 
-    @Test
-    void returnsEmptyListWhenThereAreNoTrades() {
+                assertEquals(
+                                5L,
+                                result.get(0)
+                                                .fillCount());
 
-        when(tradeFactRepository.summarizeByInstrument(start, end, null, null, null, null, null))
-                .thenReturn(List.of());
+                assertEquals(
+                                new BigDecimal("100"),
+                                result.get(0)
+                                                .executedQuantity());
 
-        List<InstrumentMetrics> result =
-                metricsService.calculate(start, end);
+                assertEquals(
+                                new BigDecimal("15000.00"),
+                                result.get(0)
+                                                .tradedValue());
 
-        assertTrue(result.isEmpty());
-    }
+                assertEquals(
+                                "MSFT",
+                                result.get(1)
+                                                .instrumentSymbol());
 
-    @Test
-    void rejectsInvalidDateRange() {
+                assertEquals(
+                                3L,
+                                result.get(1)
+                                                .fillCount());
+        }
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> metricsService.calculate(end, start));
+        @Test
+        void returnsEmptyListWhenThereAreNoTrades() {
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> metricsService.calculate(start, start));
+                when(
+                                tradeFactRepository.summarizeByInstrument(
+                                                start,
+                                                end,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null))
+                                .thenReturn(
+                                                List.of());
 
-        verifyNoInteractions(tradeFactRepository);
-    }
+                List<InstrumentMetrics> result = metricsService.calculate(
+                                start,
+                                end);
+
+                assertTrue(
+                                result.isEmpty());
+        }
+
+        @Test
+        void rejectsInvalidDateRange() {
+
+                assertThrows(
+                                IllegalArgumentException.class,
+                                () -> metricsService.calculate(
+                                                end,
+                                                start));
+
+                assertThrows(
+                                IllegalArgumentException.class,
+                                () -> metricsService.calculate(
+                                                start,
+                                                start));
+
+                verifyNoInteractions(
+                                tradeFactRepository);
+        }
 }

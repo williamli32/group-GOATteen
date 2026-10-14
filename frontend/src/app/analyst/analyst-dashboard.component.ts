@@ -47,6 +47,7 @@ export class AnalystDashboardComponent implements OnInit {
     readonly status = signal<string | undefined>(undefined);
     readonly loading = signal(false);
     readonly errorMessage = signal('');
+    readonly currency = signal<string>('GBP');
     readonly accessDenied = signal(false);
     readonly summary = signal<ReportingSummary | null>(null);
     readonly trends = signal<ActivityTrendPoint[]>([]);
@@ -77,6 +78,20 @@ export class AnalystDashboardComponent implements OnInit {
         this.loadReporting();
     }
 
+    currencyOptions(): string[] {
+        return [
+            ...new Set(
+                this.marketInstruments()
+                    .map(instrument => instrument.currency)
+            )
+        ].sort();
+    }
+
+    selectCurrency(value: string): void {
+        this.currency.set(value);
+    }
+
+
     resetFilters(): void {
         this.fromDate.set(this.defaultFromDate);
         this.toDate.set(this.today);
@@ -84,12 +99,33 @@ export class AnalystDashboardComponent implements OnInit {
         this.side.set(undefined);
         this.status.set(undefined);
         this.clientId.set(undefined);
+        this.currency.set('GBP');
 
+        this.loadClientOptions();
         this.loadReporting();
     }
 
     selectInstrument(value: string): void {
-        this.instrumentId.set(value ? Number(value) : undefined);
+
+        const id =
+            value ? Number(value) : undefined;
+
+        this.instrumentId.set(id);
+
+        if (id !== undefined) {
+
+            const instrument =
+                this.marketInstruments()
+                    .find(item =>
+                        item.instrumentId === id
+                    );
+
+            if (instrument) {
+                this.currency.set(
+                    instrument.currency
+                );
+            }
+        }
     }
 
     selectSide(value: string): void {
@@ -321,7 +357,8 @@ export class AnalystDashboardComponent implements OnInit {
             instrumentId: this.instrumentId(),
             side: this.side(),
             status: this.status(),
-            clientId: this.clientId()
+            clientId: this.clientId(),
+            currency: this.currency()
         };
     }
 
@@ -332,7 +369,8 @@ export class AnalystDashboardComponent implements OnInit {
             toDate: this.toDate(),
             instrumentId: this.instrumentId(),
             side: this.side(),
-            status: this.status()
+            status: this.status(),
+            currency: this.currency()
         };
 
         this.reportingService.getClients(filters).subscribe({

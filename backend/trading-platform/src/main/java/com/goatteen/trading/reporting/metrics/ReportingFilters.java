@@ -11,7 +11,8 @@ public record ReportingFilters(
         String side,
         String status,
         Long clientId,
-        Long accountId) {
+        Long accountId,
+        String currency) {
 
     public ReportingFilters {
 
@@ -27,24 +28,27 @@ public record ReportingFilters(
 
         side = normalize(side);
         status = normalize(status);
+        currency = normalize(currency);
 
         if (side != null
                 && !side.equals("BUY")
                 && !side.equals("SELL")) {
-
             throw new IllegalArgumentException(
                     "side must be BUY or SELL");
         }
 
         if (status != null) {
-
             try {
                 OrderStatus.valueOf(status);
             } catch (IllegalArgumentException exception) {
-
                 throw new IllegalArgumentException(
                         "Invalid order status: " + status);
             }
+        }
+
+        if (currency != null && !currency.matches("[A-Z]{3}")) {
+            throw new IllegalArgumentException(
+                    "currency must be a 3-letter currency code");
         }
 
         if (instrumentId != null && instrumentId <= 0) {
@@ -74,11 +78,11 @@ public record ReportingFilters(
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
     private static String normalize(String value) {
-
         return value == null || value.isBlank()
                 ? null
                 : value.trim().toUpperCase();

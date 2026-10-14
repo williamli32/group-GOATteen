@@ -3,7 +3,9 @@
     <header class="masthead">
         <div>
             <p class="eyebrow">INTERNAL OPERATIONS</p>
+
             <h1>Reporting desk</h1>
+
             <p class="lede">
                 Aggregate historical trading activity across all clients,
                 reconstructed from the reporting data path.
@@ -20,32 +22,52 @@
     <section class="filter-panel" aria-label="Reporting filters">
 
         <div class="filter-heading">
+
             <div>
-                <p class="eyebrow">REPORTING WINDOW</p>
+                <p class="eyebrow">
+                    REPORTING WINDOW
+                </p>
             </div>
 
             <button type="button" class="text-button" (click)="resetFilters()">
+
                 Reset filters
+
             </button>
+
         </div>
+
 
         <div class="filter-grid">
 
             <label>
-                <span>From date</span>
+
+                <span>
+                    From date
+                </span>
 
                 <input type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" [max]="toDate()">
+
             </label>
 
+
             <label>
-                <span>To date</span>
+
+                <span>
+                    To date
+                </span>
 
                 <input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" [min]="fromDate()"
                     [max]="today">
+
             </label>
 
+
             <label>
-                <span>Instrument</span>
+
+                <span>
+                    Instrument
+                </span>
 
                 <select [ngModel]="instrumentId() ?? ''" (ngModelChange)="selectInstrument($event)">
 
@@ -57,16 +79,51 @@
                     instrument of marketInstruments();
                     track instrument.instrumentId
                     ) {
+
                     <option [value]="instrument.instrumentId">
-                        {{ instrument.symbol }} · {{ instrument.name }}
+
+                        {{ instrument.symbol }}
+                        ·
+                        {{ instrument.name }}
+
                     </option>
+
                     }
 
                 </select>
+
             </label>
 
+
             <label>
-                <span>Side</span>
+
+                <span>
+                    Currency
+                </span>
+
+                <select [ngModel]="currency()" (ngModelChange)="selectCurrency($event)">
+
+                    @for (
+                    option of currencyOptions();
+                    track option
+                    ) {
+
+                    <option [value]="option">
+                        {{ option }}
+                    </option>
+
+                    }
+
+                </select>
+
+            </label>
+
+
+            <label>
+
+                <span>
+                    Side
+                </span>
 
                 <select [ngModel]="side() ?? ''" (ngModelChange)="selectSide($event)">
 
@@ -83,10 +140,15 @@
                     </option>
 
                 </select>
+
             </label>
 
+
             <label>
-                <span>Status</span>
+
+                <span>
+                    Status
+                </span>
 
                 <select [ngModel]="status() ?? ''" (ngModelChange)="selectStatus($event)">
 
@@ -111,10 +173,15 @@
                     </option>
 
                 </select>
+
             </label>
 
+
             <label>
-                <span>Client</span>
+
+                <span>
+                    Client
+                </span>
 
                 <select [ngModel]="clientId() ?? ''" (ngModelChange)="selectClient($event)">
 
@@ -126,13 +193,17 @@
                     client of uniqueClientOptions();
                     track client.clientId
                     ) {
+
                     <option [value]="client.clientId">
                         {{ client.clientName }}
                     </option>
+
                     }
 
                 </select>
+
             </label>
+
 
             <button type="button" class="apply-button" (click)="applyFilters()" [disabled]="loading()">
 
@@ -166,7 +237,9 @@
         </span>
 
         <button type="button" class="apply-button compact" (click)="applyFilters()">
+
             Retry
+
         </button>
 
     </section>
@@ -190,6 +263,7 @@
         <div class="section-title">
 
             <div>
+
                 <p class="eyebrow">
                     AT A GLANCE
                 </p>
@@ -197,10 +271,15 @@
                 <h2>
                     Market pulse
                 </h2>
+
             </div>
 
             <span class="period-label">
-                {{ fromDate() }} → {{ toDate() }}
+                {{ fromDate() }}
+                →
+                {{ toDate() }}
+                ·
+                {{ currency() }}
             </span>
 
         </div>
@@ -305,13 +384,14 @@
                 <strong>
                     {{
                     formatMoney(
-                    summary()?.totalTradedValue
+                    summary()?.totalTradedValue,
+                    currency()
                     )
                     }}
                 </strong>
 
                 <small>
-                    reported notional
+                    reported notional · {{ currency() }}
                 </small>
 
             </article>
@@ -364,6 +444,7 @@
         <div class="section-title">
 
             <div>
+
                 <p class="eyebrow">
                     ACTIVITY AND TRENDS
                 </p>
@@ -371,14 +452,17 @@
                 <h2>
                     Volume, value and outcomes
                 </h2>
+
             </div>
 
             <span class="legend">
+
                 <i class="orders-key"></i>
                 Orders
 
                 <i class="value-key"></i>
                 Value
+
             </span>
 
         </div>
@@ -389,6 +473,7 @@
             <article class="chart-panel wide-panel">
 
                 <div class="panel-heading">
+
                     <h3>
                         Trades over time
                     </h3>
@@ -396,6 +481,7 @@
                     <span>
                         daily filled orders
                     </span>
+
                 </div>
 
 
@@ -451,7 +537,9 @@
                         let index = $index
                         ) {
 
-                        @if (showTrendLabel(index)) {
+                        @if (
+                        showTrendLabel(index)
+                        ) {
 
                         <small>
                             {{
@@ -486,13 +574,15 @@
             <article class="chart-panel wide-panel">
 
                 <div class="panel-heading">
+
                     <h3>
                         Trading value over time
                     </h3>
 
                     <span>
-                        reported notional
+                        reported notional · {{ currency() }}
                     </span>
+
                 </div>
 
 
@@ -529,7 +619,8 @@
                                 }}:
                                 {{
                                 formatMoney(
-                                point.tradedValue
+                                point.tradedValue,
+                                currency()
                                 )
                                 }}
                             </title>
@@ -549,7 +640,9 @@
                         let index = $index
                         ) {
 
-                        @if (showTrendLabel(index)) {
+                        @if (
+                        showTrendLabel(index)
+                        ) {
 
                         <small>
                             {{
@@ -584,6 +677,7 @@
             <article class="chart-panel split-panel">
 
                 <div class="panel-heading">
+
                     <h3>
                         BUY vs SELL
                     </h3>
@@ -591,6 +685,7 @@
                     <span>
                         fills
                     </span>
+
                 </div>
 
 
@@ -618,24 +713,34 @@
                     <div class="split-legend">
 
                         <span>
+
                             <i class="buy-dot"></i>
 
                             BUY
 
                             <b>
-                                {{ summary()?.buyFills ?? 0 }}
+                                {{
+                                summary()?.buyFills
+                                ?? 0
+                                }}
                             </b>
+
                         </span>
 
 
                         <span>
+
                             <i class="sell-dot"></i>
 
                             SELL
 
                             <b>
-                                {{ summary()?.sellFills ?? 0 }}
+                                {{
+                                summary()?.sellFills
+                                ?? 0
+                                }}
                             </b>
+
                         </span>
 
                     </div>
@@ -648,6 +753,7 @@
             <article class="chart-panel split-panel">
 
                 <div class="panel-heading">
+
                     <h3>
                         FILLED vs REJECTED
                     </h3>
@@ -655,6 +761,7 @@
                     <span>
                         orders
                     </span>
+
                 </div>
 
 
@@ -664,8 +771,12 @@
 
                         <span>
                             FILLED
+
                             <b>
-                                {{ summary()?.filledOrders ?? 0 }}
+                                {{
+                                summary()?.filledOrders
+                                ?? 0
+                                }}
                             </b>
                         </span>
 
@@ -691,8 +802,12 @@
 
                         <span>
                             REJECTED
+
                             <b>
-                                {{ summary()?.rejectedOrders ?? 0 }}
+                                {{
+                                summary()?.rejectedOrders
+                                ?? 0
+                                }}
                             </b>
                         </span>
 
@@ -721,6 +836,7 @@
             <article class="chart-panel wide-panel client-trend-panel">
 
                 <div class="panel-heading">
+
                     <h3>
                         Client activity over time
                     </h3>
@@ -728,6 +844,7 @@
                     <span>
                         distinct active clients
                     </span>
+
                 </div>
 
 
@@ -783,7 +900,9 @@
                         let index = $index
                         ) {
 
-                        @if (showTrendLabel(index)) {
+                        @if (
+                        showTrendLabel(index)
+                        ) {
 
                         <small>
                             {{
@@ -824,6 +943,7 @@
         <div class="section-title">
 
             <div>
+
                 <p class="eyebrow">
                     AGGREGATE ANALYSIS
                 </p>
@@ -831,6 +951,7 @@
                 <h2>
                     Where activity is concentrated across all clients
                 </h2>
+
             </div>
 
         </div>
@@ -841,6 +962,7 @@
             <article class="table-panel">
 
                 <div class="panel-heading">
+
                     <h3>
                         Most active instruments
                     </h3>
@@ -848,13 +970,16 @@
                     <span>
                         by fill count
                     </span>
+
                 </div>
 
 
                 <table>
 
                     <thead>
+
                         <tr>
+
                             <th>
                                 Instrument
                             </th>
@@ -870,7 +995,9 @@
                             <th>
                                 Value
                             </th>
+
                         </tr>
+
                     </thead>
 
 
@@ -884,6 +1011,7 @@
                         <tr>
 
                             <td>
+
                                 <strong>
                                     {{ item.instrumentSymbol }}
                                 </strong>
@@ -891,6 +1019,7 @@
                                 <small>
                                     {{ item.currency }}
                                 </small>
+
                             </td>
 
                             <td>
@@ -919,11 +1048,13 @@
                         } @empty {
 
                         <tr>
+
                             <td colspan="4" class="empty-copy">
 
                                 No instrument data.
 
                             </td>
+
                         </tr>
 
                         }
@@ -953,7 +1084,9 @@
                 <table>
 
                     <thead>
+
                         <tr>
+
                             <th>
                                 Instrument
                             </th>
@@ -969,7 +1102,9 @@
                             <th>
                                 Value
                             </th>
+
                         </tr>
+
                     </thead>
 
 
@@ -983,6 +1118,7 @@
                         <tr>
 
                             <td>
+
                                 <strong>
                                     {{ item.instrumentSymbol }}
                                 </strong>
@@ -990,6 +1126,7 @@
                                 <small>
                                     {{ item.currency }}
                                 </small>
+
                             </td>
 
                             <td>
@@ -1018,11 +1155,13 @@
                         } @empty {
 
                         <tr>
+
                             <td colspan="4" class="empty-copy">
 
                                 No instrument data.
 
                             </td>
+
                         </tr>
 
                         }
@@ -1052,7 +1191,9 @@
                 <table>
 
                     <thead>
+
                         <tr>
+
                             <th>
                                 Client
                             </th>
@@ -1068,7 +1209,9 @@
                             <th>
                                 Value
                             </th>
+
                         </tr>
+
                     </thead>
 
 
@@ -1082,6 +1225,7 @@
                         <tr>
 
                             <td>
+
                                 <strong>
                                     {{ item.clientName }}
                                 </strong>
@@ -1089,6 +1233,7 @@
                                 <small>
                                     ID {{ item.clientId }}
                                 </small>
+
                             </td>
 
                             <td>
@@ -1107,6 +1252,7 @@
                                 ) {
 
                                 <div>
+
                                     {{
                                     formatMoney(
                                     value.tradedValue,
@@ -1117,6 +1263,7 @@
                                     <small>
                                         {{ value.currency }}
                                     </small>
+
                                 </div>
 
                                 }
@@ -1128,11 +1275,13 @@
                         } @empty {
 
                         <tr>
+
                             <td colspan="4" class="empty-copy">
 
                                 No client data.
 
                             </td>
+
                         </tr>
 
                         }
@@ -1162,7 +1311,9 @@
                 <table>
 
                     <thead>
+
                         <tr>
+
                             <th>
                                 Time
                             </th>
@@ -1182,7 +1333,9 @@
                             <th>
                                 Value
                             </th>
+
                         </tr>
+
                     </thead>
 
 
@@ -1203,6 +1356,7 @@
                             </td>
 
                             <td>
+
                                 <strong>
                                     {{ item.instrumentSymbol }}
                                 </strong>
@@ -1211,15 +1365,18 @@
                                     {{ clientName(item.clientId) }}
                                     · ID {{ item.clientId }}
                                 </small>
+
                             </td>
 
                             <td>
+
                                 <span class="side-pill" [class.buy-pill]="item.side === 'BUY'"
                                     [class.sell-pill]="item.side === 'SELL'">
 
                                     {{ item.side }}
 
                                 </span>
+
                             </td>
 
                             <td>
@@ -1234,7 +1391,8 @@
 
                                 {{
                                 formatMoney(
-                                item.tradedValue
+                                item.tradedValue,
+                                currency()
                                 )
                                 }}
 
@@ -1251,11 +1409,13 @@
                         } @empty {
 
                         <tr>
+
                             <td colspan="5" class="empty-copy">
 
                                 No recent activity.
 
                             </td>
+
                         </tr>
 
                         }
