@@ -39,8 +39,9 @@ export class SidebarComponent implements OnInit {
   ];
 
   navItems = computed(() => this.allNavItems.filter(item =>
-    (item.route !== '/analyst' && item.route !== '/operations')
-      || this.auth.hasAnalystAccess()
+    item.route === '/operations'
+      ? this.auth.hasAdminAccess()
+      : item.route !== '/analyst' || this.auth.hasAnalystAccess()
   ));
 
   constructor(

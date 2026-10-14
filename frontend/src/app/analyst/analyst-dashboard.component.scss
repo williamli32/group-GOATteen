@@ -205,7 +205,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 
 .period-label,
 .legend {
-    font: 11px 'JetBrains Mono', monospace;
+    font: 12px 'JetBrains Mono', monospace;
 }
 
 .legend {
@@ -275,6 +275,10 @@ input[type='date']::-webkit-calendar-picker-indicator {
     align-items: start;
 }
 
+.analysis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .chart-panel,
 .table-panel { padding: 18px; }
 .wide-panel { grid-column: span 2; }
@@ -296,13 +300,39 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .panel-heading span {
-    font: 10px 'JetBrains Mono', monospace;
+    font: 13px 'JetBrains Mono', monospace;
     text-transform: uppercase;
 }
 
 .line-chart {
+    position: relative;
     min-height: 165px;
-    padding-top: 5px;
+    padding: 5px 0 0 64px;
+}
+
+.chart-y-axis {
+    position: absolute;
+    top: 10%;
+    bottom: 14%;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 58px;
+    color: #8191a4;
+    font: 13px 'JetBrains Mono', monospace;
+    text-align: right;
+}
+
+.chart-y-axis b {
+    position: absolute;
+    top: -18px;
+    left: 0;
+    width: 100%;
+    color: #a9b7c2;
+    font: 600 12px 'JetBrains Mono', monospace;
+    text-align: left;
+    text-transform: uppercase;
 }
 
 .line-chart svg {
@@ -374,11 +404,21 @@ input[type='date']::-webkit-calendar-picker-indicator {
     overflow: hidden;
 }
 
+.line-chart::after {
+    display: block;
+    padding-top: 3px;
+    color: #a9b7c2;
+    content: 'Date';
+    font: 600 12px 'JetBrains Mono', monospace;
+    text-align: center;
+    text-transform: uppercase;
+}
+
 .chart-labels small {
     min-width: 0;
     overflow: hidden;
     color: #718195;
-    font: 9px 'JetBrains Mono', monospace;
+    font: 13px 'JetBrains Mono', monospace;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -431,6 +471,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .rejected-bar { background: #ee7b83; }
 
 .table-panel { overflow: hidden; }
+.recent-activity-panel { grid-column: span 2; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 th { padding: 0 8px 11px; color: #708296; font: 10px 'JetBrains Mono', monospace; text-align: left; text-transform: uppercase; }
 td { padding: 12px 8px; border-top: 1px solid #223443; color: #becbd6; white-space: nowrap; }
@@ -465,6 +506,7 @@ td small { margin-top: 4px; font: 10px 'JetBrains Mono', monospace; }
     .apply-button { grid-column: auto; }
     .metric-grid, .trend-grid, .analysis-grid { grid-template-columns: 1fr; }
     .wide-panel, .split-panel, .client-trend-panel { grid-column: auto; }
+    .recent-activity-panel { grid-column: auto; }
     .period-label { font-size: 10px; }
     .table-panel { overflow-x: auto; }
     table { min-width: 510px; }

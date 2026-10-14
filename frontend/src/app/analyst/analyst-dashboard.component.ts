@@ -211,6 +211,22 @@ export class AnalystDashboardComponent implements OnInit {
         return count <= 8 || index === 0 || index === count - 1 || index % 5 === 0;
     }
 
+    trendAxisLabels(field: 'orders' | 'value'): number[] {
+        const values = this.trends().map(point => field === 'orders'
+            ? point.filledOrders
+            : point.tradedValue);
+        const maximum = Math.max(...values, 1);
+        return [maximum, maximum / 2, 0];
+    }
+
+    clientAxisLabels(): number[] {
+        const maximum = Math.max(
+            ...this.trends().map(point => point.activeClients),
+            1
+        );
+        return [maximum, maximum / 2, 0];
+    }
+
     private trendCoordinates(field: 'orders' | 'value'): Array<{ x: number; y: number }> {
         const values = this.trends().map(point => field === 'orders'
             ? point.filledOrders

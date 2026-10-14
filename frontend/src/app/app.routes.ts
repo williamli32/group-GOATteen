@@ -23,6 +23,10 @@ import {
 } from './core/guards/analyst-guard';
 
 import {
+  adminGuard
+} from './core/guards/admin-guard';
+
+import {
   AnalystDashboardComponent
 } from './analyst/analyst-dashboard.component';
 
@@ -65,7 +69,7 @@ export const routes: Routes = [
     component: OperationsComponent,
     canActivate: [
       authGuard,
-      analystGuard
+      adminGuard
     ]
   },
 

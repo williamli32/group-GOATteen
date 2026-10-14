@@ -185,7 +185,15 @@ app:
   
   auth:
     refreshTokenExpirationDays: 7     # Refresh token valid for 7 days
+
+  reporting:
+    backfill-enabled: true             # Synchronize historical orders and fills on startup
 ```
+
+When reporting backfill is enabled, existing orders and fills are synchronized
+idempotently into the reporting schema. This keeps the Analyst dashboard's
+historical date filters aligned with the operational order history after a
+restart or deployment.
 
 > **Security Note**: Sensitive configuration (database credentials, JWT secrets, API keys) should be provided at runtime via your deployment platform's secret management system (Kubernetes Secrets, AWS Secrets Manager, HashiCorp Vault, etc.). Never commit secrets to version control.
 

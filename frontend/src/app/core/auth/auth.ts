@@ -75,6 +75,10 @@ export class Auth {
     return this.roles().some(role => role === 'ANALYST' || role === 'ADMIN');
   }
 
+  hasAdminAccess(): boolean {
+    return this.roles().includes('ADMIN');
+  }
+
 
   isLoggedIn(): boolean {
     return !!this.getToken();

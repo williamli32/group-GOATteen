@@ -487,6 +487,12 @@
 
                 <div class="line-chart" role="img" aria-label="Trades over time line chart">
 
+                    <div class="chart-y-axis" aria-hidden="true"><b>Orders</b>
+                        @for (label of trendAxisLabels('orders'); track label) {
+                        <small>{{ formatNumber(label) }}</small>
+                        }
+                    </div>
+
                     @if (trends().length) {
 
                     <svg viewBox="0 0 600 220" preserveAspectRatio="none">
@@ -587,6 +593,12 @@
 
 
                 <div class="line-chart value-line-chart" role="img" aria-label="Trading value over time line chart">
+
+                    <div class="chart-y-axis" aria-hidden="true"><b>GBP</b>
+                        @for (label of trendAxisLabels('value'); track label) {
+                        <small>{{ formatMoney(label, currency()) }}</small>
+                        }
+                    </div>
 
                     @if (trends().length) {
 
@@ -849,6 +861,12 @@
 
 
                 <div class="line-chart client-line-chart" role="img" aria-label="Client activity over time line chart">
+
+                    <div class="chart-y-axis" aria-hidden="true"><b>Clients</b>
+                        @for (label of clientAxisLabels(); track label) {
+                        <small>{{ formatNumber(label) }}</small>
+                        }
+                    </div>
 
                     @if (trends().length) {
 
@@ -1293,7 +1311,7 @@
             </article>
 
 
-            <article class="table-panel">
+            <article class="table-panel recent-activity-panel">
 
                 <div class="panel-heading">
 
