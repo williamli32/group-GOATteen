@@ -11,6 +11,7 @@ export interface ReportingFilters {
     status?: string;
     clientId?: number;
     accountId?: number;
+    currency?: string;
 }
 
 export interface ReportingSummary {
@@ -130,6 +131,10 @@ export class ReportingService {
         }
         if (filters.accountId !== undefined) {
             params = params.set('accountId', filters.accountId);
+        }
+
+        if (filters.currency !== undefined) {
+            params = params.set('currency', filters.currency);
         }
 
         return params;

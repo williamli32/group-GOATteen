@@ -29,9 +29,19 @@ class ClientMetricsServiceTest {
 
         private ClientMetricsService metricsService;
 
-        private final LocalDateTime start = LocalDateTime.of(2026, 10, 1, 0, 0);
+        private final LocalDateTime start = LocalDateTime.of(
+                        2026,
+                        10,
+                        1,
+                        0,
+                        0);
 
-        private final LocalDateTime end = LocalDateTime.of(2026, 11, 1, 0, 0);
+        private final LocalDateTime end = LocalDateTime.of(
+                        2026,
+                        11,
+                        1,
+                        0,
+                        0);
 
         @BeforeEach
         void setUp() {
@@ -56,21 +66,27 @@ class ClientMetricsServiceTest {
                                 4L
                 };
 
-                /*
-                 * Client 103 placed orders but all were rejected.
-                 */
                 Object[] client3Orders = {
                                 103L,
                                 "GBP",
                                 2L
                 };
 
-                when(orderFactRepository
-                                .summarizeOrdersByClient(start, end, null, null, null, null, null))
-                                .thenReturn(List.of(
-                                                client1Orders,
-                                                client2Orders,
-                                                client3Orders));
+                when(
+                                orderFactRepository.summarizeOrdersByClient(
+                                                start,
+                                                end,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null))
+                                .thenReturn(
+                                                List.of(
+                                                                client1Orders,
+                                                                client2Orders,
+                                                                client3Orders));
 
                 Object[] client1Trades = {
                                 101L,
@@ -88,34 +104,68 @@ class ClientMetricsServiceTest {
                                 new BigDecimal("8000.00")
                 };
 
-                when(tradeFactRepository
-                                .summarizeByClient(start, end, null, null, null, null, null))
-                                .thenReturn(List.of(
-                                                client1Trades,
-                                                client2Trades));
+                when(
+                                tradeFactRepository.summarizeByClient(
+                                                start,
+                                                end,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null))
+                                .thenReturn(
+                                                List.of(
+                                                                client1Trades,
+                                                                client2Trades));
 
-                List<ClientMetrics> result = metricsService.calculate(start, end);
+                List<ClientMetrics> result = metricsService.calculate(
+                                start,
+                                end);
 
-                assertEquals(3, result.size());
+                assertEquals(
+                                3,
+                                result.size());
 
                 ClientMetrics first = result.get(0);
 
-                assertEquals(101L, first.clientId());
-                assertEquals("USD", first.currency());
-                assertEquals(7L, first.orderCount());
-                assertEquals(5L, first.fillCount());
+                assertEquals(
+                                101L,
+                                first.clientId());
+
+                assertEquals(
+                                "USD",
+                                first.currency());
+
+                assertEquals(
+                                7L,
+                                first.orderCount());
+
+                assertEquals(
+                                5L,
+                                first.fillCount());
+
                 assertEquals(
                                 new BigDecimal("100"),
                                 first.executedQuantity());
+
                 assertEquals(
                                 new BigDecimal("15000.00"),
                                 first.tradedValue());
 
                 ClientMetrics rejectedOnly = result.get(2);
 
-                assertEquals(103L, rejectedOnly.clientId());
-                assertEquals(2L, rejectedOnly.orderCount());
-                assertEquals(0L, rejectedOnly.fillCount());
+                assertEquals(
+                                103L,
+                                rejectedOnly.clientId());
+
+                assertEquals(
+                                2L,
+                                rejectedOnly.orderCount());
+
+                assertEquals(
+                                0L,
+                                rejectedOnly.fillCount());
 
                 assertEquals(
                                 BigDecimal.ZERO,
@@ -129,17 +179,38 @@ class ClientMetricsServiceTest {
         @Test
         void returnsEmptyListWhenThereIsNoActivity() {
 
-                when(orderFactRepository
-                                .summarizeOrdersByClient(start, end, null, null, null, null, null))
-                                .thenReturn(List.of());
+                when(
+                                orderFactRepository.summarizeOrdersByClient(
+                                                start,
+                                                end,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null))
+                                .thenReturn(
+                                                List.of());
 
-                when(tradeFactRepository
-                                .summarizeByClient(start, end, null, null, null, null, null))
-                                .thenReturn(List.of());
+                when(
+                                tradeFactRepository.summarizeByClient(
+                                                start,
+                                                end,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null))
+                                .thenReturn(
+                                                List.of());
 
-                List<ClientMetrics> result = metricsService.calculate(start, end);
+                List<ClientMetrics> result = metricsService.calculate(
+                                start,
+                                end);
 
-                assertTrue(result.isEmpty());
+                assertTrue(
+                                result.isEmpty());
         }
 
         @Test

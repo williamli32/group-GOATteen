@@ -18,6 +18,7 @@ public class ReportingQuery {
     private String status;
     private Long clientId;
     private Long accountId;
+    private String currency;
 
     public ReportingFilters toFilters() {
 
@@ -27,17 +28,26 @@ public class ReportingQuery {
         }
 
         return new ReportingFilters(
-                fromDate.atStartOfDay(),
-                toDate.plusDays(1).atStartOfDay(),
-                instrumentId,
-                side,
-                status,
-                clientId,
-                accountId);
+            fromDate.atStartOfDay(),
+            toDate.plusDays(1).atStartOfDay(),
+            instrumentId,
+            side,
+            status,
+            clientId,
+            accountId,
+            currency);
     }
 
     public LocalDate getFromDate() {
         return fromDate;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 
     public void setFromDate(LocalDate fromDate) {

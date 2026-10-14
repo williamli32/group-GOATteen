@@ -2,9 +2,9 @@ package com.goatteen.trading.reporting;
 
 import com.goatteen.trading.reporting.data.OrderFactRepository;
 import com.goatteen.trading.reporting.data.TradeFactRepository;
+import com.goatteen.trading.reporting.metrics.ReportingFilters;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetrics;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
-import com.goatteen.trading.reporting.metrics.ReportingFilters;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,323 +21,622 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class TradingActivityMetricsServiceTest {
 
-        @Mock
-        private OrderFactRepository orderFactRepository;
+    @Mock
+    private OrderFactRepository orderFactRepository;
 
-        @Mock
-        private TradeFactRepository tradeFactRepository;
+    @Mock
+    private TradeFactRepository tradeFactRepository;
 
-        private TradingActivityMetricsService metricsService;
+    private TradingActivityMetricsService metricsService;
 
-        private final LocalDateTime start = LocalDateTime.of(2026, 10, 1, 0, 0);
+    private final LocalDateTime start =
+            LocalDateTime.of(
+                    2026,
+                    10,
+                    1,
+                    0,
+                    0
+            );
 
-        private final LocalDateTime end = LocalDateTime.of(2026, 11, 1, 0, 0);
+    private final LocalDateTime end =
+            LocalDateTime.of(
+                    2026,
+                    11,
+                    1,
+                    0,
+                    0
+            );
 
-        @BeforeEach
-        void setUp() {
+    @BeforeEach
+    void setUp() {
 
-                metricsService = new TradingActivityMetricsService(
-                                orderFactRepository,
-                                tradeFactRepository);
-        }
+        metricsService =
+                new TradingActivityMetricsService(
+                        orderFactRepository,
+                        tradeFactRepository
+                );
+    }
 
-        @Test
-        void calculatesCompleteTradingActivityMetrics() {
+    @Test
+    void calculatesCompleteTradingActivityMetrics() {
 
-                when(orderFactRepository
-                                .countOrdersInDateRange(start, end, null, null, null, null, null))
-                                .thenReturn(100L);
+        when(
+                orderFactRepository.countOrdersInDateRange(
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ).thenReturn(
+                100L
+        );
 
-                when(orderFactRepository
-                                .countByStatusAndDateRange(
-                                                "FILLED",
-                                                start,
-                                                end, null, null, null, null))
-                                .thenReturn(75L);
+        when(
+                orderFactRepository.countByStatusAndDateRange(
+                        "FILLED",
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ).thenReturn(
+                75L
+        );
 
-                when(orderFactRepository
-                                .countByStatusAndDateRange(
-                                                "REJECTED",
-                                                start,
-                                                end, null, null, null, null))
-                                .thenReturn(10L);
+        when(
+                orderFactRepository.countByStatusAndDateRange(
+                        "REJECTED",
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ).thenReturn(
+                10L
+        );
 
-                when(orderFactRepository
-                                .countActiveClients(start, end, null, null, null, null, null))
-                                .thenReturn(42L);
+        when(
+                orderFactRepository.countActiveClients(
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ).thenReturn(
+                42L
+        );
 
-                when(tradeFactRepository
-                                .summarizeExecutionActivity(start, end, null, null, null, null, null))
-                                .thenReturn(new Object[] {
-                                                new BigDecimal("1000"),
-                                                new BigDecimal("250000.00"),
+        when(
+                tradeFactRepository.summarizeExecutionActivity(
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ).thenReturn(
+                new Object[] {
+                        new BigDecimal("1000"),
+                        new BigDecimal("250000.00"),
 
-                                                50L,
-                                                new BigDecimal("700"),
-                                                new BigDecimal("175000.00"),
+                        50L,
+                        new BigDecimal("700"),
+                        new BigDecimal("175000.00"),
 
-                                                25L,
-                                                new BigDecimal("300"),
-                                                new BigDecimal("75000.00")
-                                });
+                        25L,
+                        new BigDecimal("300"),
+                        new BigDecimal("75000.00")
+                }
+        );
 
-                TradingActivityMetrics result = metricsService.calculate(start, end);
+        TradingActivityMetrics result =
+                metricsService.calculate(
+                        start,
+                        end
+                );
 
-                assertEquals(100L, result.totalOrders());
-                assertEquals(75L, result.filledOrders());
-                assertEquals(10L, result.rejectedOrders());
-                assertEquals(42L, result.activeClients());
+        assertEquals(
+                100L,
+                result.totalOrders()
+        );
 
-                assertEquals(
-                                new BigDecimal("75.00"),
-                                result.fillRate());
+        assertEquals(
+                75L,
+                result.filledOrders()
+        );
 
-                assertEquals(
-                                new BigDecimal("10.00"),
-                                result.rejectionRate());
+        assertEquals(
+                10L,
+                result.rejectedOrders()
+        );
 
-                assertEquals(
-                                new BigDecimal("1000"),
-                                result.totalExecutedQuantity());
+        assertEquals(
+                42L,
+                result.activeClients()
+        );
 
-                assertEquals(
-                                new BigDecimal("250000.00"),
-                                result.totalTradedValue());
+        assertEquals(
+                new BigDecimal("75.00"),
+                result.fillRate()
+        );
 
-                assertEquals(50L, result.buyFills());
-                assertEquals(
-                                new BigDecimal("700"),
-                                result.buyQuantity());
+        assertEquals(
+                new BigDecimal("10.00"),
+                result.rejectionRate()
+        );
 
-                assertEquals(
-                                new BigDecimal("175000.00"),
-                                result.buyTradedValue());
+        assertEquals(
+                new BigDecimal("1000"),
+                result.totalExecutedQuantity()
+        );
 
-                assertEquals(25L, result.sellFills());
+        assertEquals(
+                new BigDecimal("250000.00"),
+                result.totalTradedValue()
+        );
 
-                assertEquals(
-                                new BigDecimal("300"),
-                                result.sellQuantity());
+        assertEquals(
+                50L,
+                result.buyFills()
+        );
 
-                assertEquals(
-                                new BigDecimal("75000.00"),
-                                result.sellTradedValue());
-        }
+        assertEquals(
+                new BigDecimal("700"),
+                result.buyQuantity()
+        );
 
-        @Test
-        void returnsZeroMetricsWhenThereIsNoActivity() {
+        assertEquals(
+                new BigDecimal("175000.00"),
+                result.buyTradedValue()
+        );
 
-                when(tradeFactRepository
-                                .summarizeExecutionActivity(start, end, null, null, null, null, null))
-                                .thenReturn(new Object[] {
-                                                BigDecimal.ZERO,
-                                                BigDecimal.ZERO,
-                                                0L,
-                                                BigDecimal.ZERO,
-                                                BigDecimal.ZERO,
-                                                0L,
-                                                BigDecimal.ZERO,
-                                                BigDecimal.ZERO
-                                });
+        assertEquals(
+                25L,
+                result.sellFills()
+        );
 
-                TradingActivityMetrics result = metricsService.calculate(start, end);
+        assertEquals(
+                new BigDecimal("300"),
+                result.sellQuantity()
+        );
 
-                assertEquals(0L, result.totalOrders());
-                assertEquals(0L, result.filledOrders());
-                assertEquals(0L, result.rejectedOrders());
-                assertEquals(0L, result.activeClients());
+        assertEquals(
+                new BigDecimal("75000.00"),
+                result.sellTradedValue()
+        );
+    }
 
-                assertEquals(
-                                new BigDecimal("0.00"),
-                                result.fillRate());
+    @Test
+    void returnsZeroMetricsWhenThereIsNoActivity() {
 
-                assertEquals(
-                                new BigDecimal("0.00"),
-                                result.rejectionRate());
+        when(
+                tradeFactRepository.summarizeExecutionActivity(
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ).thenReturn(
+                new Object[] {
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        0L,
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        0L,
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO
+                }
+        );
 
-                assertEquals(
-                                BigDecimal.ZERO,
-                                result.totalExecutedQuantity());
+        TradingActivityMetrics result =
+                metricsService.calculate(
+                        start,
+                        end
+                );
 
-                assertEquals(
-                                BigDecimal.ZERO,
-                                result.totalTradedValue());
-        }
+        assertEquals(
+                0L,
+                result.totalOrders()
+        );
 
-        @Test
-        void unwrapsNestedExecutionSummaryRows() {
+        assertEquals(
+                0L,
+                result.filledOrders()
+        );
 
-                when(tradeFactRepository
-                                .summarizeExecutionActivity(start, end, null, null, null, null, null))
-                                .thenReturn(new Object[] {
-                                                new Object[] {
-                                                                new BigDecimal("40"),
-                                                                new BigDecimal("97.26"),
-                                                                2L,
-                                                                new BigDecimal("20"),
-                                                                new BigDecimal("48.66"),
-                                                                2L,
-                                                                new BigDecimal("20"),
-                                                                new BigDecimal("48.60")
-                                                }
-                                });
+        assertEquals(
+                0L,
+                result.rejectedOrders()
+        );
 
-                TradingActivityMetrics result = metricsService.calculate(start, end);
+        assertEquals(
+                0L,
+                result.activeClients()
+        );
 
-                assertEquals(new BigDecimal("40"), result.totalExecutedQuantity());
-                assertEquals(new BigDecimal("97.26"), result.totalTradedValue());
-                assertEquals(2L, result.buyFills());
-                assertEquals(2L, result.sellFills());
-        }
+        assertEquals(
+                new BigDecimal("0.00"),
+                result.fillRate()
+        );
 
-        @Test
-        void rejectsInvalidDateRange() {
+        assertEquals(
+                new BigDecimal("0.00"),
+                result.rejectionRate()
+        );
 
-                assertThrows(
-                                IllegalArgumentException.class,
-                                () -> metricsService.calculate(
-                                                end,
-                                                start));
+        assertEquals(
+                BigDecimal.ZERO,
+                result.totalExecutedQuantity()
+        );
 
-                assertThrows(
-                                IllegalArgumentException.class,
-                                () -> metricsService.calculate(
-                                                start,
-                                                start));
+        assertEquals(
+                BigDecimal.ZERO,
+                result.totalTradedValue()
+        );
+    }
 
-                verifyNoInteractions(
-                                orderFactRepository,
-                                tradeFactRepository);
-        }
-        @Test
-void filledStatusFilterReturnsOnlyFilledOrderMetrics() {
+    @Test
+    void unwrapsNestedExecutionSummaryRows() {
 
-        ReportingFilters filters = new ReportingFilters(
+        when(
+                tradeFactRepository.summarizeExecutionActivity(
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ).thenReturn(
+                new Object[] {
+                        new Object[] {
+                                new BigDecimal("40"),
+                                new BigDecimal("97.26"),
+
+                                2L,
+                                new BigDecimal("20"),
+                                new BigDecimal("48.66"),
+
+                                2L,
+                                new BigDecimal("20"),
+                                new BigDecimal("48.60")
+                        }
+                }
+        );
+
+        TradingActivityMetrics result =
+                metricsService.calculate(
+                        start,
+                        end
+                );
+
+        assertEquals(
+                new BigDecimal("40"),
+                result.totalExecutedQuantity()
+        );
+
+        assertEquals(
+                new BigDecimal("97.26"),
+                result.totalTradedValue()
+        );
+
+        assertEquals(
+                2L,
+                result.buyFills()
+        );
+
+        assertEquals(
+                2L,
+                result.sellFills()
+        );
+    }
+
+    @Test
+    void rejectsInvalidDateRange() {
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> metricsService.calculate(
+                        end,
+                        start
+                )
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> metricsService.calculate(
+                        start,
+                        start
+                )
+        );
+
+        verifyNoInteractions(
+                orderFactRepository,
+                tradeFactRepository
+        );
+    }
+
+    @Test
+    void filledStatusFilterReturnsOnlyFilledOrderMetrics() {
+
+        ReportingFilters filters =
+                new ReportingFilters(
                         start,
                         end,
                         null,
                         null,
                         "FILLED",
                         null,
-                        null);
+                        null,
+                        "GBP"
+                );
 
-        when(orderFactRepository
-                        .countOrdersInDateRange(
-                                        start, end,
-                                        null, null,
-                                        "FILLED",
-                                        null, null))
-                        .thenReturn(75L);
+        when(
+                orderFactRepository.countOrdersInDateRange(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "FILLED",
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                75L
+        );
 
-        when(orderFactRepository
-                        .countByStatusAndDateRange(
-                                        "FILLED",
-                                        start,
-                                        end,
-                                        null,
-                                        null,
-                                        null,
-                                        null))
-                        .thenReturn(75L);
+        when(
+                orderFactRepository.countByStatusAndDateRange(
+                        "FILLED",
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                75L
+        );
 
-        when(orderFactRepository
-                        .countActiveClients(
-                                        start, end,
-                                        null, null,
-                                        "FILLED",
-                                        null, null))
-                        .thenReturn(20L);
+        when(
+                orderFactRepository.countActiveClients(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "FILLED",
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                20L
+        );
 
-        when(tradeFactRepository
-                        .summarizeExecutionActivity(
-                                        start, end,
-                                        null, null,
-                                        "FILLED",
-                                        null, null))
-                        .thenReturn(new Object[] {
-                                        new BigDecimal("1000"),
-                                        new BigDecimal("250000"),
-                                        50L,
-                                        new BigDecimal("700"),
-                                        new BigDecimal("175000"),
-                                        25L,
-                                        new BigDecimal("300"),
-                                        new BigDecimal("75000")
-                        });
+        when(
+                tradeFactRepository.summarizeExecutionActivity(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "FILLED",
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                new Object[] {
+                        new BigDecimal("1000"),
+                        new BigDecimal("250000"),
+
+                        50L,
+                        new BigDecimal("700"),
+                        new BigDecimal("175000"),
+
+                        25L,
+                        new BigDecimal("300"),
+                        new BigDecimal("75000")
+                }
+        );
 
         TradingActivityMetrics result =
-                        metricsService.calculate(filters);
+                metricsService.calculate(
+                        filters
+                );
 
-        assertEquals(75L, result.totalOrders());
-        assertEquals(75L, result.filledOrders());
-        assertEquals(0L, result.rejectedOrders());
-        assertEquals(new BigDecimal("100.00"), result.fillRate());
-        assertEquals(new BigDecimal("0.00"), result.rejectionRate());
-}
+        assertEquals(
+                75L,
+                result.totalOrders()
+        );
 
-@Test
-void rejectedStatusFilterReturnsOnlyRejectedOrderMetrics() {
+        assertEquals(
+                75L,
+                result.filledOrders()
+        );
 
-        ReportingFilters filters = new ReportingFilters(
+        assertEquals(
+                0L,
+                result.rejectedOrders()
+        );
+
+        assertEquals(
+                new BigDecimal("100.00"),
+                result.fillRate()
+        );
+
+        assertEquals(
+                new BigDecimal("0.00"),
+                result.rejectionRate()
+        );
+
+        verify(
+                tradeFactRepository
+        ).summarizeExecutionActivity(
+                start,
+                end,
+                null,
+                null,
+                "FILLED",
+                null,
+                null,
+                "GBP"
+        );
+    }
+
+    @Test
+    void rejectedStatusFilterReturnsOnlyRejectedOrderMetrics() {
+
+        ReportingFilters filters =
+                new ReportingFilters(
                         start,
                         end,
                         null,
                         null,
                         "REJECTED",
                         null,
-                        null);
+                        null,
+                        "GBP"
+                );
 
-        when(orderFactRepository
-                        .countOrdersInDateRange(
-                                        start, end,
-                                        null, null,
-                                        "REJECTED",
-                                        null, null))
-                        .thenReturn(10L);
+        when(
+                orderFactRepository.countOrdersInDateRange(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "REJECTED",
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                10L
+        );
 
-        when(orderFactRepository
-                        .countByStatusAndDateRange(
-                                        "REJECTED",
-                                        start,
-                                        end,
-                                        null,
-                                        null,
-                                        null,
-                                        null))
-                        .thenReturn(10L);
+        when(
+                orderFactRepository.countByStatusAndDateRange(
+                        "REJECTED",
+                        start,
+                        end,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                10L
+        );
 
-        when(orderFactRepository
-                        .countActiveClients(
-                                        start, end,
-                                        null, null,
-                                        "REJECTED",
-                                        null, null))
-                        .thenReturn(8L);
+        when(
+                orderFactRepository.countActiveClients(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "REJECTED",
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                8L
+        );
 
-        when(tradeFactRepository
-                        .summarizeExecutionActivity(
-                                        start, end,
-                                        null, null,
-                                        "REJECTED",
-                                        null, null))
-                        .thenReturn(new Object[] {
-                                        BigDecimal.ZERO,
-                                        BigDecimal.ZERO,
-                                        0L,
-                                        BigDecimal.ZERO,
-                                        BigDecimal.ZERO,
-                                        0L,
-                                        BigDecimal.ZERO,
-                                        BigDecimal.ZERO
-                        });
+        when(
+                tradeFactRepository.summarizeExecutionActivity(
+                        start,
+                        end,
+                        null,
+                        null,
+                        "REJECTED",
+                        null,
+                        null,
+                        "GBP"
+                )
+        ).thenReturn(
+                new Object[] {
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+
+                        0L,
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+
+                        0L,
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO
+                }
+        );
 
         TradingActivityMetrics result =
-                        metricsService.calculate(filters);
+                metricsService.calculate(
+                        filters
+                );
 
-        assertEquals(10L, result.totalOrders());
-        assertEquals(0L, result.filledOrders());
-        assertEquals(10L, result.rejectedOrders());
-        assertEquals(new BigDecimal("0.00"), result.fillRate());
-        assertEquals(new BigDecimal("100.00"), result.rejectionRate());
-}
+        assertEquals(
+                10L,
+                result.totalOrders()
+        );
+
+        assertEquals(
+                0L,
+                result.filledOrders()
+        );
+
+        assertEquals(
+                10L,
+                result.rejectedOrders()
+        );
+
+        assertEquals(
+                new BigDecimal("0.00"),
+                result.fillRate()
+        );
+
+        assertEquals(
+                new BigDecimal("100.00"),
+                result.rejectionRate()
+        );
+
+        verify(
+                tradeFactRepository
+        ).summarizeExecutionActivity(
+                start,
+                end,
+                null,
+                null,
+                "REJECTED",
+                null,
+                null,
+                "GBP"
+        );
+    }
 }
