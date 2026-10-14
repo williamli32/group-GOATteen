@@ -12,7 +12,6 @@
         <div class="filter-heading">
             <div>
                 <p class="eyebrow">REPORTING WINDOW</p>
-                <h2>Shape the entire page</h2>
             </div>
             <button type="button" class="text-button" (click)="resetFilters()">Reset filters</button>
         </div>
@@ -69,7 +68,7 @@
             <div class="section-title"><div><p class="eyebrow">AT A GLANCE</p><h2>Market pulse</h2></div><span class="period-label">{{ fromDate() }} → {{ toDate() }}</span></div>
             <div class="metric-grid">
                 <article class="metric-card accent-blue"><span>Total orders</span><strong>{{ formatNumber(summary()?.totalOrders) }}</strong><small>all client orders</small></article>
-                <article class="metric-card accent-cyan"><span>Total trades</span><strong>{{ formatNumber(summary()?.totalExecutedQuantity) }}</strong><small>executed quantity</small></article>
+                <article class="metric-card accent-cyan"><span>Executed quantity</span><strong>{{ formatNumber(summary()?.totalExecutedQuantity) }}</strong><small>units filled</small></article>
                 <article class="metric-card accent-green"><span>Filled orders</span><strong>{{ formatNumber(summary()?.filledOrders) }}</strong><small>{{ formatNumber(summary()?.fillRate) }}% fill rate</small></article>
                 <article class="metric-card accent-red"><span>Rejected orders</span><strong>{{ formatNumber(summary()?.rejectedOrders) }}</strong><small>{{ formatNumber(summary()?.rejectionRate) }}% rejection rate</small></article>
                 <article class="metric-card accent-gold"><span>Trading value</span><strong>{{ formatMoney(summary()?.totalTradedValue) }}</strong><small>reported notional</small></article>
@@ -82,24 +81,48 @@
             <div class="section-title"><div><p class="eyebrow">ACTIVITY AND TRENDS</p><h2>Volume, value and outcomes</h2></div><span class="legend"><i class="orders-key"></i>Orders <i class="value-key"></i>Value</span></div>
             <div class="trend-grid">
                 <article class="chart-panel wide-panel">
-                    <div class="panel-heading"><h3>Trades over time</h3><span>daily activity</span></div>
-                    <div class="bar-chart">
-                        @for (point of trends(); track point.date) {
-                            <div class="bar-column"><div class="bar-value">{{ point.totalOrders }}</div><div class="bar-track"><i class="orders-bar" [style.height]="trendWidth(point.totalOrders, 'orders')"></i></div><small>{{ point.date | date:'MMM d' }}</small></div>
-                        } @empty { <p class="empty-copy">No daily activity for this period.</p> }
+                    <div class="panel-heading"><h3>Trades over time</h3><span>daily filled orders</span></div>
+                    <div class="line-chart" role="img" aria-label="Trades over time line chart">
+                        @if (trends().length) {
+                            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+                                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+                                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+                                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+                                <polygon class="orders-area" [attr.points]="trendAreaPoints('orders')" />
+                                <polyline class="orders-line" [attr.points]="trendPoints('orders')" />
+                                @for (point of trends(); track point.date; let index = $index) {
+                                    <circle class="orders-point" [attr.cx]="trendPointX(index)" [attr.cy]="trendPointY(index, 'orders')" r="3">
+                                        <title>{{ point.date | date:'MMM d' }}: {{ point.filledOrders }} trades</title>
+                                    </circle>
+                                }
+                            </svg>
+                            <div class="chart-labels">@for (point of trends(); track point.date; let index = $index) { @if (showTrendLabel(index)) { <small>{{ point.date | date:'MMM d' }}</small> } @else { <small></small> } }</div>
+                        } @else { <p class="empty-copy">No daily activity for this period.</p> }
                     </div>
                 </article>
                 <article class="chart-panel wide-panel">
                     <div class="panel-heading"><h3>Trading value over time</h3><span>reported notional</span></div>
-                    <div class="bar-chart value-chart">
-                        @for (point of trends(); track point.date) {
-                            <div class="bar-column"><div class="bar-value">{{ formatMoney(point.tradedValue) }}</div><div class="bar-track"><i class="value-bar" [style.height]="trendWidth(point.tradedValue, 'value')"></i></div><small>{{ point.date | date:'MMM d' }}</small></div>
-                        } @empty { <p class="empty-copy">No traded value for this period.</p> }
+                    <div class="line-chart value-line-chart" role="img" aria-label="Trading value over time line chart">
+                        @if (trends().length) {
+                            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+                                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+                                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+                                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+                                <polygon class="value-area" [attr.points]="trendAreaPoints('value')" />
+                                <polyline class="value-line" [attr.points]="trendPoints('value')" />
+                                @for (point of trends(); track point.date; let index = $index) {
+                                    <circle class="value-point" [attr.cx]="trendPointX(index)" [attr.cy]="trendPointY(index, 'value')" r="3">
+                                        <title>{{ point.date | date:'MMM d' }}: {{ formatMoney(point.tradedValue) }}</title>
+                                    </circle>
+                                }
+                            </svg>
+                            <div class="chart-labels">@for (point of trends(); track point.date; let index = $index) { @if (showTrendLabel(index)) { <small>{{ point.date | date:'MMM d' }}</small> } @else { <small></small> } }</div>
+                        } @else { <p class="empty-copy">No traded value for this period.</p> }
                     </div>
                 </article>
                 <article class="chart-panel split-panel">
                     <div class="panel-heading"><h3>BUY vs SELL</h3><span>fills</span></div>
-                    <div class="donut-copy"><div class="split-ring"><span>{{ formatNumber((summary()?.buyFills ?? 0) + (summary()?.sellFills ?? 0)) }}</span><small>fills</small></div><div class="split-legend"><span><i class="buy-dot"></i>BUY <b>{{ summary()?.buyFills ?? 0 }}</b></span><span><i class="sell-dot"></i>SELL <b>{{ summary()?.sellFills ?? 0 }}</b></span></div></div>
+                    <div class="donut-copy"><div class="split-ring" [style.background]="splitRingStyle()"><span>{{ formatNumber((summary()?.buyFills ?? 0) + (summary()?.sellFills ?? 0)) }}</span><small>fills</small></div><div class="split-legend"><span><i class="buy-dot"></i>BUY <b>{{ summary()?.buyFills ?? 0 }}</b></span><span><i class="sell-dot"></i>SELL <b>{{ summary()?.sellFills ?? 0 }}</b></span><span><i class="track-dot"></i>UNFILLED <b>{{ unfilledOrders() }}</b></span></div></div>
                 </article>
                 <article class="chart-panel split-panel">
                     <div class="panel-heading"><h3>FILLED vs REJECTED</h3><span>orders</span></div>
@@ -107,7 +130,23 @@
                 </article>
                 <article class="chart-panel wide-panel client-trend-panel">
                     <div class="panel-heading"><h3>Client activity over time</h3><span>distinct active clients</span></div>
-                    <div class="client-lines">@for (point of trends(); track point.date) { <div class="client-line"><small>{{ point.date | date:'MMM d' }}</small><div><i [style.width.%]="point.activeClients ? Math.max((point.activeClients / (summary()?.activeClients || 1)) * 100, 5) : 0"></i></div><b>{{ point.activeClients }}</b></div> } @empty { <p class="empty-copy">No client activity for this period.</p> }</div>
+                    <div class="line-chart client-line-chart" role="img" aria-label="Client activity over time line chart">
+                        @if (trends().length) {
+                            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+                                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+                                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+                                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+                                <polygon class="client-area" [attr.points]="clientTrendAreaPoints()" />
+                                <polyline class="client-line" [attr.points]="clientTrendPoints()" />
+                                @for (point of trends(); track point.date; let index = $index) {
+                                    <circle class="client-point" [attr.cx]="clientTrendPointX(index)" [attr.cy]="clientTrendPointY(index)" r="4">
+                                        <title>{{ point.date | date:'MMM d' }}: {{ point.activeClients }} active clients</title>
+                                    </circle>
+                                }
+                            </svg>
+                            <div class="chart-labels">@for (point of trends(); track point.date; let index = $index) { @if (showTrendLabel(index)) { <small>{{ point.date | date:'MMM d' }}</small> } @else { <small></small> } }</div>
+                        } @else { <p class="empty-copy">No client activity for this period.</p> }
+                    </div>
                 </article>
             </div>
         </section>

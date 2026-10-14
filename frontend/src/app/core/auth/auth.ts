@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { Observable } from 'rxjs';
@@ -25,10 +25,13 @@ export interface LoginResponse {
 export class Auth {
 
   private apiUrl = `${environment.apiUrl}/auth`;
+  private readonly roles = signal<string[]>([]);
 
   constructor(
     private http: HttpClient
-  ) { }
+  ) {
+    this.roles.set(this.readRoles(this.getToken()));
+  }
 
 
   login(
@@ -50,6 +53,7 @@ export class Auth {
       'accessToken',
       token
     );
+    this.roles.set(this.readRoles(token));
   }
 
 
@@ -64,6 +68,11 @@ export class Auth {
     localStorage.removeItem(
       'accessToken'
     );
+    this.roles.set([]);
+  }
+
+  hasAnalystAccess(): boolean {
+    return this.roles().some(role => role === 'ANALYST' || role === 'ADMIN');
   }
 
 
@@ -77,6 +86,7 @@ export class Auth {
     lastName: string;
     email: string;
     password: string;
+    role: 'CLIENT' | 'ANALYST';
   }) {
     return this.http.post(
       `${this.apiUrl}/register`,
@@ -108,6 +118,23 @@ export class Auth {
         withCredentials: true
       }
     );
+  }
+
+  private readRoles(token: string | null): string[] {
+    if (!token) {
+      return [];
+    }
+
+    try {
+      const payload = token.split('.')[1];
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const claims = JSON.parse(atob(normalized));
+      return Array.isArray(claims.roles)
+        ? claims.roles.map((role: unknown) => String(role).toUpperCase())
+        : [];
+    } catch {
+      return [];
+    }
   }
 
 }

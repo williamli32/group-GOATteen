@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -94,6 +95,15 @@ public class ActivityTrendService {
             data.executedQuantity = toBigDecimal(row[1]);
 
             data.tradedValue = toBigDecimal(row[2]);
+        }
+
+        LocalDate firstDate = filters.fromDate().toLocalDate();
+        LocalDate lastDate = filters.toDate().toLocalDate().minusDays(1);
+
+        for (long offset = 0; offset <= ChronoUnit.DAYS.between(firstDate, lastDate); offset++) {
+            trends.computeIfAbsent(
+                    firstDate.plusDays(offset),
+                    ignored -> new TrendData());
         }
 
         /*

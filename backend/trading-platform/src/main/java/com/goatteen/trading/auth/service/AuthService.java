@@ -65,9 +65,13 @@ public class AuthService {
                         throw new DuplicateEmailException();
                 }
 
-                Role clientRole = roleRepository.findByName(CLIENT_ROLE)
+                String requestedRole = request.getRole() == null
+                                ? CLIENT_ROLE
+                                : request.getRole().trim().toUpperCase(Locale.ROOT);
+
+                Role clientRole = roleRepository.findByName(requestedRole)
                                 .orElseThrow(() -> new IllegalStateException(
-                                                "Required CLIENT role is not configured"));
+                                                "Required registration role is not configured"));
 
                 String passwordHash = passwordEncoder.encode(request.getPassword());
 

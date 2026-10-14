@@ -719,7 +719,8 @@
 
 /* Text inputs without an icon */
 
-.form-field > input {
+.form-field > input,
+.form-field > select {
     width: 100%;
     height: 62px;
 
@@ -745,7 +746,8 @@
     color: #697672;
 }
 
-.form-field > input:focus {
+.form-field > input:focus,
+.form-field > select:focus {
     border-color: rgba(40, 244, 139, 0.65);
 
     background: rgba(19, 30, 26, 0.95);

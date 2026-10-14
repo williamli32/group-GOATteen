@@ -77,18 +77,102 @@ export class AnalystDashboardComponent implements OnInit {
         this.status.set(value || undefined);
     }
 
-    trendWidth(value: number, field: 'orders' | 'value'): string {
+    trendPoints(field: 'orders' | 'value'): string {
+        const points = this.trendCoordinates(field);
+        return points.map(point => `${point.x},${point.y}`).join(' ');
+    }
+
+    trendAreaPoints(field: 'orders' | 'value'): string {
+        const points = this.trendCoordinates(field);
+
+        if (!points.length) {
+            return '';
+        }
+
+        return [
+            `${points[0].x},190`,
+            ...points.map(point => `${point.x},${point.y}`),
+            `${points[points.length - 1].x},190`
+        ].join(' ');
+    }
+
+    trendPointX(index: number): number {
+        return this.trendCoordinates('orders')[index]?.x ?? 0;
+    }
+
+    clientTrendPoints(): string {
+        return this.clientTrendCoordinates()
+            .map(point => `${point.x},${point.y}`)
+            .join(' ');
+    }
+
+    clientTrendAreaPoints(): string {
+        const points = this.clientTrendCoordinates();
+
+        if (!points.length) {
+            return '';
+        }
+
+        return [
+            `${points[0].x},190`,
+            ...points.map(point => `${point.x},${point.y}`),
+            `${points[points.length - 1].x},190`
+        ].join(' ');
+    }
+
+    clientTrendPointX(index: number): number {
+        return this.clientTrendCoordinates()[index]?.x ?? 0;
+    }
+
+    clientTrendPointY(index: number): number {
+        return this.clientTrendCoordinates()[index]?.y ?? 190;
+    }
+
+    private clientTrendCoordinates(): Array<{ x: number; y: number }> {
+        const values = this.trends().map(point => point.activeClients);
+        const maximum = Math.max(...values, 1);
+        const chartWidth = 600;
+        const chartBottom = 190;
+        const chartTop = 22;
+
+        return values.map((value, index) => ({
+            x: values.length === 1
+                ? chartWidth / 2
+                : (index / (values.length - 1)) * chartWidth,
+            y: chartBottom - ((value / maximum) * (chartBottom - chartTop))
+        }));
+    }
+
+    trendPointY(index: number, field: 'orders' | 'value'): number {
+        return this.trendCoordinates(field)[index]?.y ?? 190;
+    }
+
+    showTrendLabel(index: number): boolean {
+        const count = this.trends().length;
+        return count <= 8 || index === 0 || index === count - 1 || index % 5 === 0;
+    }
+
+    private trendCoordinates(field: 'orders' | 'value'): Array<{ x: number; y: number }> {
         const values = this.trends().map(point => field === 'orders'
-            ? point.totalOrders
+            ? point.filledOrders
             : point.tradedValue);
         const maximum = Math.max(...values, 1);
-        return `${Math.max((value / maximum) * 100, value ? 4 : 0)}%`;
+        const chartWidth = 600;
+        const chartBottom = 190;
+        const chartTop = 22;
+
+        return values.map((value, index) => ({
+            x: values.length === 1
+                ? chartWidth / 2
+                : (index / (values.length - 1)) * chartWidth,
+            y: chartBottom - ((value / maximum) * (chartBottom - chartTop))
+        }));
     }
 
     formatMoney(value: number | null | undefined): string {
         return new Intl.NumberFormat('en-GB', {
             style: 'currency',
-            currency: 'USD',
+            currency: 'GBP',
             maximumFractionDigits: 2
         }).format(value ?? 0);
     }
@@ -97,6 +181,27 @@ export class AnalystDashboardComponent implements OnInit {
         return new Intl.NumberFormat('en-GB', {
             maximumFractionDigits: 2
         }).format(value ?? 0);
+    }
+
+    unfilledOrders(): number {
+        return (this.summary()?.totalOrders ?? 0)
+            - (this.summary()?.filledOrders ?? 0);
+    }
+
+    splitRingStyle(): string {
+        const buy = this.summary()?.buyFills ?? 0;
+        const sell = this.summary()?.sellFills ?? 0;
+        const unfilled = this.unfilledOrders();
+        const total = buy + sell + unfilled;
+
+        if (total <= 0) {
+            return '#315f65';
+        }
+
+        const buyEnd = (buy / total) * 100;
+        const sellEnd = buyEnd + ((sell / total) * 100);
+
+        return `radial-gradient(circle, #101c29 0 57%, transparent 58%), conic-gradient(#72d8c0 0 ${buyEnd}%, #ee7b83 ${buyEnd}% ${sellEnd}%, #315f65 ${sellEnd}% 100%)`;
     }
 
     trackByInstrument(_: number, item: InstrumentMetrics): number {

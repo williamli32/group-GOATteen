@@ -29,6 +29,8 @@ export class App {
     const url = this.currentUrl();
     const isPublicRoute = url === '/login' || url === '/register';
 
-    return this.auth.isLoggedIn() && !isPublicRoute;
+    return this.auth.isLoggedIn()
+      && this.auth.hasAnalystAccess()
+      && !isPublicRoute;
   });
 }

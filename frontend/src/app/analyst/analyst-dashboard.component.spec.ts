@@ -53,7 +53,7 @@ describe('AnalystDashboardComponent', () => {
                     instrumentClass: 'EQUITY_US',
                     exchange: 'NASDAQ',
                     countryCode: 'US',
-                    currency: 'USD',
+                    currency: 'GBP',
                     tradable: true,
                     latestQuote: null
                 }
@@ -151,5 +151,46 @@ describe('AnalystDashboardComponent', () => {
 
         expect(fixture.nativeElement.textContent).toContain('No instrument data.');
         expect(fixture.nativeElement.textContent).toContain('No recent activity.');
+    });
+
+    it('builds line-chart points from daily trend values', () => {
+        component.trends.set([
+            {
+                date: '2026-10-01',
+                totalOrders: 10,
+                filledOrders: 8,
+                rejectedOrders: 2,
+                activeClients: 3,
+                executedQuantity: 100,
+                tradedValue: 1000
+            },
+            {
+                date: '2026-10-02',
+                totalOrders: 20,
+                filledOrders: 15,
+                rejectedOrders: 5,
+                activeClients: 4,
+                executedQuantity: 200,
+                tradedValue: 2500
+            }
+        ]);
+
+        expect(component.trendPoints('orders')).toBe('0,100.4 600,22');
+        expect(component.trendAreaPoints('value')).toBe('0,190 0,122.8 600,22 600,190');
+    });
+
+    it('scales ring segments from BUY, SELL, and UNFILLED counts', () => {
+        component.summary.set({
+            ...summary,
+            totalOrders: 8,
+            filledOrders: 6,
+            buyFills: 2,
+            sellFills: 4
+        });
+
+        expect(component.unfilledOrders()).toBe(2);
+        expect(component.splitRingStyle()).toContain(
+            'radial-gradient(circle, #101c29 0 57%, transparent 58%), conic-gradient(#72d8c0 0 25%, #ee7b83 25% 75%, #315f65 75% 100%)'
+        );
     });
 });

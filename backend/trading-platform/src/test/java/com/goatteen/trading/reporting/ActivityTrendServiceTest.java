@@ -139,9 +139,13 @@ class ActivityTrendServiceTest {
                 .summarizeDailyExecution(start, end, null, null, null, null, null))
                 .thenReturn(List.of());
 
-        assertTrue(
-                service.calculate(start, end)
-                        .isEmpty());
+        List<ActivityTrendPoint> result = service.calculate(start, end);
+
+        assertEquals(3, result.size());
+        assertEquals(LocalDate.of(2026, 10, 10), result.get(0).date());
+        assertEquals(LocalDate.of(2026, 10, 12), result.get(2).date());
+        assertEquals(0L, result.get(0).totalOrders());
+        assertEquals(BigDecimal.ZERO, result.get(0).tradedValue());
     }
 
     @Test

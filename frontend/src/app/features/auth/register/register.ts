@@ -19,6 +19,7 @@ export class Register {
   email = '';
   password = '';
   confirmPassword = '';
+  role: 'CLIENT' | 'ANALYST' = 'CLIENT';
 
   showPassword = false;
   showConfirmPassword = false;
@@ -73,7 +74,8 @@ export class Register {
       firstName: this.firstName.trim(),
       lastName: this.lastName.trim(),
       email: this.email.trim(),
-      password: this.password
+      password: this.password,
+      role: this.role
     })
       .pipe(
         finalize(() => {

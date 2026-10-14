@@ -51,7 +51,7 @@ export class Login {
 
 
         this.router.navigate([
-          '/dashboard'
+          this.auth.hasAnalystAccess() ? '/analyst' : '/dashboard'
         ]);
 
       },

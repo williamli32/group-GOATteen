@@ -105,6 +105,19 @@
 
                 <div class="form-field">
 
+                    <label for="role">
+                        Account Type
+                    </label>
+
+                    <select id="role" name="role" [(ngModel)]="role">
+                        <option value="CLIENT">Client</option>
+                        <option value="ANALYST">Analyst</option>
+                    </select>
+
+                </div>
+
+                <div class="form-field">
+
                     <label for="password">
                         Password
                     </label>
