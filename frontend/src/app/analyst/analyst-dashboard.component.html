@@ -1,4 +1,19 @@
 <main class="analyst-shell">
+    @if (graphDialog(); as dialog) {
+        <aside class="chart-hover-dialog" role="status" aria-live="polite"
+            [style.left.px]="dialog.x" [style.top.px]="dialog.y">
+            <button type="button" class="chart-hover-close" aria-label="Close chart details" (click)="hideTrendDialog()">×</button>
+            <span>{{ dialog.date }}</span>
+            <small>{{ dialog.detail }}</small>
+            @for (series of dialog.series; track series.label) {
+                <div class="chart-dialog-series">
+                    <i [style.background-color]="series.color"></i>
+                    <span>{{ series.label }}</span>
+                    <strong>{{ series.value }}</strong>
+                </div>
+            }
+        </aside>
+    }
 
     <header class="masthead">
         <div>
@@ -515,20 +530,9 @@
                         ) {
 
                         <circle class="orders-point" [attr.cx]="trendPointX(index)"
-                            [attr.cy]="trendPointY(index, 'orders')" r="3">
-
-                            <title>
-                                {{
-                                point.date
-                                | date:'MMM d'
-                                }}:
-                                {{
-                                point.filledOrders
-                                }}
-                                trades
-                            </title>
-
-                        </circle>
+                            [attr.cy]="trendPointY(index, 'orders')" r="3"
+                            (mouseenter)="showTrendDialog('Filled orders', graphDateLabel(point.date), formatNumber(point.filledOrders), 'Daily filled order activity', $event)"
+                            (mouseleave)="hideTrendDialog()"></circle>
 
                         }
 
@@ -622,22 +626,9 @@
                         ) {
 
                         <circle class="value-point" [attr.cx]="trendPointX(index)"
-                            [attr.cy]="trendPointY(index, 'value')" r="3">
-
-                            <title>
-                                {{
-                                point.date
-                                | date:'MMM d'
-                                }}:
-                                {{
-                                formatMoney(
-                                point.tradedValue,
-                                currency()
-                                )
-                                }}
-                            </title>
-
-                        </circle>
+                            [attr.cy]="trendPointY(index, 'value')" r="3"
+                            (mouseenter)="showTrendDialog('Trading value', graphDateLabel(point.date), formatMoney(point.tradedValue, currency()), 'Daily reported notional', $event)"
+                            (mouseleave)="hideTrendDialog()"></circle>
 
                         }
 
@@ -703,7 +694,8 @@
 
                 <div class="donut-copy">
 
-                    <div class="split-ring" [style.background]="splitRingStyle()">
+                    <div class="split-ring" [style.background]="splitRingStyle()"
+                        (mouseenter)="showPieDialog($event)" (mouseleave)="hideTrendDialog()">
 
                         <span>
                             {{
@@ -772,12 +764,12 @@
                             <polyline class="buy-history-line" [attr.points]="buySellTrendPoints('BUY')"></polyline>
                             <polyline class="sell-history-line" [attr.points]="buySellTrendPoints('SELL')"></polyline>
                             @for (point of trends(); track point.date; let index = $index) {
-                                <circle class="buy-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'BUY')" r="4">
-                                    <title>{{ point.date | date:'MMM d' }} · BUY: {{ point.buyFills }} fills</title>
-                                </circle>
-                                <circle class="sell-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'SELL')" r="4">
-                                    <title>{{ point.date | date:'MMM d' }} · SELL: {{ point.sellFills }} fills</title>
-                                </circle>
+                                <circle class="buy-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'BUY')" r="4"
+                                    (mouseenter)="showBuySellDateDialog(index, $event)"
+                                    (mouseleave)="hideTrendDialog()"></circle>
+                                <circle class="sell-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'SELL')" r="4"
+                                    (mouseenter)="showBuySellDateDialog(index, $event)"
+                                    (mouseleave)="hideTrendDialog()"></circle>
                             }
                             @for (point of trends(); track point.date; let index = $index) {
                                 @if (showTrendLabel(index)) {
@@ -834,7 +826,7 @@
                                             )
                                         ) * 100
                                         : 0
-                                ">
+                                " (mouseenter)="showOutcomeDialog('FILLED', summary()?.filledOrders ?? 0, $event)" (mouseleave)="hideTrendDialog()">
                         </i>
 
                     </div>
@@ -865,7 +857,7 @@
                                             )
                                         ) * 100
                                         : 0
-                                ">
+                                " (mouseenter)="showOutcomeDialog('REJECTED', summary()?.rejectedOrders ?? 0, $event)" (mouseleave)="hideTrendDialog()">
                         </i>
 
                     </div>
@@ -920,20 +912,9 @@
                         ) {
 
                         <circle class="client-point" [attr.cx]="clientTrendPointX(index)"
-                            [attr.cy]="clientTrendPointY(index)" r="4">
-
-                            <title>
-                                {{
-                                point.date
-                                | date:'MMM d'
-                                }}:
-                                {{
-                                point.activeClients
-                                }}
-                                active clients
-                            </title>
-
-                        </circle>
+                            [attr.cy]="clientTrendPointY(index)" r="4"
+                            (mouseenter)="showTrendDialog('Active clients', graphDateLabel(point.date), formatNumber(point.activeClients), 'Distinct clients active that day', $event)"
+                            (mouseleave)="hideTrendDialog()"></circle>
 
                         }
 

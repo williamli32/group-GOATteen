@@ -9,9 +9,97 @@
 }
 
 .analyst-shell {
+    position: relative;
     min-height: 100vh;
     padding: 34px clamp(20px, 4vw, 64px) 60px;
     background: radial-gradient(circle at 85% 0%, #173044 0, transparent 32%), #0b111b;
+}
+
+.chart-hover-dialog {
+    position: fixed;
+    z-index: 20;
+    pointer-events: none;
+    display: grid;
+    min-width: 245px;
+    gap: 5px;
+    padding: 15px 38px 14px 16px;
+    border: 1px solid #4b7d80;
+    border-left: 3px solid #72d8c0;
+    border-radius: 4px;
+    background: #101c29;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, .36);
+    animation: chart-dialog-in .14s ease-out;
+    transform: translate(-50%, calc(-100% - 14px));
+}
+
+.chart-hover-dialog p,
+.chart-hover-dialog strong,
+.chart-hover-dialog span,
+.chart-hover-dialog small {
+    margin: 0;
+}
+
+.chart-hover-dialog p {
+    color: #72d8c0;
+    font: 600 10px 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+}
+
+.chart-hover-dialog strong {
+    color: #f4f7fb;
+    font: 700 18px 'JetBrains Mono', monospace;
+}
+
+.chart-hover-dialog span,
+.chart-hover-dialog small {
+    color: #9babba;
+    font: 11px 'JetBrains Mono', monospace;
+}
+
+.chart-hover-dialog small { color: #718195; }
+
+.chart-dialog-series {
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding-top: 5px;
+}
+
+.chart-dialog-series i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.chart-dialog-series span {
+    color: #a7b5c2;
+    font: 11px 'IBM Plex Sans', sans-serif;
+}
+
+.chart-dialog-series strong {
+    color: #f4f7fb;
+    font: 600 11px 'JetBrains Mono', monospace;
+}
+
+.chart-hover-close {
+    position: absolute;
+    top: 7px;
+    right: 9px;
+    border: 0;
+    background: transparent;
+    color: #9babba;
+    pointer-events: auto;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.chart-hover-close:hover { color: #f4f7fb; }
+
+@keyframes chart-dialog-in {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .masthead,
@@ -442,22 +530,27 @@ input[type='date']::-webkit-calendar-picker-indicator {
     display: flex;
     flex: 1;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 18px;
     min-height: 104px;
 }
 
 .split-ring {
     display: grid;
-    width: 240px;
-    height: 240px;
+    width: 280px;
+    height: 280px;
     place-content: center;
-    border: 22px solid #101c29;
+    flex: 0 0 auto;
+    border: 24px solid #101c29;
     border-radius: 50%;
     text-align: center;
+    cursor: crosshair;
+    transition: transform .15s ease;
 }
 
-.split-ring span { font: 36px 'JetBrains Mono', monospace; }
+.split-ring:hover { transform: scale(1.03); }
+
+.split-ring span { font: 40px 'JetBrains Mono', monospace; }
 .split-ring small { color: #8191a4; font-size: 10px; }
 .split-legend { display: grid; gap: 10px; color: #a7b5c2; font: 11px 'JetBrains Mono', monospace; }
 .split-legend span { display: flex; gap: 6px; align-items: center; }
@@ -470,6 +563,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .buy-sell-history {
     flex: 1;
     min-width: 0;
+    margin-left: auto;
     padding-left: 24px;
     border-left: 1px solid #26394a;
 }
@@ -557,6 +651,10 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .outcome-bars i { display: block; height: 12px; min-width: 3px; border-radius: 2px; }
 .filled-bar { background: #68d391; }
 .rejected-bar { background: #ee7b83; }
+.filled-bar,
+.rejected-bar { cursor: crosshair; transition: filter .15s ease; }
+.filled-bar:hover,
+.rejected-bar:hover { filter: brightness(1.25); }
 
 .table-panel { overflow: hidden; }
 .recent-activity-panel { grid-column: span 2; overflow-x: auto; }
@@ -598,4 +696,32 @@ td small { margin-top: 4px; font: 10px 'JetBrains Mono', monospace; }
     .period-label { font-size: 10px; }
     .table-panel { overflow-x: auto; }
     table { min-width: 510px; }
+
+    .chart-hover-dialog {
+        right: auto;
+        min-width: 0;
+    }
+
+    .donut-copy {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .split-ring {
+        width: 240px;
+        height: 240px;
+        align-self: center;
+    }
+
+    .split-legend {
+        align-self: center;
+    }
+
+    .buy-sell-history {
+        width: 100%;
+        margin-left: 0;
+        padding: 18px 0 0;
+        border-top: 1px solid #26394a;
+        border-left: 0;
+    }
 }

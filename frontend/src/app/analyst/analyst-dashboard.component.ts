@@ -29,6 +29,14 @@ interface AggregatedClientMetrics {
     values: ClientCurrencyValue[];
 }
 
+interface GraphDialog {
+    date: string;
+    detail: string;
+    series: Array<{ label: string; value: string; color: string }>;
+    x: number;
+    y: number;
+}
+
 @Component({
     selector: 'app-analyst-dashboard',
     standalone: true,
@@ -57,6 +65,7 @@ export class AnalystDashboardComponent implements OnInit {
     readonly marketInstruments = signal<MarketInstrumentResponse[]>([]);
     readonly clientId = signal<number | undefined>(undefined);
     readonly clientOptions = signal<ClientMetrics[]>([]);
+    readonly graphDialog = signal<GraphDialog | null>(null);
 
     constructor(
         private readonly reportingService: ReportingService,
@@ -245,6 +254,91 @@ export class AnalystDashboardComponent implements OnInit {
 
     trendPointY(index: number, field: 'orders' | 'value'): number {
         return this.trendCoordinates(field)[index]?.y ?? 190;
+    }
+
+    showTrendDialog(
+        title: string,
+        date: string,
+        value: string,
+        detail: string,
+        event: MouseEvent,
+    ): void {
+        this.graphDialog.set({
+            date,
+            detail,
+            series: [{ label: title, value, color: '#72d8c0' }],
+            x: event.clientX,
+            y: event.clientY
+        });
+    }
+
+    showBuySellDateDialog(index: number, event: MouseEvent): void {
+        const point = this.trends()[index];
+
+        if (!point) {
+            return;
+        }
+
+        this.graphDialog.set({
+            date: this.graphDateLabel(point.date),
+            detail: 'BUY and SELL fills for this date',
+            series: [
+                {
+                    label: 'BUY fills',
+                    value: this.formatNumber(point.buyFills),
+                    color: '#72d8c0'
+                },
+                {
+                    label: 'SELL fills',
+                    value: this.formatNumber(point.sellFills),
+                    color: '#ee7b83'
+                },
+                
+            ],
+            x: event.clientX,
+            y: event.clientY
+        });
+    }
+
+    hideTrendDialog(): void {
+        this.graphDialog.set(null);
+    }
+
+    graphDateLabel(date: string): string {
+        return new Intl.DateTimeFormat('en-GB', {
+            month: 'short',
+            day: 'numeric'
+        }).format(new Date(`${date}T00:00:00`));
+    }
+
+    showBuySellDialog(side: 'BUY' | 'SELL', date: string, fills: number, event: MouseEvent): void {
+        this.showTrendDialog(
+            `${side} fills`,
+            date,
+            `${fills} fills`,
+            'Historical daily activity',
+            event,
+        );
+    }
+
+    showOutcomeDialog(status: 'FILLED' | 'REJECTED', orders: number, event: MouseEvent): void {
+        this.showTrendDialog(
+            `${status} orders`,
+            'Current reporting period',
+            `${orders} orders`,
+            'Order outcome total',
+            event,
+        );
+    }
+
+    showPieDialog(event: MouseEvent): void {
+        this.showTrendDialog(
+            'BUY vs SELL',
+            'Current reporting period',
+            `${this.formatNumber((this.summary()?.buyFills ?? 0) + (this.summary()?.sellFills ?? 0))} fills`,
+            `BUY ${this.summary()?.buyFills ?? 0} · SELL ${this.summary()?.sellFills ?? 0}`,
+            event,
+        );
     }
 
     showTrendLabel(index: number): boolean {
