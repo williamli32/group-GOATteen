@@ -686,7 +686,7 @@
             </article>
 
 
-            <article class="chart-panel split-panel">
+            <article class="chart-panel split-panel buy-sell-panel">
 
                 <div class="panel-heading">
 
@@ -757,12 +757,31 @@
 
                     </div>
 
+                    <div class="buy-sell-history">
+                        <div class="history-heading">
+                            <span>Historical fills</span>
+                            <span><i class="buy-dot"></i> BUY <i class="sell-dot"></i> SELL</span>
+                        </div>
+                        <svg viewBox="0 0 600 220" role="img" aria-label="BUY and SELL fills over time">
+                            <line class="history-gridline" x1="0" y1="22" x2="600" y2="22"></line>
+                            <line class="history-gridline" x1="0" y1="106" x2="600" y2="106"></line>
+                            <line class="history-axis" x1="0" y1="190" x2="600" y2="190"></line>
+                            <polyline class="buy-history-line" [attr.points]="buySellTrendPoints('BUY')"></polyline>
+                            <polyline class="sell-history-line" [attr.points]="buySellTrendPoints('SELL')"></polyline>
+                            @for (point of trends(); track point.date; let index = $index) {
+                                @if (showTrendLabel(index)) {
+                                    <text class="history-label" [attr.x]="buySellTrendPointX(index)" y="212">{{ point.date | date:'MMM d' }}</text>
+                                }
+                            }
+                        </svg>
+                    </div>
+
                 </div>
 
             </article>
 
 
-            <article class="chart-panel split-panel">
+            <article class="chart-panel split-panel outcome-panel">
 
                 <div class="panel-heading">
 

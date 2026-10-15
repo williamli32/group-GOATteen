@@ -74,6 +74,8 @@ export interface ActivityTrendPoint {
     activeClients: number;
     executedQuantity: number;
     tradedValue: number;
+    buyFills: number;
+    sellFills: number;
 }
 
 @Injectable({ providedIn: 'root' })

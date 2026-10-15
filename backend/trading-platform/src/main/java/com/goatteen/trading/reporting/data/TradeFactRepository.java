@@ -430,7 +430,9 @@ public interface TradeFactRepository
                 COALESCE(
                     SUM(trade_value),
                     0
-                )
+                ),
+                COUNT(*) FILTER (WHERE side = 'BUY'),
+                COUNT(*) FILTER (WHERE side = 'SELL')
 
             FROM reporting.trade_facts
 
@@ -455,7 +457,9 @@ public interface TradeFactRepository
                 COALESCE(
                     SUM(trade_value),
                     0
-                )
+                ),
+                COUNT(*) FILTER (WHERE side = 'BUY'),
+                COUNT(*) FILTER (WHERE side = 'SELL')
 
             FROM reporting.trade_facts
 

@@ -124,6 +124,14 @@ public class ActivityTrendService {
 
             data.tradedValue = toBigDecimal(
                     row[2]);
+
+            data.buyFills = row.length > 3
+                    ? toLong(row[3])
+                    : 0L;
+
+            data.sellFills = row.length > 4
+                    ? toLong(row[4])
+                    : 0L;
         }
 
         LocalDate firstDate = filters
@@ -170,7 +178,11 @@ public class ActivityTrendService {
 
                                     data.executedQuantity,
 
-                                    data.tradedValue);
+                                    data.tradedValue,
+
+                                    data.buyFills,
+
+                                    data.sellFills);
                         })
                 .toList();
     }
@@ -239,5 +251,9 @@ public class ActivityTrendService {
         private BigDecimal executedQuantity = BigDecimal.ZERO;
 
         private BigDecimal tradedValue = BigDecimal.ZERO;
+
+                private long buyFills;
+
+                private long sellFills;
     }
 }

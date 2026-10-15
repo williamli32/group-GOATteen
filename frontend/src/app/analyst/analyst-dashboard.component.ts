@@ -187,6 +187,38 @@ export class AnalystDashboardComponent implements OnInit {
         return this.clientTrendCoordinates()[index]?.y ?? 190;
     }
 
+    buySellTrendPoints(side: 'BUY' | 'SELL'): string {
+        return this.buySellTrendCoordinates(side)
+            .map(point => `${point.x},${point.y}`)
+            .join(' ');
+    }
+
+    buySellTrendPointX(index: number): number {
+        return this.buySellTrendCoordinates('BUY')[index]?.x ?? 0;
+    }
+
+    buySellTrendPointY(index: number, side: 'BUY' | 'SELL'): number {
+        return this.buySellTrendCoordinates(side)[index]?.y ?? 190;
+    }
+
+    private buySellTrendCoordinates(side: 'BUY' | 'SELL'): Array<{ x: number; y: number }> {
+        const values = this.trends().map(point => side === 'BUY' ? point.buyFills : point.sellFills);
+        const maximum = Math.max(
+            ...this.trends().flatMap(point => [point.buyFills, point.sellFills]),
+            1
+        );
+        const chartWidth = 600;
+        const chartBottom = 190;
+        const chartTop = 22;
+
+        return values.map((value, index) => ({
+            x: values.length === 1
+                ? chartWidth / 2
+                : (index / (values.length - 1)) * chartWidth,
+            y: chartBottom - ((value / maximum) * (chartBottom - chartTop))
+        }));
+    }
+
     private clientTrendCoordinates(): Array<{ x: number; y: number }> {
         const values = this.trends().map(point => point.activeClients);
         const maximum = Math.max(...values, 1);

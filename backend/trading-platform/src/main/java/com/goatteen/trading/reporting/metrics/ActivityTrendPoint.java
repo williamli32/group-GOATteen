@@ -12,5 +12,7 @@ public record ActivityTrendPoint(
         long activeClients,
 
         BigDecimal executedQuantity,
-        BigDecimal tradedValue) {
+        BigDecimal tradedValue,
+        long buyFills,
+        long sellFills) {
 }

@@ -290,8 +290,19 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .client-trend-panel {
+    order: 1;
+    grid-column: span 2;
+    min-height: 250px;
+}
+
+.outcome-panel {
+    min-height: 250px;
+}
+
+.buy-sell-panel {
+    order: 2;
     grid-column: 1 / -1;
-    min-height: 180px;
+    min-height: 380px;
 }
 
 .panel-heading {
@@ -434,15 +445,15 @@ input[type='date']::-webkit-calendar-picker-indicator {
 
 .split-ring {
     display: grid;
-    width: 92px;
-    height: 92px;
+    width: 240px;
+    height: 240px;
     place-content: center;
-    border: 11px solid #101c29;
+    border: 22px solid #101c29;
     border-radius: 50%;
     text-align: center;
 }
 
-.split-ring span { font: 19px 'JetBrains Mono', monospace; }
+.split-ring span { font: 36px 'JetBrains Mono', monospace; }
 .split-ring small { color: #8191a4; font-size: 10px; }
 .split-legend { display: grid; gap: 10px; color: #a7b5c2; font: 11px 'JetBrains Mono', monospace; }
 .split-legend span { display: flex; gap: 6px; align-items: center; }
@@ -451,6 +462,58 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .buy-dot { background: #72d8c0; }
 .sell-dot { background: #ee7b83; }
 .track-dot { width: 8px; height: 8px; border-radius: 50%; background: #315f65; }
+
+.buy-sell-history {
+    flex: 1;
+    min-width: 0;
+    padding-left: 24px;
+    border-left: 1px solid #26394a;
+}
+
+.history-heading {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    color: #9babba;
+    font: 11px 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+}
+
+.history-heading span:last-child {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.buy-sell-history svg {
+    display: block;
+    width: 100%;
+    height: 220px;
+    overflow: visible;
+}
+
+.history-gridline {
+    stroke: #263b4b;
+    stroke-dasharray: 3 5;
+}
+
+.history-axis { stroke: #496071; }
+.buy-history-line,
+.sell-history-line {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+}
+
+.buy-history-line { stroke: #72d8c0; }
+.sell-history-line { stroke: #ee7b83; }
+.history-label {
+    fill: #718195;
+    font: 11px 'JetBrains Mono', monospace;
+    text-anchor: middle;
+}
 
 .outcome-bars {
     display: grid;
