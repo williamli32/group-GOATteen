@@ -16,8 +16,16 @@ import com.goatteen.trading.order.Order;
 import com.goatteen.trading.order.OrderRepository;
 import com.goatteen.trading.order.OrderSide;
 import com.goatteen.trading.order.OrderStatus;
+import com.goatteen.trading.portfolio.Position;
+import com.goatteen.trading.portfolio.PositionRepository;
 import com.goatteen.trading.reporting.data.TradeFact;
 import com.goatteen.trading.reporting.data.TradeFactRepository;
+import com.goatteen.trading.reporting.data.OrderFact;
+import com.goatteen.trading.reporting.data.OrderFactRepository;
+import com.goatteen.trading.reporting.metrics.ReportingFilters;
+import com.goatteen.trading.reporting.metrics.TradingActivityMetrics;
+import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
+import com.goatteen.trading.reporting.sync.OrderFactSyncService;
 import com.goatteen.trading.reporting.tracking.SyncTracking;
 import com.goatteen.trading.reporting.tracking.SyncTrackingRepository;
 import com.goatteen.trading.user.User;
@@ -52,6 +60,15 @@ class ReportingDataSyncIntegrationTest {
         private TradeFactRepository tradeFactRepository;
 
         @Autowired
+        private OrderFactRepository orderFactRepository;
+
+        @Autowired
+        private TradingActivityMetricsService tradingActivityMetricsService;
+
+        @Autowired
+        private OrderFactSyncService orderFactSyncService;
+
+        @Autowired
         private SyncTrackingRepository syncTrackingRepository;
 
         @Autowired
@@ -68,6 +85,9 @@ class ReportingDataSyncIntegrationTest {
 
         @Autowired
         private QuoteRepository quoteRepository;
+
+        @Autowired
+        private PositionRepository positionRepository;
 
         private User testUser;
         private Client testClient;
@@ -572,6 +592,287 @@ class ReportingDataSyncIntegrationTest {
                 assertEquals(
                                 "BUY",
                                 client2Trades.get(0).getSide());
+        }
+
+        @Test
+        void emptyReportingPeriodReturnsZeroWithoutChangingTransactionalData()
+                        throws Exception {
+
+                LocalDateTime start = LocalDateTime.of(2099, 1, 1, 0, 0);
+                LocalDateTime end = start.plusDays(1);
+
+                long ordersBefore = orderRepository.count();
+                long fillsBefore = fillRepository.count();
+
+                TradingActivityMetrics metrics = tradingActivityMetricsService.calculate(
+                                new ReportingFilters(start, end, null, null, null, null, testAccount.getId(), "USD"));
+
+                assertEquals(0, metrics.totalOrders());
+                assertEquals(0, metrics.filledOrders());
+                assertEquals(0, metrics.rejectedOrders());
+                assertEquals(0, metrics.activeClients());
+                assertEquals(ordersBefore, orderRepository.count());
+                assertEquals(fillsBefore, fillRepository.count());
+        }
+
+        @Test
+        void singleTradeReconcilesTransactionalFillAndReportingTrade()
+                        throws Exception {
+
+                Fill fill = createFilledOrder(
+                                testAccount,
+                                testInstrument,
+                                OrderSide.BUY,
+                                new BigDecimal("12"),
+                                LocalDateTime.now().minusMinutes(2));
+
+                TradeFact trade = waitForTradeFact(fill.getId());
+
+                assertEquals(fill.getId(), trade.getFillId());
+                assertEquals(1, tradeFactRepository.findByClientIdAndDateRange(
+                                testClient.getId(),
+                                LocalDateTime.now().minusMinutes(10),
+                                LocalDateTime.now().plusMinutes(10)).size());
+        }
+
+        @Test
+        void multipleInstrumentsAndBothSidesAggregateCorrectly()
+                        throws Exception {
+
+                Instrument secondInstrument = createInstrument("Second Instrument", "NYSE", "US");
+
+                Fill buyFill = createFilledOrder(
+                                testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("10"), LocalDateTime.now().minusMinutes(4));
+
+                createFilledOrder(
+                                testAccount, secondInstrument, OrderSide.BUY,
+                                new BigDecimal("20"), LocalDateTime.now().minusMinutes(3));
+
+                createFilledOrder(
+                                testAccount, testInstrument, OrderSide.SELL,
+                                new BigDecimal("5"), LocalDateTime.now().minusMinutes(2));
+
+                waitForTradeFact(buyFill.getId());
+
+                TradingActivityMetrics metrics = currentMetrics();
+
+                assertEquals(3, metrics.totalOrders());
+                assertEquals(2, metrics.buyFills());
+                assertEquals(1, metrics.sellFills());
+                assertEquals(0, new BigDecimal("30").compareTo(metrics.buyQuantity()));
+                assertEquals(0, new BigDecimal("5").compareTo(metrics.sellQuantity()));
+                assertEquals(2, tradeFactRepository.findByInstrumentIdOrderByOrderFilledAtDesc(
+                                testInstrument.getId()).size());
+        }
+
+        @Test
+        void rejectedOrdersAppearInOrderReportingButNotTradeReporting()
+                        throws Exception {
+
+                Order rejected = createSubmittedOrder(
+                                testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("7"), LocalDateTime.now().minusMinutes(2));
+
+                orderExecutionService.rejectOrder(rejected.getId(), "Test rejection");
+                waitForOrderFact(rejected.getId());
+
+                TradingActivityMetrics metrics = currentMetrics();
+
+                assertEquals(1, metrics.totalOrders());
+                assertEquals(0, metrics.filledOrders());
+                assertEquals(1, metrics.rejectedOrders());
+                assertEquals(0, metrics.totalExecutedQuantity().compareTo(BigDecimal.ZERO));
+                assertTrue(tradeFactRepository.findByClientIdAndDateRange(
+                                testClient.getId(),
+                                LocalDateTime.now().minusMinutes(10),
+                                LocalDateTime.now().plusMinutes(10)).isEmpty());
+        }
+
+        @Test
+        void dateRangeIncludesStartAndExcludesEndBoundary()
+                        throws Exception {
+
+                LocalDateTime boundary = LocalDateTime.of(2026, 10, 12, 0, 0);
+                Fill firstFill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("4"), boundary);
+                Fill secondFill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("8"), boundary.plusDays(1));
+
+                waitForOrderFact(firstFill.getOrder().getId());
+                waitForOrderFact(secondFill.getOrder().getId());
+
+                TradingActivityMetrics metrics = tradingActivityMetricsService.calculate(
+                                new ReportingFilters(
+                                                boundary,
+                                                boundary.plusDays(1),
+                                                null, null, null, null, testAccount.getId(), "USD"));
+
+                assertEquals(1, metrics.totalOrders());
+                assertEquals(1, metrics.activeClients());
+        }
+
+        @Test
+        void reportingFillCountMatchesTransactionalFillCount()
+                        throws Exception {
+
+                Fill firstFill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("3"), LocalDateTime.now().minusMinutes(3));
+                Fill secondFill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("6"), LocalDateTime.now().minusMinutes(2));
+
+                TradingActivityMetrics metrics = currentMetrics();
+                assertNotNull(tradeFactRepository.findByFillId(firstFill.getId()).orElse(null));
+                assertNotNull(tradeFactRepository.findByFillId(secondFill.getId()).orElse(null));
+                assertEquals(2, metrics.filledOrders());
+        }
+
+        @Test
+        void repeatedRefreshDoesNotCreateDuplicateReportingRows()
+                        throws Exception {
+
+                Fill fill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("9"), LocalDateTime.now().minusMinutes(2));
+                TradeFact original = waitForTradeFact(fill.getId());
+
+                orderFactSyncService.syncOrderById(fill.getOrder().getId());
+
+                assertEquals(1, tradeFactRepository.findByFillId(fill.getId()).stream().count());
+                assertEquals(original.getTradeFactId(), tradeFactRepository.findByFillId(fill.getId()).orElseThrow().getTradeFactId());
+        }
+
+        @Test
+        void reportingRefreshUpdatesOrderStatusWithoutCreatingAnotherFact()
+                        throws Exception {
+
+                Order order = createSubmittedOrder(
+                                testAccount,
+                                testInstrument,
+                                OrderSide.BUY,
+                                new BigDecimal("13"),
+                                LocalDateTime.now().minusMinutes(3));
+
+                orderFactSyncService.syncOrderById(order.getId());
+                assertEquals("SUBMITTED", waitForOrderFact(order.getId()).getFinalStatus());
+
+                orderExecutionService.rejectOrder(order.getId(), "Refreshed rejection");
+                orderFactSyncService.syncOrderById(order.getId());
+
+                OrderFact refreshed = waitForOrderFact(order.getId());
+
+                assertEquals("REJECTED", refreshed.getFinalStatus());
+                assertEquals(1, orderFactRepository.findByOrderId(order.getId()).stream().count());
+                assertEquals("Refreshed rejection", refreshed.getRejectionReason());
+        }
+
+        @Test
+        void reportingQueriesDoNotChangeTransactionalRecords()
+                        throws Exception {
+
+                Fill fill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
+                                new BigDecimal("11"), LocalDateTime.now().minusMinutes(2));
+                waitForTradeFact(fill.getId());
+
+                Order beforeOrder = orderRepository.findById(fill.getOrder().getId()).orElseThrow();
+                BigDecimal beforeQuantity = beforeOrder.getQuantity();
+                OrderStatus beforeStatus = beforeOrder.getStatus();
+                BigDecimal beforeFillPrice = fillRepository.findById(fill.getId()).orElseThrow().getFillPrice();
+
+                currentMetrics();
+                tradeFactRepository.findByClientIdAndDateRange(
+                                testClient.getId(),
+                                LocalDateTime.now().minusMinutes(10),
+                                LocalDateTime.now().plusMinutes(10));
+
+                Order afterOrder = orderRepository.findById(fill.getOrder().getId()).orElseThrow();
+                BigDecimal afterFillPrice = fillRepository.findById(fill.getId()).orElseThrow().getFillPrice();
+
+                assertEquals(beforeQuantity, afterOrder.getQuantity());
+                assertEquals(beforeStatus, afterOrder.getStatus());
+                assertEquals(beforeFillPrice, afterFillPrice);
+        }
+
+        private TradingActivityMetrics currentMetrics() {
+                return tradingActivityMetricsService.calculate(
+                                new ReportingFilters(
+                                                LocalDateTime.now().minusMinutes(10),
+                                                LocalDateTime.now().plusMinutes(10),
+                                                null, null, null, null, testAccount.getId(), "USD"));
+        }
+
+        private Order createSubmittedOrder(
+                        Account account,
+                        Instrument instrument,
+                        OrderSide side,
+                        BigDecimal quantity,
+                        LocalDateTime submittedAt) {
+
+                Order order = new Order();
+                order.setAccount(account);
+                order.setInstrument(instrument);
+                order.setSide(side);
+                order.setQuantity(quantity);
+                order.setStatus(OrderStatus.SUBMITTED);
+                order.setSubmittedAt(submittedAt);
+                return orderRepository.save(order);
+        }
+
+        private Fill createFilledOrder(
+                        Account account,
+                        Instrument instrument,
+                        OrderSide side,
+                        BigDecimal quantity,
+                        LocalDateTime submittedAt)
+                        throws Exception {
+
+                if (side == OrderSide.SELL) {
+                        Position position = positionRepository
+                                        .findByAccountIdAndInstrumentId(account.getId(), instrument.getId())
+                                        .orElseGet(Position::new);
+                        position.setAccount(account);
+                        position.setInstrument(instrument);
+                        position.setQuantity(position.getQuantity() == null
+                                        ? quantity
+                                        : position.getQuantity().add(quantity));
+                        position.setUpdatedAt(LocalDateTime.now());
+                        positionRepository.save(position);
+                }
+
+                Order order = createSubmittedOrder(account, instrument, side, quantity, submittedAt);
+                orderExecutionService.acceptOrder(order.getId());
+                Fill fill = orderExecutionService.executeOrder(order.getId());
+                waitForTradeFact(fill.getId());
+                return fill;
+        }
+
+        private Instrument createInstrument(String name, String exchange, String countryCode) {
+                Instrument instrument = new Instrument(
+                                "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 7),
+                                name,
+                                InstrumentClass.EQUITY,
+                                exchange,
+                                countryCode,
+                                "USD");
+                instrument = instrumentRepository.save(instrument);
+                quoteRepository.save(new Quote(
+                                instrument,
+                                new BigDecimal("90.00"),
+                                new BigDecimal("90.50"),
+                                new BigDecimal("90.25"),
+                                LocalDateTime.now()));
+                return instrument;
+        }
+
+        private OrderFact waitForOrderFact(Long orderId) throws InterruptedException {
+                long timeoutAt = System.currentTimeMillis() + 5000;
+                while (System.currentTimeMillis() < timeoutAt) {
+                        var fact = orderFactRepository.findByOrderId(orderId);
+                        if (fact.isPresent()) {
+                                return fact.get();
+                        }
+                        Thread.sleep(50);
+                }
+                throw new AssertionError("OrderFact was not synchronized for order " + orderId);
         }
 
         private TradeFact waitForTradeFact(

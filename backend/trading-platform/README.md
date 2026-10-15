@@ -423,7 +423,58 @@ and `/operations`.
 
 ### Test Structure
 
-STUB - update later
+Tests are grouped by domain under `src/test/java`. Unit tests cover services and
+controllers with mocks; integration tests use the PostgreSQL database configured
+by `application-test.yaml` and verify the transactional and reporting schemas
+together.
+
+### Run Tests
+
+From `backend/trading-platform`:
+
+```powershell
+# Compile production and test sources without executing tests
+mvn -DskipTests test-compile
+
+# Run the full backend suite
+mvn test
+
+# Run reporting unit tests
+mvn -Dtest="*Reporting*Test" test
+
+# Run the end-to-end reporting reconciliation suite
+mvn -Dtest=ReportingDataSyncIntegrationTest test
+```
+
+Integration tests require the test profile database variables used by
+`src/test/resources/application-test.yaml`:
+
+Create the test database once before the first integration run:
+
+```powershell
+docker exec -it leap-postgres psql -U postgres -d postgres -c "CREATE DATABASE leap_trading_test;"
+```
+
+Use a clean test database or a separate test schema. Flyway will apply the
+project migrations when the Spring test context starts.
+
+```powershell
+$env:TEST_DB_URL = "jdbc:postgresql://localhost:5433/leap_trading"
+$env:TEST_DB_USERNAME = "postgres"
+$env:TEST_DB_PASSWORD = "<password>"
+$env:JWT_SECRET = "<test-secret-at-least-32-characters>"
+```
+
+`ReportingDataSyncIntegrationTest` covers:
+
+- Empty reporting periods
+- Single trades and multiple instruments
+- BUY and SELL executions
+- Filled and rejected orders
+- Inclusive start and exclusive end date boundaries
+- Aggregate reporting reconciliation with transactional fills
+- Duplicate prevention and reporting refresh/update behavior
+- Reporting queries leaving transactional orders and fills unchanged
 
 ### Health Checks
 
