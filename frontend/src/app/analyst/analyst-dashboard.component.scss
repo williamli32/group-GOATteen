@@ -498,6 +498,11 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .history-axis { stroke: #496071; }
+.history-y-label {
+    fill: #8191a4;
+    font: 11px 'JetBrains Mono', monospace;
+    text-anchor: end;
+}
 .buy-history-line,
 .sell-history-line {
     fill: none;
@@ -509,6 +514,22 @@ input[type='date']::-webkit-calendar-picker-indicator {
 
 .buy-history-line { stroke: #72d8c0; }
 .sell-history-line { stroke: #ee7b83; }
+.buy-history-point,
+.sell-history-point {
+    cursor: crosshair;
+    stroke: #101c29;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+    transition: r .15s ease;
+}
+
+.buy-history-point { fill: #72d8c0; }
+.sell-history-point { fill: #ee7b83; }
+.buy-history-point:hover,
+.sell-history-point:hover {
+    r: 7;
+    stroke-width: 3;
+}
 .history-label {
     fill: #718195;
     font: 11px 'JetBrains Mono', monospace;

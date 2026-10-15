@@ -201,6 +201,15 @@ export class AnalystDashboardComponent implements OnInit {
         return this.buySellTrendCoordinates(side)[index]?.y ?? 190;
     }
 
+    buySellAxisLabels(): number[] {
+        const maximum = Math.max(
+            ...this.trends().flatMap(point => [point.buyFills, point.sellFills]),
+            1
+        );
+
+        return [maximum, maximum / 2, 0];
+    }
+
     private buySellTrendCoordinates(side: 'BUY' | 'SELL'): Array<{ x: number; y: number }> {
         const values = this.trends().map(point => side === 'BUY' ? point.buyFills : point.sellFills);
         const maximum = Math.max(

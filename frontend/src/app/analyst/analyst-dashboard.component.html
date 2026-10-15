@@ -762,12 +762,23 @@
                             <span>Historical fills</span>
                             <span><i class="buy-dot"></i> BUY <i class="sell-dot"></i> SELL</span>
                         </div>
-                        <svg viewBox="0 0 600 220" role="img" aria-label="BUY and SELL fills over time">
+                        <svg viewBox="-48 0 648 220" role="img" aria-label="BUY and SELL fills over time">
+                            @for (label of buySellAxisLabels(); track label; let index = $index) {
+                                <text class="history-y-label" x="-8" [attr.y]="index === 0 ? 26 : index === 1 ? 110 : 194">{{ formatNumber(label) }}</text>
+                            }
                             <line class="history-gridline" x1="0" y1="22" x2="600" y2="22"></line>
                             <line class="history-gridline" x1="0" y1="106" x2="600" y2="106"></line>
                             <line class="history-axis" x1="0" y1="190" x2="600" y2="190"></line>
                             <polyline class="buy-history-line" [attr.points]="buySellTrendPoints('BUY')"></polyline>
                             <polyline class="sell-history-line" [attr.points]="buySellTrendPoints('SELL')"></polyline>
+                            @for (point of trends(); track point.date; let index = $index) {
+                                <circle class="buy-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'BUY')" r="4">
+                                    <title>{{ point.date | date:'MMM d' }} · BUY: {{ point.buyFills }} fills</title>
+                                </circle>
+                                <circle class="sell-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'SELL')" r="4">
+                                    <title>{{ point.date | date:'MMM d' }} · SELL: {{ point.sellFills }} fills</title>
+                                </circle>
+                            }
                             @for (point of trends(); track point.date; let index = $index) {
                                 @if (showTrendLabel(index)) {
                                     <text class="history-label" [attr.x]="buySellTrendPointX(index)" y="212">{{ point.date | date:'MMM d' }}</text>
