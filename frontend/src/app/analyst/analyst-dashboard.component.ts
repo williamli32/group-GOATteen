@@ -37,6 +37,15 @@ interface GraphDialog {
     y: number;
 }
 
+type MetricKey =
+    | 'trades'
+    | 'quantity'
+    | 'filled'
+    | 'rejected'
+    | 'value'
+    | 'clients'
+    | 'instruments';
+
 @Component({
     selector: 'app-analyst-dashboard',
     standalone: true,
@@ -66,6 +75,7 @@ export class AnalystDashboardComponent implements OnInit {
     readonly clientId = signal<number | undefined>(undefined);
     readonly clientOptions = signal<ClientMetrics[]>([]);
     readonly graphDialog = signal<GraphDialog | null>(null);
+    readonly expandedMetric = signal<MetricKey | null>(null);
 
     constructor(
         private readonly reportingService: ReportingService,
@@ -551,6 +561,87 @@ export class AnalystDashboardComponent implements OnInit {
 
         return (this.summary()?.buyFills ?? 0)
             + (this.summary()?.sellFills ?? 0);
+    }
+
+    toggleMetric(metric: MetricKey): void {
+        this.expandedMetric.update(current => current === metric ? null : metric);
+    }
+
+    metricTitle(metric: MetricKey): string {
+        return {
+            trades: 'Total successful trades',
+            quantity: 'Executed quantity',
+            filled: 'Filled orders',
+            rejected: 'Rejected orders',
+            value: 'Trading value',
+            clients: 'Active clients',
+            instruments: 'Active instruments'
+        }[metric];
+    }
+
+    metricStats(metric: MetricKey): {
+        current: number;
+        previous: number;
+        change: number | null;
+        currentLabel: string;
+        previousLabel: string;
+    } {
+        if (metric === 'instruments') {
+            return {
+                current: this.instruments().length,
+                previous: 0,
+                change: null,
+                currentLabel: 'Current period',
+                previousLabel: 'Historical daily series unavailable'
+            };
+        }
+
+        if (metric === 'clients') {
+            return {
+                current: this.distinctClientCount(),
+                previous: 0,
+                change: null,
+                currentLabel: 'Selected period',
+                previousLabel: 'Distinct count'
+            };
+        }
+
+        const months = [...new Set(this.trends().map(point => point.date.slice(0, 7)))].sort();
+        const currentMonth = months.at(-1) ?? '';
+        const previousMonth = months.at(-2) ?? '';
+        const valueFor = (point: ActivityTrendPoint): number => {
+            switch (metric) {
+                case 'trades': return point.buyFills + point.sellFills;
+                case 'quantity': return Number(point.executedQuantity);
+                case 'filled': return point.filledOrders;
+                case 'rejected': return point.rejectedOrders;
+                case 'value': return Number(point.tradedValue);
+                default: return 0;
+            }
+        };
+        const totalForMonth = (month: string): number => this.trends()
+            .filter(point => point.date.startsWith(month))
+            .reduce((total, point) => total + valueFor(point), 0);
+        const current = totalForMonth(currentMonth);
+        const previous = totalForMonth(previousMonth);
+
+        return {
+            current,
+            previous,
+            change: previous === 0 ? (current === 0 ? 0 : null) : ((current - previous) / previous) * 100,
+            currentLabel: currentMonth || 'Current period',
+            previousLabel: previousMonth || 'Previous month'
+        };
+    }
+
+    metricValue(metric: MetricKey, value: number): string {
+        return metric === 'value'
+            ? this.formatMoney(value, this.currency())
+            : this.formatNumber(value);
+    }
+
+    distinctClientCount(): number {
+        return new Set(this.clients().map(client => client.clientId)).size;
     }
 
     mostActiveClients(): AggregatedClientMetrics[] {

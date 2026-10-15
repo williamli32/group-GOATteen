@@ -325,7 +325,11 @@ input[type='date']::-webkit-calendar-picker-indicator {
     overflow: hidden;
     border: 1px solid #26394a;
     background: #101c29;
+    cursor: pointer;
+    transition: border-color .2s ease, background .2s ease;
 }
+
+.metric-card:hover { border-color: #4b7d80; background: #132435; }
 
 .metric-card::before {
     position: absolute;
@@ -346,6 +350,130 @@ input[type='date']::-webkit-calendar-picker-indicator {
     color: #f4f7fb;
     font: 600 clamp(21px, 2.3vw, 30px) 'JetBrains Mono', monospace;
     letter-spacing: -1px;
+}
+
+.metric-detail {
+    display: grid;
+    gap: 6px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #2d4a58;
+    animation: metric-detail-in .22s ease-out;
+}
+
+.metric-modal-backdrop {
+    position: fixed;
+    z-index: 30;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(4, 9, 15, .78);
+    backdrop-filter: blur(6px);
+    animation: metric-modal-fade .2s ease-out;
+}
+
+.metric-modal {
+    position: relative;
+    width: min(680px, 100%);
+    min-height: 360px;
+    padding: 36px;
+    border: 1px solid #4b7d80;
+    border-top: 3px solid #72d8c0;
+    background: #101c29;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .5);
+    animation: metric-modal-rise .24s ease-out;
+}
+
+.metric-modal h2 { margin-bottom: 28px; font-size: 30px; }
+.metric-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    border: 0;
+    background: transparent;
+    color: #9babba;
+    cursor: pointer;
+    font-size: 26px;
+}
+.metric-modal-close:hover { color: #f4f7fb; }
+
+.metric-modal-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.metric-modal-stats article {
+    display: grid;
+    min-height: 120px;
+    align-content: space-between;
+    padding: 16px;
+    border: 1px solid #2b4553;
+    background: #0c1724;
+}
+
+.metric-modal-stats span,
+.metric-modal-content span,
+.metric-modal-content small {
+    color: #8191a4;
+    font: 11px 'JetBrains Mono', monospace;
+}
+
+.metric-modal-stats strong {
+    margin: 0;
+    color: #f4f7fb;
+    font: 600 22px 'JetBrains Mono', monospace;
+    letter-spacing: 0;
+}
+
+.metric-modal-content {
+    display: grid;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #2b4553;
+}
+
+.metric-modal-content .modal-kicker {
+    color: #72d8c0;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.metric-modal-content strong {
+    color: #f4f7fb;
+    font: 600 48px 'JetBrains Mono', monospace;
+}
+
+.metric-modal-content p { margin: 0; color: #c3d0d9; font-size: 15px; }
+
+@keyframes metric-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes metric-modal-rise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.metric-detail b {
+    color: #72d8c0;
+    font: 600 10px 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+}
+
+.metric-detail span {
+    color: #9babba;
+    font: 11px 'JetBrains Mono', monospace;
+}
+
+.metric-detail strong {
+    margin: 2px 0 0;
+    font-size: 17px;
+    letter-spacing: 0;
+}
+
+.positive-change { color: #68d391 !important; }
+.negative-change { color: #ee7b83 !important; }
+
+@keyframes metric-detail-in {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .accent-cyan::before { background: #72d8c0; }
@@ -696,6 +824,12 @@ td small { margin-top: 4px; font: 10px 'JetBrains Mono', monospace; }
     .period-label { font-size: 10px; }
     .table-panel { overflow-x: auto; }
     table { min-width: 510px; }
+
+    .metric-modal-backdrop { padding: 14px; }
+    .metric-modal { min-height: 0; padding: 28px 20px 22px; }
+    .metric-modal h2 { font-size: 24px; }
+    .metric-modal-stats { grid-template-columns: 1fr; }
+    .metric-modal-stats article { min-height: 88px; }
 
     .chart-hover-dialog {
         right: auto;

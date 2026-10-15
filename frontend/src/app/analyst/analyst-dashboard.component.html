@@ -1,4 +1,55 @@
 <main class="analyst-shell">
+    @if (expandedMetric(); as metric) {
+        <div class="metric-modal-backdrop" (click)="toggleMetric(metric)">
+            <section class="metric-modal" role="dialog" aria-modal="true" [attr.aria-label]="metricTitle(metric)"
+                (click)="$event.stopPropagation()">
+                <button type="button" class="metric-modal-close" aria-label="Close metric details"
+                    (click)="toggleMetric(metric)">×</button>
+                <p class="eyebrow">MARKET PULSE DETAIL</p>
+                <h2>{{ metricTitle(metric) }}</h2>
+
+                @if (metric === 'instruments') {
+                    <div class="metric-modal-content">
+                        <span class="modal-kicker">Current coverage</span>
+                        <strong>{{ instruments().length }}</strong>
+                        <p>instruments with executed trades in the selected reporting period.</p>
+                        <small>Daily historical instrument counts are not currently available from the reporting API.</small>
+                    </div>
+                } @else if (metric === 'clients') {
+                    <div class="metric-modal-content">
+                        <span class="modal-kicker">Distinct active clients</span>
+                        <strong>{{ distinctClientCount() }}</strong>
+                        <p>unique clients with activity in the selected reporting period.</p>
+                        <small>Each client is counted once, even if they placed orders on multiple days.</small>
+                    </div>
+                } @else {
+                    <div class="metric-modal-stats">
+                        <article>
+                            <span>{{ metricStats(metric).currentLabel }}</span>
+                            <strong>{{ metricValue(metric, metricStats(metric).current) }}</strong>
+                        </article>
+                        <article>
+                            <span>{{ metricStats(metric).previousLabel }}</span>
+                            <strong>{{ metricValue(metric, metricStats(metric).previous) }}</strong>
+                        </article>
+                        <article class="change-stat">
+                            <span>Month-on-month change</span>
+                            <strong [class.positive-change]="(metricStats(metric).change ?? 0) >= 0"
+                                [class.negative-change]="(metricStats(metric).change ?? 0) < 0">
+                                {{ metricStats(metric).change === null ? 'No prior baseline' : ((metricStats(metric).change ?? 0) | number:'1.1-1') + '%' }}
+                            </strong>
+                        </article>
+                    </div>
+                    <div class="metric-modal-content">
+                        <span class="modal-kicker">Interpretation</span>
+                        <p>{{ (metricStats(metric).change ?? 0) >= 0 ? 'This metric increased compared with the previous month.' : 'This metric decreased compared with the previous month.' }}</p>
+                        <small>Values are calculated from the aggregate reporting data for all clients in the selected period.</small>
+                    </div>
+                }
+            </section>
+        </div>
+    }
+
     @if (graphDialog(); as dialog) {
         <aside class="chart-hover-dialog" role="status" aria-live="polite"
             [style.left.px]="dialog.x" [style.top.px]="dialog.y">
@@ -302,10 +353,10 @@
 
         <div class="metric-grid">
 
-            <article class="metric-card accent-blue">
+            <article class="metric-card accent-blue" (click)="toggleMetric('trades')">
 
                 <span>
-                    Total trades
+                    Total successful trades
                 </span>
 
                 <strong>
@@ -316,10 +367,11 @@
                     executed trades
                 </small>
 
+
             </article>
 
 
-            <article class="metric-card accent-cyan">
+            <article class="metric-card accent-cyan" (click)="toggleMetric('quantity')">
 
                 <span>
                     Executed quantity
@@ -337,10 +389,11 @@
                     units filled
                 </small>
 
+
             </article>
 
 
-            <article class="metric-card accent-green">
+            <article class="metric-card accent-green" (click)="toggleMetric('filled')">
 
                 <span>
                     Filled orders
@@ -362,10 +415,11 @@
                     }}% fill rate
                 </small>
 
+
             </article>
 
 
-            <article class="metric-card accent-red">
+            <article class="metric-card accent-red" (click)="toggleMetric('rejected')">
 
                 <span>
                     Rejected orders
@@ -387,10 +441,11 @@
                     }}% rejection rate
                 </small>
 
+
             </article>
 
 
-            <article class="metric-card accent-gold">
+            <article class="metric-card accent-gold" (click)="toggleMetric('value')">
 
                 <span>
                     Trading value
@@ -409,10 +464,11 @@
                     reported notional · {{ currency() }}
                 </small>
 
+
             </article>
 
 
-            <article class="metric-card accent-violet">
+            <article class="metric-card accent-violet" (click)="toggleMetric('clients')">
 
                 <span>
                     Active clients
@@ -430,10 +486,11 @@
                     with submitted orders
                 </small>
 
+
             </article>
 
 
-            <article class="metric-card accent-blue">
+            <article class="metric-card accent-blue" (click)="toggleMetric('instruments')">
 
                 <span>
                     Active instruments
@@ -446,6 +503,7 @@
                 <small>
                     with executed trades
                 </small>
+
 
             </article>
 
