@@ -33,7 +33,7 @@
                             <strong>{{ metricValue(metric, metricStats(metric).previous) }}</strong>
                         </article>
                         <article class="change-stat">
-                            <span>Month-on-month change</span>
+                            <span>Month-over-month change</span>
                             <strong [class.positive-change]="(metricStats(metric).change ?? 0) >= 0"
                                 [class.negative-change]="(metricStats(metric).change ?? 0) < 0">
                                 {{ metricStats(metric).change === null ? 'No prior baseline' : ((metricStats(metric).change ?? 0) | number:'1.1-1') + '%' }}

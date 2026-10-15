@@ -616,14 +616,23 @@ npm run build
 
 ### Running Tests
 
-```bash
-# Run unit tests with Vitest
-ng test
-# or
-npm test
+Run these commands from the `frontend` directory:
 
-# Watch mode
-ng test --watch
+```bash
+# Run the complete suite once and exit
+npx ng test --watch=false
+
+# Equivalent npm script
+npm test -- --watch=false
+
+# Run tests interactively and rerun when files change
+npx ng test
+
+# Collect coverage while running once
+npx ng test --watch=false --code-coverage
+
+# Run only the analyst dashboard tests
+npx ng test --watch=false --include=src/app/analyst/analyst-dashboard.component.spec.ts
 ```
 
 ### Code Quality
@@ -856,13 +865,13 @@ ng serve --port 4300
 
 Run tests:
 ```bash
-npm test                    # Run once
-ng test --watch            # Watch mode
-ng test --code-coverage    # With coverage report
+npx ng test --watch=false  # Full suite once
+npx ng test                # Watch mode
+npx ng test --watch=false --code-coverage  # Coverage report
 
 # Run only the analyst dashboard tests
-ng test --watch=false --include=src/app/analyst/analyst-dashboard.component.spec.ts
-ng test --watch=false --include=src/app/operations/operations.component.spec.ts
+npx ng test --watch=false --include=src/app/analyst/analyst-dashboard.component.spec.ts
+npx ng test --watch=false --include=src/app/operations/operations.component.spec.ts
 ```
 
 ## Project Standards

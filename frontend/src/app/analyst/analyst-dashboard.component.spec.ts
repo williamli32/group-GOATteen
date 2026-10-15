@@ -986,4 +986,117 @@ describe('AnalystDashboardComponent', () => {
         }
     );
 
+
+    it(
+        'renders the Market Pulse cards from the reporting summary',
+        () => {
+
+            const cards = fixture.nativeElement.querySelectorAll(
+                '.metric-card'
+            );
+
+            expect(cards.length).toBe(7);
+            expect(fixture.nativeElement.textContent).toContain('Total successful trades');
+            expect(fixture.nativeElement.textContent).toContain('Executed quantity');
+            expect(fixture.nativeElement.textContent).toContain('Active clients');
+            expect(fixture.nativeElement.textContent).toContain('3');
+        }
+    );
+
+
+    it(
+        'opens and closes a Market Pulse detail modal',
+        () => {
+
+            component.toggleMetric('trades');
+            fixture.detectChanges();
+
+            expect(component.expandedMetric()).toBe('trades');
+            expect(fixture.nativeElement.querySelector('.metric-modal')).toBeTruthy();
+            expect(fixture.nativeElement.textContent).toContain('Total successful trades');
+
+            component.toggleMetric('trades');
+            fixture.detectChanges();
+
+            expect(component.expandedMetric()).toBeNull();
+            expect(fixture.nativeElement.querySelector('.metric-modal')).toBeNull();
+        }
+    );
+
+
+    it(
+        'counts active clients distinctly across currencies',
+        () => {
+
+            component.clients.set([
+                {
+                    clientId: 1,
+                    clientName: 'Alice Smith',
+                    currency: 'GBP',
+                    orderCount: 4,
+                    fillCount: 2,
+                    executedQuantity: 10,
+                    tradedValue: 100
+                },
+                {
+                    clientId: 1,
+                    clientName: 'Alice Smith',
+                    currency: 'USD',
+                    orderCount: 3,
+                    fillCount: 1,
+                    executedQuantity: 5,
+                    tradedValue: 50
+                },
+                {
+                    clientId: 2,
+                    clientName: 'Bob Jones',
+                    currency: 'GBP',
+                    orderCount: 2,
+                    fillCount: 1,
+                    executedQuantity: 4,
+                    tradedValue: 40
+                }
+            ]);
+
+            expect(component.distinctClientCount()).toBe(2);
+            expect(component.metricStats('clients').current).toBe(2);
+        }
+    );
+
+
+    it(
+        'shows BUY and SELL counts together for a hovered historical date',
+        () => {
+
+            component.trends.set([
+                {
+                    date: '2026-10-01',
+                    totalOrders: 5,
+                    filledOrders: 4,
+                    rejectedOrders: 1,
+                    activeClients: 2,
+                    executedQuantity: 20,
+                    tradedValue: 1000,
+                    buyFills: 3,
+                    sellFills: 1
+                }
+            ]);
+
+            component.showBuySellDateDialog(0, new MouseEvent('mouseenter', {
+                clientX: 240,
+                clientY: 180
+            }));
+
+            const dialog = component.graphDialog();
+
+            expect(dialog?.date).toContain('1 Oct');
+            expect(dialog?.series).toEqual([
+                expect.objectContaining({ label: 'BUY fills', value: '3' }),
+                expect.objectContaining({ label: 'SELL fills', value: '1' })
+            ]);
+            expect(dialog?.x).toBe(240);
+            expect(dialog?.y).toBe(180);
+        }
+    );
+
 });
