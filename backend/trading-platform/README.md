@@ -351,6 +351,19 @@ docker exec -i leap-postgres psql -U postgres -d leap_trading -c "INSERT INTO us
 After assigning the role, sign out and sign in again so the new access token is
 issued with the analyst role. Then open `/analyst` in the frontend.
 
+### Grant Admin Access
+
+To grant an existing user administrator access in the local development
+database, replace the email below and run:
+
+```powershell
+docker exec -i leap-postgres psql -U postgres -d leap_trading -c "INSERT INTO user_roles (user_id, role_id) SELECT u.id, r.id FROM users u JOIN roles r ON r.name = 'ADMIN' WHERE u.email = 'your-email@example.com' AND NOT EXISTS (SELECT 1 FROM user_roles existing WHERE existing.user_id = u.id AND existing.role_id = r.id);"
+```
+
+After assigning the role, sign out and sign in again so the new access token is
+issued with the admin role. Admin users can access `/dashboard`, `/analyst`,
+and `/operations`.
+
 ### Order State Machine
 
 ```
