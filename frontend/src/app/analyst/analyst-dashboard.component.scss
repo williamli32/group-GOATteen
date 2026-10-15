@@ -326,6 +326,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
     border: 1px solid #26394a;
     background: #101c29;
     cursor: pointer;
+    container-type: inline-size;
     transition: border-color .2s ease, background .2s ease;
 }
 
@@ -341,15 +342,15 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .metric-card span,
 .metric-card small {
     display: block;
-    font-size: 12px;
+    font-size: clamp(10px, max(0.8rem, 2.8cqi), 12px);
 }
 
 .metric-card strong {
     display: block;
     margin: 14px 0 8px;
     color: #f4f7fb;
-    font: 600 clamp(21px, 2.3vw, 30px) 'JetBrains Mono', monospace;
-    letter-spacing: -1px;
+    font: 600 clamp(18px, max(2.3vw, 8cqi), 30px) 'JetBrains Mono', monospace;
+    letter-spacing: 0;
 }
 
 .metric-detail {
@@ -803,6 +804,35 @@ td small { margin-top: 4px; font: 10px 'JetBrains Mono', monospace; }
 .empty-copy { width: 100%; color: #708296; font: 11px 'JetBrains Mono', monospace; text-align: center; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1400px) and (min-width: 1301px) {
+    .metric-card span,
+    .metric-card small {
+        font-size: 11px;
+    }
+
+    .metric-card strong {
+        font-size: clamp(17px, 1.8vw, 24px);
+    }
+}
+
+@media (max-width: 1300px) and (min-width: 761px) {
+    .analyst-shell { padding-inline: 24px; }
+    .filter-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+    .apply-button { grid-column: span 3; }
+    .metric-grid { grid-template-columns: repeat(3, 1fr); }
+
+    .buy-sell-panel .donut-copy { gap: 12px; }
+    .buy-sell-panel .split-ring {
+        width: 220px;
+        height: 220px;
+        border-width: 20px;
+    }
+    .buy-sell-panel .split-ring span { font-size: 32px; }
+    .buy-sell-panel .buy-sell-history {
+        padding-left: 14px;
+    }
+}
 
 @media (max-width: 1150px) {
     .filter-grid { grid-template-columns: repeat(3, 1fr); }

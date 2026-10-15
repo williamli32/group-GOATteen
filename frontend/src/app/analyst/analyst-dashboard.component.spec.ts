@@ -601,7 +601,13 @@ describe('AnalystDashboardComponent', () => {
                         100,
 
                     tradedValue:
-                        1000
+                        1000,
+
+                    buyFills:
+                        5,
+
+                    sellFills:
+                        3
                 },
 
                 {
@@ -624,7 +630,13 @@ describe('AnalystDashboardComponent', () => {
                         200,
 
                     tradedValue:
-                        2500
+                        2500,
+
+                    buyFills:
+                        9,
+
+                    sellFills:
+                        6
                 }
 
             ]);
