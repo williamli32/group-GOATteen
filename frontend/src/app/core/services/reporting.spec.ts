@@ -26,6 +26,21 @@ describe('ReportingService', () => {
 
     afterEach(() => httpTesting.verify());
 
+    it('requests insights with every filter preserved', () => {
+        service.getInsights({
+            fromDate: '2026-10-01', toDate: '2026-10-16',
+            instrumentId: 7, side: 'SELL', status: 'FILLED',
+            clientId: 42, accountId: 43, currency: 'USD'
+        }).subscribe();
+        const request = httpTesting.expectOne(
+            environment.apiUrl + '/internal/reporting/insights'
+            + '?fromDate=2026-10-01&toDate=2026-10-16&instrumentId=7&side=SELL'
+            + '&status=FILLED&clientId=42&accountId=43&currency=USD'
+        );
+        expect(request.request.method).toBe('GET');
+        request.flush({});
+    });
+
     it('requests instrument metrics through the internal reporting API', () => {
         service.getInstruments({
             fromDate: '2026-09-01',

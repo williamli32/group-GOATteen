@@ -33,7 +33,7 @@
                             <strong>{{ metricValue(metric, metricStats(metric).previous) }}</strong>
                         </article>
                         <article class="change-stat">
-                            <span>Month-over-month change</span>
+                            <span>Change vs previous period</span>
                             <strong [class.positive-change]="(metricStats(metric).change ?? 0) >= 0"
                                 [class.negative-change]="(metricStats(metric).change ?? 0) < 0">
                                 {{ metricStats(metric).change === null ? 'No prior baseline' : ((metricStats(metric).change ?? 0) | number:'1.1-1') + '%' }}
@@ -42,8 +42,8 @@
                     </div>
                     <div class="metric-modal-content">
                         <span class="modal-kicker">Interpretation</span>
-                        <p>{{ (metricStats(metric).change ?? 0) >= 0 ? 'This metric increased compared with the previous month.' : 'This metric decreased compared with the previous month.' }}</p>
-                        <small>Values are calculated from the aggregate reporting data for all clients in the selected period.</small>
+                        <p>{{ metricInterpretation(metric) }}</p>
+                        <small>Both periods use the same filters. The comparison window immediately precedes the selected window and has the same number of days.</small>
                     </div>
                 }
             </section>
@@ -323,6 +323,96 @@
     </section>
 
     } @else {
+
+    @if (insights(); as insight) {
+    <section class="business-insights section-block" aria-label="Business insights">
+        <div class="section-title">
+            <div>
+                <p class="eyebrow">BUSINESS INSIGHTS</p>
+                <h2>What changed in the selected period</h2>
+                <p>{{ insight.currentWindow.fromDate }} to {{ insight.currentWindow.toDate }}
+                    compared with {{ insight.previousWindow.fromDate }} to {{ insight.previousWindow.toDate }}.
+                    Same filters; values in {{ insight.currency }}.</p>
+            </div>
+        </div>
+        <div class="insight-cards">
+            <article class="insight-card">
+                <h3>Most active instrument</h3>
+                @if (insight.mostActiveInstrument; as instrument) {
+                    <strong>{{ instrument.symbol }}</strong>
+                    <p>{{ instrument.fillCount }} fills</p>
+                    <small>{{ instrument.newlyActive ? 'Newly active' : changeLabel(instrument.changePercent) + ' vs previous period' }}</small>
+                } @else { <p>No executed trades.</p> }
+            </article>
+            <article class="insight-card">
+                <h3>Fastest-growing instrument</h3>
+                @if (insight.fastestGrowingInstrument; as instrument) {
+                    <strong>{{ instrument.symbol }}</strong>
+                    <p>{{ changeLabel(instrument.changePercent) }}</p>
+                    <small>{{ instrument.previousFillCount }} to {{ instrument.fillCount }} fills</small>
+                } @else { <p>No comparable positive growth.</p> }
+                @if (insight.newlyActiveInstruments.length) {
+                    <small>Newly active:
+                        @for (instrument of insight.newlyActiveInstruments; track instrument.instrumentId) {
+                            {{ instrument.symbol }}{{ $last ? '' : ', ' }}
+                        }
+                    </small>
+                }
+            </article>
+            <article class="insight-card">
+                <h3>Trading volume change</h3>
+                <strong>{{ changeLabel(insight.volumeChangePercent) }}</strong>
+                <p>{{ insight.currentFillCount }} vs {{ insight.previousFillCount }} fills</p>
+                <small>Volume means executed fill count, not order submissions or monetary value.</small>
+            </article>
+            <article class="insight-card">
+                <h3>Highest-volume trading day</h3>
+                @if (insight.highestVolumeDay; as day) {
+                    <strong>{{ day.date }}</strong>
+                    <p>{{ day.fillCount }} fills</p>
+                    <small>Earliest date wins a tie.</small>
+                } @else { <p>No executed trades.</p> }
+            </article>
+            <article class="insight-card">
+                <h3>BUY / SELL distribution</h3>
+                <strong>{{ insight.current.buyFills }} / {{ insight.current.sellFills }}</strong>
+                @if (insight.buySharePercent !== null) {
+                    <p>{{ insight.buySharePercent | number:'1.1-1' }}% BUY /
+                        {{ insight.sellSharePercent | number:'1.1-1' }}% SELL</p>
+                } @else { <p>No executed trades.</p> }
+            </article>
+            <article class="insight-card">
+                <h3>Order rejection rate</h3>
+                @if (insight.current.totalOrders) {
+                    <strong>{{ insight.current.rejectionRate | number:'1.1-1' }}%</strong>
+                } @else { <strong>No orders</strong> }
+                <p>{{ changeLabel(insight.rejectionRateChangePercentagePoints, ' pp', 'No comparable rate') }}</p>
+                <small>Percentage-point change; orders are grouped by submission date.</small>
+            </article>
+        </div>
+        <article class="chart-panel rejection-trend-panel">
+            <h3>Rejection rate over time</h3>
+            <p>0-100%; gaps mean no submitted orders, not a zero rejection rate.</p>
+            <svg viewBox="0 0 600 220" role="img" aria-label="Daily rejection-rate history from zero to one hundred percent">
+                <line x1="0" y1="22" x2="600" y2="22" class="chart-gridline" />
+                <line x1="0" y1="190" x2="600" y2="190" class="chart-axis" />
+                <path [attr.d]="rejectionTrendPath()" class="rejection-trend-line" />
+                @for (point of insight.rejectionTrend; track point.date; let index = $index) {
+                    @if (point.rejectionRate !== null) {
+                        <circle [attr.cx]="insight.rejectionTrend.length === 1 ? 300 : index / (insight.rejectionTrend.length - 1) * 600"
+                            [attr.cy]="190 - point.rejectionRate / 100 * 168" r="3" class="rejection-trend-point">
+                            <title>{{ point.date }}: {{ point.rejectionRate }}% ({{ point.rejectedOrders }}/{{ point.totalOrders }})</title>
+                        </circle>
+                    }
+                }
+            </svg>
+            <div class="rejection-trend-labels">
+                <small>{{ insight.currentWindow.fromDate }}</small>
+                <small>{{ insight.currentWindow.toDate }}</small>
+            </div>
+        </article>
+    </section>
+    }
 
     <section class="section-block overview-section">
 

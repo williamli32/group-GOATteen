@@ -1,0 +1,30 @@
+.business-insights {
+    .insight-cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .insight-card {
+        min-width: 0;
+        padding: 1.25rem;
+        border: 1px solid #31515e;
+        border-radius: 1rem;
+        background: #101c29;
+        color: #e7f0f4;
+        h3 { margin: 0 0 1rem; font-size: .9rem; color: #acc4cf; }
+        strong { display: block; font-size: 1.7rem; overflow-wrap: anywhere; }
+        p { margin: .6rem 0; }
+        small { display: block; color: #acc4cf; line-height: 1.6; }
+    }
+    .rejection-trend-panel { margin-top: 1rem; padding: 1.25rem; }
+    .rejection-trend-panel svg { display: block; width: 100%; height: 220px; overflow: visible; }
+    .rejection-trend-line { fill: none; stroke: #ee7b83; stroke-width: 3; }
+    .rejection-trend-point { fill: #ee7b83; }
+    .rejection-trend-labels { display: flex; justify-content: space-between; }
+    @media (max-width: 900px) {
+        .insight-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 600px) {
+        .insight-cards { grid-template-columns: minmax(0, 1fr); }
+    }
+}

@@ -7,6 +7,9 @@ import com.goatteen.trading.portfolio.CashTransactionRepository;
 import com.goatteen.trading.portfolio.PositionRepository;
 import com.goatteen.trading.reporting.controller.InternalReportingController;
 import com.goatteen.trading.reporting.controller.ReportingController;
+import com.goatteen.trading.reporting.controller.BusinessInsightsController;
+import com.goatteen.trading.reporting.metrics.BusinessInsightsService;
+import com.goatteen.trading.reporting.metrics.PeriodicReportingService;
 import com.goatteen.trading.reporting.data.OrderFactRepository;
 import com.goatteen.trading.reporting.data.TradeFactRepository;
 import com.goatteen.trading.reporting.metrics.ActivityTrendService;
@@ -16,6 +19,7 @@ import com.goatteen.trading.reporting.metrics.ReportingActivityService;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -31,6 +35,9 @@ class ReportingDataAccessBoundaryTest {
             ClientMetricsService.class,
             InstrumentMetricsService.class,
             ReportingActivityService.class,
+            BusinessInsightsService.class,
+            PeriodicReportingService.class,
+            BusinessInsightsController.class,
             ReportingController.class,
             InternalReportingController.class);
 
@@ -85,6 +92,16 @@ class ReportingDataAccessBoundaryTest {
 
     private void assertNoModifyingMethods(Class<?> repository) {
         for (var method : repository.getDeclaredMethods()) {
+            Query query = method.getAnnotation(Query.class);
+            if (query != null) {
+                String sql = query.value().stripLeading();
+                assertTrue(sql.toUpperCase(java.util.Locale.ROOT).startsWith("SELECT"),
+                        () -> "Reporting query must be SELECT-only: " + method.getName());
+                assertFalse(java.util.regex.Pattern.compile(
+                        "(?i)\\b(?:FROM|JOIN)\\s+(?:public\\.)?(?:orders|fills|accounts|positions|cash_transactions|position_history)\\b")
+                        .matcher(sql).find(),
+                        () -> "Analytical query touches a live trading table: " + method.getName());
+            }
             assertFalse(
                     method.isAnnotationPresent(Modifying.class),
                     () -> repository.getSimpleName()

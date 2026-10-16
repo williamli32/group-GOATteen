@@ -25,6 +25,14 @@ import com.goatteen.trading.reporting.data.OrderFactRepository;
 import com.goatteen.trading.reporting.metrics.ReportingFilters;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetrics;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
+import com.goatteen.trading.reporting.metrics.ActivityTrendService;
+import com.goatteen.trading.reporting.metrics.InstrumentMetricsService;
+import com.goatteen.trading.reporting.metrics.ClientMetricsService;
+import com.goatteen.trading.reporting.metrics.ReportingActivityService;
+import com.goatteen.trading.reporting.metrics.PeriodicReportingService;
+import com.goatteen.trading.reporting.metrics.ReportingPeriod;
+import com.goatteen.trading.reporting.metrics.BusinessInsightsService;
+import com.goatteen.trading.reporting.event.OrderFilledEvent;
 import com.goatteen.trading.reporting.sync.OrderFactSyncService;
 import com.goatteen.trading.reporting.tracking.SyncTracking;
 import com.goatteen.trading.reporting.tracking.SyncTrackingRepository;
@@ -33,6 +41,12 @@ import com.goatteen.trading.user.UserRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -40,6 +54,12 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,6 +109,25 @@ class ReportingDataSyncIntegrationTest {
         @Autowired
         private PositionRepository positionRepository;
 
+        @Autowired
+        private JdbcTemplate jdbc;
+        @Autowired
+        private PlatformTransactionManager transactionManager;
+        @Autowired
+        private ApplicationEventPublisher events;
+        @Autowired
+        private ActivityTrendService activityTrendService;
+        @Autowired
+        private InstrumentMetricsService instrumentMetricsService;
+        @Autowired
+        private ClientMetricsService clientMetricsService;
+        @Autowired
+        private ReportingActivityService reportingActivityService;
+        @Autowired
+        private PeriodicReportingService periodicReportingService;
+        @Autowired
+        private BusinessInsightsService businessInsightsService;
+
         private User testUser;
         private Client testClient;
         private Account testAccount;
@@ -97,6 +136,8 @@ class ReportingDataSyncIntegrationTest {
 
         @BeforeEach
         void setUp() {
+                assertTrue(jdbc.queryForObject("SELECT current_database()", String.class).endsWith("_test"),
+                                "This fixture-writing suite must use a dedicated database ending in _test");
 
                 testUser = new User(
                                 "reporting-test-" + java.util.UUID.randomUUID() + "@example.com",
@@ -738,7 +779,8 @@ class ReportingDataSyncIntegrationTest {
                 orderFactSyncService.syncOrderById(fill.getOrder().getId());
 
                 assertEquals(1, tradeFactRepository.findByFillId(fill.getId()).stream().count());
-                assertEquals(original.getTradeFactId(), tradeFactRepository.findByFillId(fill.getId()).orElseThrow().getTradeFactId());
+                assertEquals(original.getTradeFactId(),
+                                tradeFactRepository.findByFillId(fill.getId()).orElseThrow().getTradeFactId());
         }
 
         @Test
@@ -790,6 +832,272 @@ class ReportingDataSyncIntegrationTest {
                 assertEquals(beforeQuantity, afterOrder.getQuantity());
                 assertEquals(beforeStatus, afterOrder.getStatus());
                 assertEquals(beforeFillPrice, afterFillPrice);
+        }
+
+        @Test
+        void executionDatesAndFilteredTotalsReconcileWithPersistedSource() throws Exception {
+                LocalDateTime start = LocalDateTime.of(2026, 10, 12, 0, 0);
+                LocalDateTime end = start.plusDays(1);
+                Instrument second = createInstrument("Boundary Instrument", "NYSE", "US");
+                // Submission is outside the window: inclusion must follow execution time.
+                persistTimedFill(testInstrument, OrderSide.BUY, new BigDecimal("1"), start.minusDays(2),
+                                start.minusSeconds(1));
+                persistTimedFill(testInstrument, OrderSide.BUY, new BigDecimal("10"), start.minusDays(1), start);
+                persistTimedFill(second, OrderSide.SELL, new BigDecimal("5"), start.minusDays(1), end.minusSeconds(1));
+                persistTimedFill(second, OrderSide.BUY, new BigDecimal("2"), start.minusDays(1), end);
+
+                ReportingFilters all = new ReportingFilters(start, end, null, null, null,
+                                null, testAccount.getId(), "USD");
+                assertEquals(2L, assertExecutionReconciles(all));
+                assertEquals(1L, assertExecutionReconciles(new ReportingFilters(start, end,
+                                testInstrument.getId(), "BUY", "FILLED", testClient.getId(), testAccount.getId(),
+                                "USD")));
+                assertEquals(1L, assertExecutionReconciles(new ReportingFilters(start, end,
+                                second.getId(), "SELL", "FILLED", testClient.getId(), testAccount.getId(), "USD")));
+                assertEquals(0L, assertExecutionReconciles(new ReportingFilters(start, end,
+                                null, null, "REJECTED", null, testAccount.getId(), "USD")));
+                assertEquals(0L, assertExecutionReconciles(new ReportingFilters(end.plusDays(1), end.plusDays(2),
+                                null, null, null, null, testAccount.getId(), "USD")));
+        }
+
+        @Test
+        void everyReportingServiceLeavesOperationalRecordsUnchanged() throws Exception {
+                createFilledOrder(testAccount, testInstrument, OrderSide.BUY, new BigDecimal("11"),
+                                LocalDateTime.now().minusMinutes(2));
+                ReportingFilters filters = new ReportingFilters(
+                                java.time.LocalDate.now().atStartOfDay(),
+                                java.time.LocalDate.now().plusDays(1).atStartOfDay(),
+                                null, null, null, null, testAccount.getId(), "USD");
+                Map<String, List<Map<String, Object>>> before = operationalSnapshot();
+                tradingActivityMetricsService.calculate(filters);
+                instrumentMetricsService.calculate(filters);
+                clientMetricsService.calculate(filters);
+                activityTrendService.calculate(filters);
+                reportingActivityService.find(filters);
+                businessInsightsService.calculate(filters);
+                periodicReportingService.generate(ReportingPeriod.DAILY, java.time.LocalDate.now());
+                assertEquals(before, operationalSnapshot(),
+                                "Reporting changed persisted orders, fills, balances, cash ledger, holdings, or history");
+        }
+
+        /**
+         * Explicit performance gate; do not claim Goal 5 load validation from a run
+         * that skips it. Thresholds must be selected for the acceptance environment.
+         */
+        @Test
+        void concurrentReportingRespectsTradingLatencyBudgetAndReconciles() throws Exception {
+                long budgetMs = Long.getLong("goal5.maxExecutionMs", 2000L);
+                double allowedSlowdown = Double.parseDouble(System.getProperty("goal5.allowedSlowdown", "3"));
+                int seedTrades = Integer.getInteger("goal5.seedTrades", 200);
+                int workers = Integer.getInteger("goal5.reportWorkers", 3);
+                assertTrue(budgetMs > 0, "goal5.maxExecutionMs must be greater than zero");
+                assertTrue(allowedSlowdown >= 1 && seedTrades >= 1 && seedTrades <= 2000
+                                && workers >= 1 && workers <= 8, "Invalid load-test settings");
+                testAccount.setCashBalance(BigDecimal.valueOf((seedTrades + 100L) * 200L));
+                accountRepository.save(testAccount);
+                for (int i = 0; i < seedTrades; i++) {
+                        if (i % 25 == 0) {
+                                quoteRepository.save(new Quote(testInstrument, new BigDecimal("140.00"),
+                                                new BigDecimal("140.50"), new BigDecimal("140.25"),
+                                                LocalDateTime.now()));
+                        }
+                        createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
+                                        BigDecimal.ONE, LocalDateTime.now());
+                }
+                List<Long> baseline = executeMeasuredOrders(5);
+                long baselineP95 = percentile95(baseline);
+                var filters = new ReportingFilters(java.time.LocalDate.now().atStartOfDay(),
+                                java.time.LocalDate.now().plusDays(1).atStartOfDay(),
+                                null, null, null, null, testAccount.getId(), "USD");
+                var pool = Executors.newFixedThreadPool(workers);
+                var stop = new AtomicBoolean(false);
+                var completedBatches = new AtomicLong();
+                var firstBatch = new CountDownLatch(workers);
+                var overlaps = new ConcurrentLinkedQueue<long[]>();
+                List<Future<?>> tasks = new ArrayList<>();
+                try {
+                        for (int i = 0; i < workers; i++) {
+                                tasks.add(pool.submit(() -> {
+                                        boolean initialBatch = true;
+                                        while (!stop.get()) {
+                                                long began = System.nanoTime();
+                                                tradingActivityMetricsService.calculate(filters);
+                                                instrumentMetricsService.calculate(filters);
+                                                activityTrendService.calculate(filters);
+                                                clientMetricsService.calculate(filters);
+                                                reportingActivityService.find(filters);
+                                                businessInsightsService.calculate(filters);
+                                                overlaps.add(new long[] { began, System.nanoTime() });
+                                                completedBatches.incrementAndGet();
+                                                if (initialBatch) {
+                                                        firstBatch.countDown();
+                                                        initialBatch = false;
+                                                }
+                                        }
+                                }));
+                        }
+                        assertTrue(firstBatch.await(30, TimeUnit.SECONDS),
+                                        "Concurrent reporting workers could not complete an initial batch");
+                        long tradingStart = System.nanoTime();
+                        List<Long> underLoad = executeMeasuredOrders(10);
+                        long tradingEnd = System.nanoTime();
+                        long loadedP95 = percentile95(underLoad);
+                        stop.set(true);
+                        for (Future<?> task : tasks) {
+                                task.get(30, TimeUnit.SECONDS);
+                        }
+                        assertTrue(overlaps.stream().anyMatch(span -> span[0] < tradingEnd && span[1] > tradingStart),
+                                        "No reporting query batch overlapped measured order execution");
+                        assertTrue(underLoad.stream().allMatch(ms -> ms <= budgetMs),
+                                        "At least one order exceeded the absolute execution budget: " + underLoad);
+                        assertTrue(loadedP95 <= Math.max(100L, Math.ceil(baselineP95 * allowedSlowdown)),
+                                        "Reporting exceeded the agreed relative slowdown: baseline p95="
+                                                        + baselineP95 + "ms, loaded p95=" + loadedP95 + "ms");
+                        System.out.printf(
+                                        "Goal5 load: rows=%d workers=%d batches=%d baselineP95=%dms loadedP95=%dms budget=%dms%n",
+                                        seedTrades, workers, completedBatches.get(), baselineP95, loadedP95, budgetMs);
+                } finally {
+                        stop.set(true);
+                        pool.shutdown();
+                        try {
+                                for (Future<?> task : tasks) {
+                                        task.get(30, TimeUnit.SECONDS); // Surface query failures; never swallow them.
+                                }
+                        } finally {
+                                pool.shutdownNow();
+                        }
+                }
+                assertTrue(completedBatches.get() >= workers);
+                assertEquals(seedTrades + 15L, assertExecutionReconciles(filters));
+        }
+
+        private List<Long> executeMeasuredOrders(int count) throws Exception {
+                List<Long> elapsed = new ArrayList<>();
+                for (int i = 0; i < count; i++) {
+                        quoteRepository.save(new Quote(testInstrument, new BigDecimal("140.00"),
+                                        new BigDecimal("140.50"), new BigDecimal("140.25"), LocalDateTime.now()));
+                        long started = System.nanoTime();
+                        Order order = createSubmittedOrder(testAccount, testInstrument, OrderSide.BUY,
+                                        BigDecimal.ONE, LocalDateTime.now());
+                        orderExecutionService.acceptOrder(order.getId());
+                        Fill fill = orderExecutionService.executeOrder(order.getId());
+                        elapsed.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
+                        waitForTradeFact(fill.getId()); // Outside the measured trading latency.
+                        waitForOrderFact(order.getId());
+                }
+                return elapsed;
+        }
+
+        private long percentile95(List<Long> values) {
+                List<Long> sorted = values.stream().sorted().toList();
+                return sorted.get((int) Math.ceil(sorted.size() * .95) - 1);
+        }
+
+        /**
+         * Test-only persisted source fixture, not production settlement code.
+         * Control execution timestamps at INSERT time; never rewrite an executed trade.
+         */
+        private Fill persistTimedFill(Instrument instrument, OrderSide side, BigDecimal quantity,
+                        LocalDateTime submittedAt, LocalDateTime executedAt) throws Exception {
+                Fill fill = new TransactionTemplate(transactionManager).execute(status -> {
+                        Quote quote = quoteRepository.save(new Quote(instrument, new BigDecimal("140.00"),
+                                        new BigDecimal("140.50"), new BigDecimal("140.25"),
+                                        executedAt.minusSeconds(1)));
+                        Order order = createSubmittedOrder(testAccount, instrument, side, quantity, submittedAt);
+                        order.setAcceptedAt(submittedAt.plusSeconds(1));
+                        order.setStatus(OrderStatus.FILLED);
+                        order.setCompletedAt(executedAt);
+                        orderRepository.save(order);
+                        Fill source = new Fill();
+                        source.setOrder(order);
+                        source.setQuote(quote);
+                        source.setFillQuantity(quantity);
+                        source.setFillPrice(side == OrderSide.BUY ? quote.getAskPrice() : quote.getBidPrice());
+                        source.setExecutedAt(executedAt);
+                        source = fillRepository.save(source);
+                        orderFactSyncService.syncOrder(order);
+                        events.publishEvent(new OrderFilledEvent(this, source.getId(), order.getId(),
+                                        testAccount.getId(), testClient.getId(), instrument.getId(), side.name(),
+                                        quantity, source.getFillPrice(), quantity, submittedAt, order.getAcceptedAt(),
+                                        executedAt, "FILLED", quote.getBidPrice(), quote.getAskPrice(),
+                                        quote.getQuotedAt()));
+                        return source;
+                });
+                assertNotNull(fill);
+                waitForTradeFact(fill.getId());
+                return fill;
+        }
+
+        private long assertExecutionReconciles(ReportingFilters filters) {
+                StringBuilder sql = new StringBuilder("""
+                                SELECT COUNT(*) AS fill_count,
+                                       COALESCE(SUM(f.fill_quantity), 0) AS quantity,
+                                       COALESCE(SUM(ROUND(f.fill_quantity * f.fill_price, 2)), 0) AS value
+                                FROM fills f
+                                JOIN orders o ON o.id = f.order_id
+                                JOIN accounts a ON a.id = o.account_id
+                                JOIN instruments i ON i.id = o.instrument_id
+                                WHERE f.executed_at >= :start AND f.executed_at < :end
+                                """);
+                var params = new MapSqlParameterSource()
+                                .addValue("start", java.sql.Timestamp.valueOf(filters.fromDate()))
+                                .addValue("end", java.sql.Timestamp.valueOf(filters.toDate()));
+                if (filters.accountId() != null) {
+                        sql.append(" AND o.account_id = :account");
+                        params.addValue("account", filters.accountId());
+                }
+                if (filters.clientId() != null) {
+                        sql.append(" AND a.client_id = :client");
+                        params.addValue("client", filters.clientId());
+                }
+                if (filters.instrumentId() != null) {
+                        sql.append(" AND o.instrument_id = :instrument");
+                        params.addValue("instrument", filters.instrumentId());
+                }
+                if (filters.side() != null) {
+                        sql.append(" AND o.side = :side");
+                        params.addValue("side", filters.side());
+                }
+                if (filters.status() != null) {
+                        sql.append(" AND o.status = :status");
+                        params.addValue("status", filters.status());
+                }
+                if (filters.currency() != null) {
+                        sql.append(" AND i.currency = :currency");
+                        params.addValue("currency", filters.currency());
+                }
+                var source = new NamedParameterJdbcTemplate(jdbc).queryForMap(sql.toString(), params);
+                TradingActivityMetrics report = tradingActivityMetricsService.calculate(filters);
+                long count = ((Number) source.get("fill_count")).longValue();
+                assertEquals(count, report.buyFills() + report.sellFills(), "Fill count mismatch");
+                assertEquals(0, new BigDecimal(source.get("quantity").toString())
+                                .compareTo(report.totalExecutedQuantity()),
+                                "Execution quantity mismatch");
+                assertEquals(0, new BigDecimal(source.get("value").toString()).compareTo(report.totalTradedValue()),
+                                "Executed monetary value mismatch");
+                return count;
+        }
+
+        private Map<String, List<Map<String, Object>>> operationalSnapshot() {
+                var queries = new LinkedHashMap<String, String>();
+                queries.put("accounts",
+                                "SELECT row_to_json(t)::text AS document FROM accounts t WHERE t.id = ? ORDER BY t.id");
+                for (String table : List.of("orders", "cash_transactions", "positions", "position_history")) {
+                        queries.put(table, "SELECT row_to_json(t)::text AS document FROM " + table
+                                        + " t WHERE t.account_id = ? ORDER BY t.id");
+                }
+                queries.put("fills",
+                                "SELECT row_to_json(t)::text AS document FROM fills t JOIN orders o ON o.id = t.order_id WHERE o.account_id = ? ORDER BY t.id");
+                queries.put("status_history",
+                                "SELECT row_to_json(t)::text AS document FROM order_status_history t JOIN orders o ON o.id = t.order_id WHERE o.account_id = ? ORDER BY t.id");
+                queries.put("execution_quotes",
+                                "SELECT row_to_json(t)::text AS document FROM market_quotes t "
+                                                + "WHERE t.id IN (SELECT f.quote_id FROM fills f "
+                                                + "JOIN orders o ON o.id = f.order_id WHERE o.account_id = ?) "
+                                                + "ORDER BY t.id");
+                var result = new LinkedHashMap<String, List<Map<String, Object>>>();
+                queries.forEach((table, sql) -> result.put(table, jdbc.queryForList(sql, testAccount.getId())));
+                return result;
         }
 
         private TradingActivityMetrics currentMetrics() {

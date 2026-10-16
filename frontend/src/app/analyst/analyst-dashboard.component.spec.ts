@@ -17,7 +17,8 @@ import {
 } from './analyst-dashboard.component';
 
 import {
-    ReportingService
+    ReportingService,
+    BusinessInsights
 } from '../core/services/reporting';
 
 import {
@@ -38,6 +39,7 @@ describe('AnalystDashboardComponent', () => {
         getInstruments: ReturnType<typeof vi.fn>;
         getClients: ReturnType<typeof vi.fn>;
         getActivity: ReturnType<typeof vi.fn>;
+        getInsights: ReturnType<typeof vi.fn>;
     };
 
     let marketDataService: {
@@ -77,10 +79,23 @@ describe('AnalystDashboardComponent', () => {
 
     };
 
+    const insight = {
+        currentWindow: { fromDate: '2026-10-01', toDate: '2026-10-16' },
+        previousWindow: { fromDate: '2026-09-15', toDate: '2026-09-30' },
+        currency: 'GBP', current: summary,
+        previous: { ...summary, buyFills: 1, sellFills: 1 },
+        currentFillCount: 7, previousFillCount: 2, volumeChangePercent: 250,
+        buySharePercent: 57.14, sellSharePercent: 42.86,
+        mostActiveInstrument: null, fastestGrowingInstrument: null,
+        newlyActiveInstruments: [], highestVolumeDay: null,
+        rejectionRateChangePercentagePoints: 0, rejectionTrend: []
+    } satisfies BusinessInsights;
+
 
     beforeEach(async () => {
 
         reportingService = {
+            getInsights: vi.fn(() => of(null)),
 
             getSummary:
                 vi.fn(() => of(summary)),
@@ -289,6 +304,71 @@ describe('AnalystDashboardComponent', () => {
 
         }
     );
+
+    it('uses the server baseline even when the chart only contains one month', () => {
+        component.insights.set(insight);
+        component.trends.set([]);
+        const stats = component.metricStats('trades');
+        expect(stats.current).toBe(7);
+        expect(stats.previous).toBe(2);
+        expect(stats.change).toBe(250);
+        expect(stats.previousLabel).toBe('2026-09-15 to 2026-09-30');
+    });
+
+    it('does not invent a percentage or an increase without a prior baseline', () => {
+        component.insights.set({
+            ...insight, previous: { ...summary, buyFills: 0, sellFills: 0 }
+        });
+        expect(component.metricStats('trades').change).toBeNull();
+        expect(component.metricInterpretation('trades')).not.toContain('increased');
+        component.insights.set(insight);
+        expect(component.metricInterpretation('rejected')).toContain('unchanged');
+    });
+
+    it('loads insights through the same applied filters as the other reporting datasets', () => {
+        component.fromDate.set('2026-10-01');
+        component.toDate.set('2026-10-16');
+        component.clientId.set(42);
+        component.applyFilters();
+        expect(reportingService.getInsights).toHaveBeenLastCalledWith(
+            expect.objectContaining({ fromDate: '2026-10-01', toDate: '2026-10-16', clientId: 42, currency: 'GBP' })
+        );
+    });
+
+    it('breaks the rejection-rate line across days without orders', () => {
+        component.insights.set({
+            ...insight,
+            rejectionTrend: [
+                { date: '2026-10-01', totalOrders: 2, rejectedOrders: 1, rejectionRate: 50 },
+                { date: '2026-10-02', totalOrders: 0, rejectedOrders: 0, rejectionRate: null },
+                { date: '2026-10-03', totalOrders: 1, rejectedOrders: 0, rejectionRate: 0 }
+            ]
+        });
+        expect(component.rejectionTrendPath().match(/M/g)?.length).toBe(2);
+        expect(component.rejectionTrendPath()).not.toContain('L');
+    });
+
+    it('renders the business-insight section with the real comparison window', () => {
+        component.insights.set({
+            ...insight,
+            mostActiveInstrument: {
+                instrumentId: 7, symbol: 'AAPL', fillCount: 7, previousFillCount: 2,
+                changePercent: 250, newlyActive: false
+            },
+            fastestGrowingInstrument: {
+                instrumentId: 7, symbol: 'AAPL', fillCount: 7, previousFillCount: 2,
+                changePercent: 250, newlyActive: false
+            },
+            highestVolumeDay: { date: '2026-10-12', fillCount: 4 }
+        });
+        fixture.detectChanges();
+        const section = fixture.nativeElement.querySelector('.business-insights');
+        expect(section.textContent).toContain('2026-09-15');
+        expect(section.textContent).toContain('AAPL');
+        expect(section.textContent).toContain('Fastest-growing instrument');
+        expect(section.textContent).toContain('Highest-volume trading day');
+        expect(section.textContent).toContain('Rejection rate over time');
+    });
 
 
     it(

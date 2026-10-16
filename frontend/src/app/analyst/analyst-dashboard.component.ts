@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import {
     ActivityTrendPoint,
+    BusinessInsights,
     ClientMetrics,
     InstrumentMetrics,
     ReportingActivity,
@@ -51,7 +52,7 @@ type MetricKey =
     standalone: true,
     imports: [CommonModule, FormsModule],
     templateUrl: './analyst-dashboard.component.html',
-    styleUrl: './analyst-dashboard.component.scss'
+    styleUrls: ['./analyst-dashboard.component.scss', './business-insights.scss']
 })
 export class AnalystDashboardComponent implements OnInit {
     readonly Math = Math;
@@ -67,6 +68,7 @@ export class AnalystDashboardComponent implements OnInit {
     readonly currency = signal<string>('GBP');
     readonly accessDenied = signal(false);
     readonly summary = signal<ReportingSummary | null>(null);
+    readonly insights = signal<BusinessInsights | null>(null);
     readonly trends = signal<ActivityTrendPoint[]>([]);
     readonly instruments = signal<InstrumentMetrics[]>([]);
     readonly clients = signal<ClientMetrics[]>([]);
@@ -473,6 +475,7 @@ export class AnalystDashboardComponent implements OnInit {
 
         const filters = this.currentFilters();
         forkJoin({
+            insights: this.reportingService.getInsights(filters),
             summary: this.reportingService.getSummary(filters),
             trends: this.reportingService.getTrends(filters),
             instruments: this.reportingService.getInstruments(filters),
@@ -480,6 +483,7 @@ export class AnalystDashboardComponent implements OnInit {
             activity: this.reportingService.getActivity(filters)
         }).subscribe({
             next: result => {
+                this.insights.set(result.insights);
                 this.summary.set(result.summary);
                 this.trends.set(result.trends);
                 this.instruments.set(result.instruments);
@@ -502,6 +506,10 @@ export class AnalystDashboardComponent implements OnInit {
 
         if (status === 403) {
             return 'Forbidden: regular clients are not permitted to access the advisor reporting view. This view is restricted to administrators and analysts.';
+        }
+
+        if (status === 400) {
+            return 'Check the reporting filters. Select a currency and a date range of at most 366 days.';
         }
 
         if (status && status >= 500) {
@@ -606,37 +614,73 @@ export class AnalystDashboardComponent implements OnInit {
             };
         }
 
-        const months = [...new Set(this.trends().map(point => point.date.slice(0, 7)))].sort();
-        const currentMonth = months.at(-1) ?? '';
-        const previousMonth = months.at(-2) ?? '';
-        const valueFor = (point: ActivityTrendPoint): number => {
+        const insights = this.insights();
+        if (!insights) {
+            return {
+                current: 0, previous: 0, change: null,
+                currentLabel: 'Current period', previousLabel: 'Comparison not loaded'
+            };
+        }
+        const valueFor = (summary: ReportingSummary): number => {
             switch (metric) {
-                case 'trades': return point.buyFills + point.sellFills;
-                case 'quantity': return Number(point.executedQuantity);
-                case 'filled': return point.filledOrders;
-                case 'rejected': return point.rejectedOrders;
-                case 'value': return Number(point.tradedValue);
+                case 'trades': return summary.buyFills + summary.sellFills;
+                case 'quantity': return Number(summary.totalExecutedQuantity);
+                case 'filled': return summary.filledOrders;
+                case 'rejected': return summary.rejectedOrders;
+                case 'value': return Number(summary.totalTradedValue);
                 default: return 0;
             }
         };
-        const totalForMonth = (month: string): number => this.trends()
-            .filter(point => point.date.startsWith(month))
-            .reduce((total, point) => total + valueFor(point), 0);
-        const current = totalForMonth(currentMonth);
-        const previous = totalForMonth(previousMonth);
-
+        const current = valueFor(insights.current);
+        const previous = valueFor(insights.previous);
         return {
             current,
             previous,
             change: previous === 0 ? (current === 0 ? 0 : null) : ((current - previous) / previous) * 100,
-            currentLabel: currentMonth || 'Current period',
-            previousLabel: previousMonth || 'Previous month'
+            currentLabel: insights.currentWindow.fromDate + ' to ' + insights.currentWindow.toDate,
+            previousLabel: insights.previousWindow.fromDate + ' to ' + insights.previousWindow.toDate
         };
+    }
+
+    metricInterpretation(metric: MetricKey): string {
+        const change = this.metricStats(metric).change;
+        if (change === null) {
+            return 'No percentage comparison is available without a non-zero prior baseline.';
+        }
+        if (change === 0) {
+            return 'This metric is unchanged compared with the previous period.';
+        }
+        return change > 0
+            ? 'This metric increased compared with the previous period.'
+            : 'This metric decreased compared with the previous period.';
+    }
+
+    changeLabel(value: number | null, unit = '%', missing = 'No prior baseline'): string {
+        if (value === null) {
+            return missing;
+        }
+        return (value > 0 ? '+' : '') + this.formatNumber(value) + unit;
+    }
+
+    rejectionTrendPath(): string {
+        const points = this.insights()?.rejectionTrend ?? [];
+        let connected = false;
+        return points.map((point, index) => {
+            if (point.rejectionRate === null) {
+                connected = false;
+                return '';
+            }
+            const x = points.length === 1 ? 300 : index / (points.length - 1) * 600;
+            const y = 190 - Number(point.rejectionRate) / 100 * 168;
+            const command = (connected ? 'L' : 'M') + x + ',' + y;
+            connected = true;
+            return command;
+        }).join(' ');
     }
 
     metricValue(metric: MetricKey, value: number): string {
         return metric === 'value'
-            ? this.formatMoney(value, this.currency())
+            ? this.formatMoney(value, this.insights()?.currency ?? this.currency())
             : this.formatNumber(value);
     }
 

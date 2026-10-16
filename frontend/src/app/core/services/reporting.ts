@@ -78,11 +78,55 @@ export interface ActivityTrendPoint {
     sellFills: number;
 }
 
+export interface ReportingWindow {
+    fromDate: string;
+    toDate: string;
+}
+
+export interface InstrumentInsight {
+    instrumentId: number;
+    symbol: string;
+    fillCount: number;
+    previousFillCount: number;
+    changePercent: number | null;
+    newlyActive: boolean;
+}
+
+export interface BusinessInsights {
+    currentWindow: ReportingWindow;
+    previousWindow: ReportingWindow;
+    currency: string;
+    current: ReportingSummary;
+    previous: ReportingSummary;
+    currentFillCount: number;
+    previousFillCount: number;
+    volumeChangePercent: number | null;
+    buySharePercent: number | null;
+    sellSharePercent: number | null;
+    mostActiveInstrument: InstrumentInsight | null;
+    fastestGrowingInstrument: InstrumentInsight | null;
+    newlyActiveInstruments: InstrumentInsight[];
+    highestVolumeDay: { date: string; fillCount: number } | null;
+    rejectionRateChangePercentagePoints: number | null;
+    rejectionTrend: Array<{
+        date: string;
+        totalOrders: number;
+        rejectedOrders: number;
+        rejectionRate: number | null;
+    }>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReportingService {
     private readonly reportingUrl = `${environment.apiUrl}/internal/reporting`;
 
     constructor(private readonly http: HttpClient) { }
+
+    getInsights(filters: ReportingFilters): Observable<BusinessInsights> {
+        return this.http.get<BusinessInsights>(this.reportingUrl + '/insights', {
+            params: this.toParams(filters)
+        });
+    }
 
     getSummary(filters: ReportingFilters): Observable<ReportingSummary> {
         return this.http.get<ReportingSummary>(`${this.reportingUrl}/summary`, {
