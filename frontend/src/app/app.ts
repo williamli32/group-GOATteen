@@ -26,11 +26,10 @@ export class App {
   );
 
   protected readonly showSidebar = computed(() => {
-    const url = this.currentUrl();
+    const url = this.currentUrl().split(/[?#]/)[0];
     const isPublicRoute = url === '/login' || url === '/register';
 
     return this.auth.isLoggedIn()
-      && this.auth.hasAnalystAccess()
       && !isPublicRoute;
   });
 }

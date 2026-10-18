@@ -83,6 +83,10 @@ export class Auth {
     return this.roles().some(role => role === 'ANALYST' || role === 'ADMIN');
   }
 
+  hasReportingAccess(): boolean {
+    return this.roles().some(role => role === 'ANALYST' || role === 'OPERATIONS' || role === 'ADMIN');
+  }
+
   hasAdminAccess(): boolean {
     return this.roles().includes('ADMIN');
   }

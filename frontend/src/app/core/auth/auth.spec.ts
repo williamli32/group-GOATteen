@@ -21,6 +21,7 @@ describe('Auth', () => {
   it('gives operations its own access without analyst or administrator privileges', () => {
     service.saveToken(token(['OPERATIONS']));
     expect(service.hasOperationsAccess()).toBe(true);
+    expect(service.hasReportingAccess()).toBe(true);
     expect(service.hasAnalystAccess()).toBe(false);
     expect(service.hasAdminAccess()).toBe(false);
   });
@@ -34,5 +35,16 @@ describe('Auth', () => {
     service.saveToken(token(['ADMIN']));
     expect(service.hasOperationsAccess()).toBe(true);
     expect(service.hasAnalystAccess()).toBe(true);
+  });
+
+  it.each([
+    ['CLIENT', false],
+    ['USER', false],
+    ['ANALYST', true],
+    ['OPERATIONS', true],
+    ['ADMIN', true],
+  ] as const)('gives %s the expected Reports access', (role, expected) => {
+    service.saveToken(token([role]));
+    expect(service.hasReportingAccess()).toBe(expected);
   });
 });

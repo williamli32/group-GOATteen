@@ -6,7 +6,7 @@ export const analystGuard: CanActivateFn = () => {
   const auth = inject(Auth);
   const router = inject(Router);
 
-  return auth.hasAnalystAccess()
+  return auth.hasReportingAccess()
     ? true
     : router.createUrlTree(['/dashboard']);
 };

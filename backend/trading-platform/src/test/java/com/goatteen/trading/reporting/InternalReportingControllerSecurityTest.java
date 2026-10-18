@@ -11,6 +11,8 @@ import com.goatteen.trading.reporting.metrics.ReportingActivityService;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
 import com.goatteen.trading.user.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -78,6 +80,28 @@ class InternalReportingControllerSecurityTest {
                 .param("fromDate", "2026-09-01")
                 .param("toDate", "2026-09-30"))
                 .andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"summary", "activity", "instruments", "clients", "trends"})
+    @WithMockUser(roles = "OPERATIONS")
+    void operationsCanAccessEveryInternalReport(String endpoint) throws Exception {
+        mockMvc.perform(get("/api/internal/reporting/" + endpoint)
+                .param("fromDate", "2026-09-01")
+                .param("toDate", "2026-09-30"))
+                .andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"summary", "activity", "instruments", "clients", "trends"})
+    @WithMockUser(roles = "CLIENT")
+    void customersCannotAccessInternalReports(String endpoint) throws Exception {
+        mockMvc.perform(get("/api/internal/reporting/" + endpoint)
+                .param("fromDate", "2026-09-01")
+                .param("toDate", "2026-09-30"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(tradingActivityService, activityService, instrumentService, clientService, trendService);
     }
 
     @Test

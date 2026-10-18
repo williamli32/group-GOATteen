@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/internal/reporting")
-@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'OPERATIONS')")
 public class BusinessInsightsController {
     private final BusinessInsightsService insightsService;
 

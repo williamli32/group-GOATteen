@@ -623,7 +623,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         }
 
         if (status === 403) {
-            return 'Forbidden: regular clients are not permitted to access the advisor reporting view. This view is restricted to administrators and analysts.';
+            return 'Forbidden: regular clients are not permitted to access the advisor reporting view. This view is restricted to administrators, analysts and operations users.';
         }
 
         if (status === 400) {

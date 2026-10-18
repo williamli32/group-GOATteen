@@ -12,7 +12,7 @@ import { analystGuard } from './analyst-guard';
 
 describe('analystGuard', () => {
     const authMock = {
-        hasAnalystAccess: vi.fn()
+        hasReportingAccess: vi.fn()
     };
 
     beforeEach(() => {
@@ -25,8 +25,8 @@ describe('analystGuard', () => {
         });
     });
 
-    it('allows analysts and administrators', () => {
-        authMock.hasAnalystAccess.mockReturnValue(true);
+    it('allows users with Reports access', () => {
+        authMock.hasReportingAccess.mockReturnValue(true);
 
         const result = TestBed.runInInjectionContext(() => analystGuard(
             {} as ActivatedRouteSnapshot,
@@ -37,7 +37,7 @@ describe('analystGuard', () => {
     });
 
     it('redirects regular users to the dashboard', () => {
-        authMock.hasAnalystAccess.mockReturnValue(false);
+        authMock.hasReportingAccess.mockReturnValue(false);
         const router = TestBed.inject(Router);
 
         const result = TestBed.runInInjectionContext(() => analystGuard(

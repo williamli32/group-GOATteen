@@ -55,6 +55,13 @@ class BusinessInsightsControllerSecurityTest {
     }
 
     @Test
+    @WithMockUser(roles = "OPERATIONS")
+    void operationsCanReadInsights() throws Exception {
+        mvc.perform(request()).andExpect(status().isOk());
+        verify(insights).calculate(any());
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     void administratorsCanReadInsights() throws Exception {
         mvc.perform(request()).andExpect(status().isOk());

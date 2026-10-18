@@ -12,6 +12,8 @@ import com.goatteen.trading.reporting.metrics.PeriodicReportingService;
 import com.goatteen.trading.reporting.metrics.TradingActivityMetricsService;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -91,6 +93,32 @@ class ReportingControllerSecurityTest {
         void analystCanAccessReporting() throws Exception {
                 mockMvc.perform(get(TRADING_URL))
                                 .andExpect(status().isOk());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"trading", "instruments", "clients", "trends", "periodic"})
+        @WithMockUser(roles = "OPERATIONS")
+        void operationsCanAccessEveryReport(String endpoint) throws Exception {
+                mockMvc.perform(get("/api/reporting/" + endpoint)
+                                .param("startDate", "2026-10-01T00:00:00")
+                                .param("endDate", "2026-11-01T00:00:00")
+                                .param("period", "MONTHLY")
+                                .param("date", "2026-10-01"))
+                                .andExpect(status().isOk());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"trading", "instruments", "clients", "trends", "periodic"})
+        @WithMockUser(roles = "CLIENT")
+        void customersCannotAccessReports(String endpoint) throws Exception {
+                mockMvc.perform(get("/api/reporting/" + endpoint)
+                                .param("startDate", "2026-10-01T00:00:00")
+                                .param("endDate", "2026-11-01T00:00:00")
+                                .param("period", "MONTHLY")
+                                .param("date", "2026-10-01"))
+                                .andExpect(status().isForbidden());
+
+                verifyNoInteractions(tradingService, instrumentService, clientService, activityTrendService, periodicService);
         }
 
         @Test

@@ -20,7 +20,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/internal/reporting")
-@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+@PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'OPERATIONS')")
 public class InternalReportingController {
 
     private final TradingActivityMetricsService tradingActivityService;
