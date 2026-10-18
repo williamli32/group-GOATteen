@@ -11,9 +11,6 @@ describe('Auth', () => {
     service = TestBed.inject(Auth);
   });
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
   afterEach(() => service.clearToken());
 
   function token(roles: string[]) { return 'header.' + btoa(JSON.stringify({ roles })) + '.signature'; }

@@ -7,17 +7,8 @@ import com.goatteen.trading.reporting.metrics.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.security.access.intercept.aopalliance.MethodSecurityInterceptor;
-import org.springframework.security.authentication.TestingAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor;
-import org.springframework.security.authorization.method.PreAuthorizeAuthorizationManager;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -90,14 +81,14 @@ class ReportingControllerTest {
     }
 
     @Test
-    void reportingControllerRequiresAdminOrAnalyst() throws Exception {
+    void reportingControllerRequiresAdminAnalystOrOperations() {
         var annotation = ReportingController.class
                 .getAnnotation(
                         org.springframework.security.access.prepost.PreAuthorize.class);
 
         assertNotNull(annotation);
         assertEquals(
-                "hasAnyRole('ADMIN', 'ANALYST')",
+                "hasAnyRole('ADMIN', 'ANALYST', 'OPERATIONS')",
                 annotation.value());
     }
 

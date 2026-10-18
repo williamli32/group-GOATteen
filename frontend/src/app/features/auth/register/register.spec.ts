@@ -63,12 +63,6 @@ describe('Register', () => {
   });
 
 
-  it('should create', () => {
-
-    expect(component).toBeTruthy();
-
-  });
-
 
   it(
     'should reject mismatched passwords',

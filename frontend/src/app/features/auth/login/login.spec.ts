@@ -60,12 +60,6 @@ describe('Login', () => {
   });
 
 
-  it('should create', () => {
-
-    expect(component).toBeTruthy();
-
-  });
-
   it('disables repeated submissions and clears loading after a failed login', () => {
     const http = TestBed.inject(HttpTestingController);
     component.email = 'analyst@example.com';

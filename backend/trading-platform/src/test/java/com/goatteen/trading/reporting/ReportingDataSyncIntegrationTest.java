@@ -808,33 +808,6 @@ class ReportingDataSyncIntegrationTest {
         }
 
         @Test
-        void reportingQueriesDoNotChangeTransactionalRecords()
-                        throws Exception {
-
-                Fill fill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
-                                new BigDecimal("11"), LocalDateTime.now().minusMinutes(2));
-                waitForTradeFact(fill.getId());
-
-                Order beforeOrder = orderRepository.findById(fill.getOrder().getId()).orElseThrow();
-                BigDecimal beforeQuantity = beforeOrder.getQuantity();
-                OrderStatus beforeStatus = beforeOrder.getStatus();
-                BigDecimal beforeFillPrice = fillRepository.findById(fill.getId()).orElseThrow().getFillPrice();
-
-                currentMetrics();
-                tradeFactRepository.findByClientIdAndDateRange(
-                                testClient.getId(),
-                                LocalDateTime.now().minusMinutes(10),
-                                LocalDateTime.now().plusMinutes(10));
-
-                Order afterOrder = orderRepository.findById(fill.getOrder().getId()).orElseThrow();
-                BigDecimal afterFillPrice = fillRepository.findById(fill.getId()).orElseThrow().getFillPrice();
-
-                assertEquals(beforeQuantity, afterOrder.getQuantity());
-                assertEquals(beforeStatus, afterOrder.getStatus());
-                assertEquals(beforeFillPrice, afterFillPrice);
-        }
-
-        @Test
         void executionDatesAndFilteredTotalsReconcileWithPersistedSource() throws Exception {
                 LocalDateTime start = LocalDateTime.of(2026, 10, 12, 0, 0);
                 LocalDateTime end = start.plusDays(1);
@@ -876,6 +849,11 @@ class ReportingDataSyncIntegrationTest {
                 reportingActivityService.find(filters);
                 businessInsightsService.calculate(filters);
                 periodicReportingService.generate(ReportingPeriod.DAILY, java.time.LocalDate.now());
+                currentMetrics();
+                tradeFactRepository.findByClientIdAndDateRange(
+                                testClient.getId(),
+                                LocalDateTime.now().minusMinutes(10),
+                                LocalDateTime.now().plusMinutes(10));
                 assertEquals(before, operationalSnapshot(),
                                 "Reporting changed persisted orders, fills, balances, cash ledger, holdings, or history");
         }

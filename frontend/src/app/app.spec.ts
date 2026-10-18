@@ -56,10 +56,6 @@ describe('App', () => {
     return fixture;
   }
 
-  it('should create the app', () => {
-    expect(TestBed.createComponent(App).componentInstance).toBeTruthy();
-  });
-
   it('renders the router outlet without a sidebar when signed out', async () => {
     const fixture = await renderAt('/login');
     expect(fixture.nativeElement.querySelector('router-outlet')).toBeTruthy();

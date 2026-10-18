@@ -70,8 +70,7 @@ frontend/
 │   │   │   │   └── auth-guard.spec.ts       # Guard tests
 │   │   │   └── interceptors/
 │   │   │       ├── jwt-interceptor.ts       # Attaches auth tokens
-│   │   │       ├── idempotency-interceptor.ts  # Adds idempotency headers
-│   │   │       └── jwt-interceptor.spec.ts  # Interceptor tests
+│   │   │       └── idempotency-interceptor.ts  # Adds idempotency headers
 │   │   ├── dashboard/
 │   │   │   ├── dashboard.component.ts       # Main trading interface
 │   │   │   ├── dashboard.component.html     # Dashboard template
