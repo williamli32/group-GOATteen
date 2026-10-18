@@ -25,3 +25,8 @@ app-root {
     width: 100%;
     min-height: 100vh;
 }
+
+/* Auth fields already have their own show/hide buttons. */
+.auth-page input[type='password']::-ms-reveal {
+    display: none;
+}
