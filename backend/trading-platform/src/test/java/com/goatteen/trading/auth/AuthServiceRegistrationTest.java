@@ -54,7 +54,8 @@ class AuthServiceRegistrationTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"CLIENT,USD", "ANALYST,EUR", "OPERATIONS,JPY"})
+    @CsvSource({"CLIENT,USD", "CLIENT,GBP", "CLIENT,INR", "ANALYST,USD", "ANALYST,GBP", "ANALYST,INR",
+            "OPERATIONS,USD", "OPERATIONS,GBP", "OPERATIONS,INR"})
     void createsEachRoleWithTheSelectedCurrency(String role, String currency) {
         var result = service.register(request(role, currency));
         ArgumentCaptor<Account> saved = ArgumentCaptor.forClass(Account.class);
@@ -90,9 +91,17 @@ class AuthServiceRegistrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "BTC", "INVALID"})
+    @ValueSource(strings = {"", "BTC", "INVALID", "EUR", "JPY", "CHF", "AUD", "CAD", "NZD", "SGD"})
     void rejectsUnsupportedOrMissingCurrenciesBeforeCreatingRecords(String currency) {
         assertThrows(IllegalArgumentException.class, () -> service.register(request("CLIENT", currency)));
+        verify(users, never()).save(any());
+        verify(accounts, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ANALYST", "OPERATIONS"})
+    void staffCannotBypassTheRegistrationCurrencyRestriction(String role) {
+        assertThrows(IllegalArgumentException.class, () -> service.register(request(role, "JPY")));
         verify(users, never()).save(any());
         verify(accounts, never()).save(any());
     }

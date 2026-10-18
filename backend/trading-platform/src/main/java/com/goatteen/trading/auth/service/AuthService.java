@@ -82,7 +82,7 @@ public class AuthService {
                                         "A valid analyst/operations access code is required");
                 }
 
-                AccountCurrency currency = AccountCurrency.fromCode(request.getCurrency());
+                AccountCurrency currency = AccountCurrency.forRegistration(request.getCurrency());
 
                 Role clientRole = roleRepository.findByName(requestedRole)
                                 .orElseThrow(() -> new IllegalStateException(

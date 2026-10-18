@@ -207,12 +207,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
     }
 
     currencyOptions(): string[] {
-        return [
-            ...new Set(
-                this.marketInstruments()
-                    .map(instrument => instrument.currency)
-            )
-        ].sort();
+        return ['USD', 'GBP', 'INR'];
     }
 
     selectCurrency(value: string): void {

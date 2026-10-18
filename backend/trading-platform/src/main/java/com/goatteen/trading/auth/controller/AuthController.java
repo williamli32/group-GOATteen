@@ -18,7 +18,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -50,7 +49,7 @@ public class AuthController {
 
     @GetMapping("/account-currencies")
     public List<AccountCurrencyOption> accountCurrencies() {
-        return Arrays.stream(AccountCurrency.values())
+        return AccountCurrency.registrationCurrencies().stream()
                 .map(currency -> new AccountCurrencyOption(
                         currency.name(), currency.displayName(), currency.minorUnits()))
                 .toList();

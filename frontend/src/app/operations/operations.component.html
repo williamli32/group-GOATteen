@@ -13,7 +13,7 @@
             <label><span>Account ID</span><input type="number" placeholder="Any account" [ngModel]="accountId() ?? ''" (ngModelChange)="setNumber('accountId', $event)"></label>
             <label><span>Symbol</span><input type="text" placeholder="Any symbol" [ngModel]="instrumentSymbol()" (ngModelChange)="setInstrumentSymbol($event)"></label>
             <label><span>Side</span><select [ngModel]="side() ?? ''" (ngModelChange)="setSide($event)"><option value="">BUY and SELL</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
-            <label><span>Status</span><select [ngModel]="status() ?? ''" (ngModelChange)="setStatus($event)"><option value="">All statuses</option><option value="SUBMITTED">SUBMITTED</option><option value="ACCEPTED">ACCEPTED</option><option value="FILLED">FILLED</option><option value="REJECTED">REJECTED</option></select></label>
+            <label><span>Status</span><select [ngModel]="status() ?? ''" (ngModelChange)="setStatus($event)"><option value="">All statuses</option><option value="FILLED">FILLED</option><option value="REJECTED">REJECTED</option></select></label>
             <label><span>From</span><input type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" [max]="toDate()"></label>
             <label><span>To</span><input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" [min]="fromDate()"></label>
             <button class="search-button" type="button" (click)="search()" [disabled]="loading()">{{ loading() ? 'Searching...' : 'Search orders' }}</button>

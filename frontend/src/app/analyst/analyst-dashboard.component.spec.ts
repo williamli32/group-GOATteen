@@ -766,15 +766,16 @@ describe('AnalystDashboardComponent', () => {
 
 
     it(
-        'returns the currencies available from market instruments',
+        'offers the three supported reporting currencies even if a market has no loaded instruments',
         () => {
 
             expect(
                 component.currencyOptions()
             )
                 .toEqual([
+                    'USD',
                     'GBP',
-                    'USD'
+                    'INR'
                 ]);
 
         }

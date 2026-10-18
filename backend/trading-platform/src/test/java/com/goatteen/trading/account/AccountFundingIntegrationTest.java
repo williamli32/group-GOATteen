@@ -109,7 +109,7 @@ class AccountFundingIntegrationTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"CLIENT,USD", "ANALYST,EUR", "OPERATIONS,JPY"})
+    @CsvSource({"CLIENT,USD", "ANALYST,GBP", "OPERATIONS,INR"})
     void registrationPersistsTheChosenRoleAndCurrency(String role, String currency) {
         RegisterRequest request = new RegisterRequest();
         request.setFirstName("Signup"); request.setLastName("Test");

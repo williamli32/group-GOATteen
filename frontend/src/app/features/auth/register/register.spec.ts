@@ -57,7 +57,7 @@ describe('Register', () => {
     TestBed.inject(HttpTestingController).expectOne(environment.apiUrl + '/auth/account-currencies').flush([
       { code: 'USD', name: 'US Dollar', minorUnits: 2 },
       { code: 'GBP', name: 'British Pound', minorUnits: 2 },
-      { code: 'JPY', name: 'Japanese Yen', minorUnits: 0 }
+      { code: 'INR', name: 'Indian Rupee', minorUnits: 2 }
     ]);
 
   });

@@ -3,11 +3,25 @@ package com.goatteen.trading.account;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Currency;
+import java.util.List;
 import java.util.Locale;
 
 public enum AccountCurrency {
     GBP, USD, EUR, INR, JPY, CHF, AUD, CAD, NZD, SGD;
 
+    public static List<AccountCurrency> registrationCurrencies() {
+        return List.of(USD, GBP, INR);
+    }
+
+    public static AccountCurrency forRegistration(String value) {
+        AccountCurrency currency = fromCode(value);
+        if (!registrationCurrencies().contains(currency)) {
+            throw new IllegalArgumentException("Select USD, GBP or INR as your account currency");
+        }
+        return currency;
+    }
+
+    // Existing accounts retain their original currency and amount precision.
     public static AccountCurrency fromCode(String value) {
         try {
             return valueOf(value == null ? "" : value.trim().toUpperCase(Locale.ROOT));

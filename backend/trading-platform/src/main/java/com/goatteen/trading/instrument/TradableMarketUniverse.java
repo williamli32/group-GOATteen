@@ -79,7 +79,7 @@ public final class TradableMarketUniverse {
 
             "GBPUSD|FOREX",
             "EURUSD|FOREX",
-            "USDJPY|FOREX",
+            "INRUSD|FOREX",
 
             // =========================
             // CRYPTO — 2

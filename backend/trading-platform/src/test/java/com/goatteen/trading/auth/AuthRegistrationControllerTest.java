@@ -31,8 +31,8 @@ class AuthRegistrationControllerTest {
     @Test
     void currenciesCanBeLoadedBeforeSigningIn() throws Exception {
         mvc.perform(get("/api/auth/account-currencies")).andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.code == 'USD')].minorUnits").value(org.hamcrest.Matchers.contains(2)))
-                .andExpect(jsonPath("$[?(@.code == 'JPY')].minorUnits").value(org.hamcrest.Matchers.contains(0)));
+                .andExpect(jsonPath("$[*].code").value(org.hamcrest.Matchers.contains("USD", "GBP", "INR")))
+                .andExpect(jsonPath("$[*].minorUnits").value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(2))));
     }
 
     @Test
