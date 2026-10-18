@@ -110,17 +110,32 @@
                     </label>
 
                     <select id="role" name="role" [(ngModel)]="role">
-                        <option value="CLIENT">Client</option>
+                        <option value="CLIENT">Customer</option>
                         <option value="ANALYST">Analyst</option>
+                        <option value="OPERATIONS">Operations</option>
                     </select>
 
                 </div>
 
-                @if (role === 'ANALYST') {
+                <div class="form-field">
+                    <label for="currency">Account currency</label>
+                    <select id="currency" name="currency" [(ngModel)]="currency" required [disabled]="currenciesLoading()">
+                        <option value="" disabled>{{ currenciesLoading() ? 'Loading currencies...' : 'Choose your account currency' }}</option>
+                        @for (option of currencyOptions(); track option.code) {
+                            <option [value]="option.code">{{ option.code }} — {{ option.name }}</option>
+                        }
+                    </select>
+                    @if (currenciesError()) {
+                        <p role="alert">{{ currenciesError() }}</p>
+                        <button type="button" (click)="loadCurrencies()">Retry currencies</button>
+                    }
+                </div>
+
+                @if (role !== 'CLIENT') {
                 <div class="form-field">
 
                     <label for="accessCode">
-                        Analyst Access Code
+                        {{ role === 'ANALYST' ? 'Analyst' : 'Operations' }} Access Code
                     </label>
 
                     <div class="input-wrapper">
@@ -281,7 +296,7 @@
                 </div>
                 }
 
-                <button type="submit" class="submit-button" [disabled]="loading()">
+                <button type="submit" class="submit-button" [disabled]="loading() || currenciesLoading() || !currency">
 
                     @if (loading()) {
                     <span class="spinner"></span>

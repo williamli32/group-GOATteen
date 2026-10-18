@@ -55,7 +55,8 @@ export class Login {
 
 
         this.router.navigate([
-          this.auth.hasAnalystAccess() ? '/analyst' : '/dashboard'
+          this.auth.hasAnalystAccess() ? '/analyst'
+            : this.auth.hasOperationsAccess() ? '/operations' : '/dashboard'
         ]);
 
       },

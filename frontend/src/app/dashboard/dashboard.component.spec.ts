@@ -16,6 +16,7 @@ import {
 
 import {
     Observable,
+    Subject,
     of,
     throwError
 } from 'rxjs';
@@ -743,4 +744,23 @@ describe('DashboardComponent', () => {
         }
     );
 
+    it('does not let a poll started before funding overwrite the confirmed balance', () => {
+        const old = new Subject<AccountResponse>();
+        const refreshed = new Subject<AccountResponse>();
+        const spy = vi.spyOn(accountServiceMock, 'getMyAccount')
+            .mockReturnValueOnce(old).mockReturnValueOnce(refreshed);
+        const previousAccount = { ...mockAccount };
+        component.loadDashboard(false);
+        mockAccount = { ...mockAccount, cashBalance: 12000 };
+        mockHoldings = { ...mockHoldings, cashBalance: 12000 };
+        component.onAccountFunded({ accountId: 1, transactionId: 99, amount: 10000, currency: 'GBP',
+            cashBalance: 12000, createdAt: '2026-10-18T12:00:00', replayed: false });
+        expect(old.observed).toBe(false);
+        expect(component.account()?.cashBalance).toBe(12000);
+        old.next(previousAccount); old.complete();
+        expect(component.account()?.cashBalance).toBe(12000);
+        refreshed.next(mockAccount); refreshed.complete();
+        expect(component.holdings()?.cashBalance).toBe(12000);
+        spy.mockRestore();
+    });
 });

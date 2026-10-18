@@ -137,6 +137,10 @@
   <!-- MAIN DASHBOARD            -->
   <!-- ========================= -->
 
+  @if (account(); as currentAccount) {
+    <app-account-funding [account]="currentAccount" (funded)="onAccountFunded($event)" />
+  }
+
   <div class="main-content">
 
 

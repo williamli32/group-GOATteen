@@ -1,6 +1,7 @@
 package com.goatteen.trading.auth.service;
 
 import com.goatteen.trading.account.Account;
+import com.goatteen.trading.account.AccountCurrency;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.auth.dto.RegisterRequest;
 import com.goatteen.trading.auth.dto.RegisterResponse;
@@ -30,8 +31,8 @@ public class AuthService {
 
         private static final String CLIENT_ROLE = "CLIENT";
         private static final String ANALYST_ROLE = "ANALYST";
+        private static final String OPERATIONS_ROLE = "OPERATIONS";
         private static final String ANALYST_ACCESS_CODE = "goatteen14";
-        private static final String DEFAULT_ACCOUNT_CURRENCY = "GBP";
 
         private final UserRepository userRepository;
         private final ClientRepository clientRepository;
@@ -71,11 +72,17 @@ public class AuthService {
                                 ? CLIENT_ROLE
                                 : request.getRole().trim().toUpperCase(Locale.ROOT);
 
-                if (ANALYST_ROLE.equals(requestedRole)
+                if (!Set.of(CLIENT_ROLE, ANALYST_ROLE, OPERATIONS_ROLE).contains(requestedRole)) {
+                        throw new IllegalArgumentException("Select customer, analyst or operations");
+                }
+
+                if ((ANALYST_ROLE.equals(requestedRole) || OPERATIONS_ROLE.equals(requestedRole))
                                 && !ANALYST_ACCESS_CODE.equals(request.getAccessCode())) {
                         throw new IllegalArgumentException(
-                                        "A valid analyst access code is required");
+                                        "A valid analyst/operations access code is required");
                 }
+
+                AccountCurrency currency = AccountCurrency.fromCode(request.getCurrency());
 
                 Role clientRole = roleRepository.findByName(requestedRole)
                                 .orElseThrow(() -> new IllegalStateException(
@@ -102,7 +109,7 @@ public class AuthService {
                 Account account = new Account(
                                 client,
                                 accountNumber,
-                                DEFAULT_ACCOUNT_CURRENCY);
+                                currency.name());
 
                 account = accountRepository.save(account);
 

@@ -18,6 +18,14 @@ export interface LoginResponse {
   accessToken: string;
 }
 
+export type RegistrationRole = 'CLIENT' | 'ANALYST' | 'OPERATIONS';
+
+export interface AccountCurrencyOption {
+  code: string;
+  name: string;
+  minorUnits: number;
+}
+
 
 @Injectable({
   providedIn: 'root'
@@ -79,6 +87,14 @@ export class Auth {
     return this.roles().includes('ADMIN');
   }
 
+  hasOperationsAccess(): boolean {
+    return this.roles().some(role => role === 'OPERATIONS' || role === 'ADMIN');
+  }
+
+  getAccountCurrencies(): Observable<AccountCurrencyOption[]> {
+    return this.http.get<AccountCurrencyOption[]>(`${this.apiUrl}/account-currencies`);
+  }
+
 
   isLoggedIn(): boolean {
     return !!this.getToken();
@@ -90,7 +106,8 @@ export class Auth {
     lastName: string;
     email: string;
     password: string;
-    role: 'CLIENT' | 'ANALYST';
+    role: RegistrationRole;
+    currency: string;
     accessCode?: string;
   }) {
     return this.http.post(

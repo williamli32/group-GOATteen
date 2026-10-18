@@ -13,11 +13,14 @@ import {
 } from '@angular/common/http/testing';
 
 import {
+  Router,
   provideRouter
 } from '@angular/router';
 
 import { Login } from './login';
 import { environment } from '../../../../environments/environment';
+import { Auth } from '../../../core/auth/auth';
+import { vi } from 'vitest';
 
 
 describe('Login', () => {
@@ -82,5 +85,17 @@ describe('Login', () => {
     expect(fixture.nativeElement.querySelector('.submit-button').disabled).toBe(false);
     expect(component.errorMessage()).toContain('Invalid email or password');
     http.verify();
+  });
+  it('takes a newly signed-in operations user to the operations screen', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    component.email = 'operations@example.com';
+    component.password = 'Password123!';
+    component.login(new Event('submit'));
+    TestBed.inject(HttpTestingController).expectOne(environment.apiUrl + '/auth/login').flush({
+      accessToken: 'header.' + btoa(JSON.stringify({ roles: ['OPERATIONS'] })) + '.signature'
+    });
+    expect(navigate).toHaveBeenCalledWith(['/operations']);
+    expect(component.loading()).toBe(false);
+    TestBed.inject(Auth).clearToken();
   });
 });

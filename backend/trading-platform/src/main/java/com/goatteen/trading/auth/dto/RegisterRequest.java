@@ -28,8 +28,13 @@ public class RegisterRequest {
     )
     private String password;
 
-    @Pattern(regexp = "CLIENT|ANALYST", message = "Account type must be CLIENT or ANALYST")
+    @NotBlank(message = "Account type is required")
+    @Pattern(regexp = "CLIENT|ANALYST|OPERATIONS", message = "Select customer, analyst or operations")
     private String role = "CLIENT";
+
+    @NotBlank(message = "Account currency is required")
+    @Size(min = 3, max = 3, message = "Use a three-letter account currency code")
+    private String currency;
 
     private String accessCode;
 
@@ -60,6 +65,10 @@ public class RegisterRequest {
         return accessCode;
     }
 
+    public String getCurrency() {
+        return currency;
+    }
+
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
@@ -82,5 +91,9 @@ public class RegisterRequest {
 
     public void setAccessCode(String accessCode) {
         this.accessCode = accessCode;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 }

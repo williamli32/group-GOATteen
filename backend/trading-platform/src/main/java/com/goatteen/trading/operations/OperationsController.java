@@ -18,7 +18,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/internal/operations")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'OPERATIONS')")
 public class OperationsController {
 
     private final OperationsOrderSearchService searchService;

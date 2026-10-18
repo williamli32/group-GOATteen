@@ -1,0 +1,15 @@
+:host { display: block; }
+.funding-panel { margin-bottom: 20px; padding: 18px 22px; border: 1px solid #26394a; background: #101c29; color: #e7edf5; font: 14px 'IBM Plex Sans', sans-serif; }
+.funding-heading, .funding-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+h2 { margin: 0 0 6px; font-size: 18px; }
+p { margin: 6px 0; color: #9babba; }
+form { margin-top: 16px; max-width: 580px; }
+label { display: block; margin-bottom: 7px; }
+input { flex: 1; min-width: 0; padding: 11px; border: 1px solid #365464; background: #0b111b; color: inherit; font: inherit; }
+button { padding: 11px 16px; border: 1px solid #72d8c0; background: #72d8c0; color: #07130e; cursor: pointer; font: 600 13px 'IBM Plex Sans', sans-serif; }
+button.secondary { background: transparent; color: #72d8c0; }
+button:disabled { opacity: .6; cursor: wait; }
+button:focus-visible, input:focus-visible { outline: 2px solid #f0b75d; outline-offset: 3px; }
+.funding-error { color: #f2a1a7; }
+.funding-success { color: #88e5aa; }
+@media (max-width: 600px) { .funding-heading, .funding-controls { align-items: stretch; flex-direction: column; } }

@@ -41,6 +41,7 @@ import {
 
 
 import { AppResizableDirective } from './resizable.directive';
+import { AccountFundingComponent } from './account-funding.component';
 
 
 
@@ -66,7 +67,8 @@ import {
 
   finalize,
 
-  forkJoin
+  forkJoin,
+  Subscription
 
 } from 'rxjs';
 
@@ -75,6 +77,8 @@ import {
 import {
 
   AccountResponse,
+
+  AddFundsResponse,
 
   AccountService,
 
@@ -134,7 +138,8 @@ import {
 
     FormsModule,
 
-    AppResizableDirective
+    AppResizableDirective,
+    AccountFundingComponent
 
   ],
 
@@ -308,6 +313,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     false;
 
+  private dashboardRequest?: Subscription;
+  private dashboardRequestVersion = 0;
+
+  onAccountFunded(result: AddFundsResponse): void {
+    const account = this.account();
+    if (!account || result.accountId !== account.accountId || result.currency !== account.currency) return;
+    this.dashboardRequestVersion++;
+    this.dashboardRequest?.unsubscribe();
+    this.dashboardRefreshInProgress = false;
+    this.account.set({ ...account, cashBalance: result.cashBalance });
+    this.holdings.update(holdings => holdings ? { ...holdings, cashBalance: result.cashBalance } : holdings);
+    this.loading.set(false);
+    this.errorMessage.set('');
+    this.loadDashboard(false);
+  }
+
 
 
   constructor(
@@ -432,6 +453,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     }
 
+    const requestVersion = ++this.dashboardRequestVersion;
+
 
 
 
@@ -476,7 +499,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
-    forkJoin({
+    this.dashboardRequest = forkJoin({
 
 
 
@@ -505,6 +528,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
         finalize(() => {
+
+          if (requestVersion !== this.dashboardRequestVersion) return;
 
 
 
@@ -539,6 +564,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
         next: result => {
+
+          if (requestVersion !== this.dashboardRequestVersion) return;
 
 
 
@@ -609,6 +636,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           error: HttpErrorResponse
 
         ) => {
+
+          if (requestVersion !== this.dashboardRequestVersion) return;
 
 
 
@@ -1686,6 +1715,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   ngOnDestroy(): void {
+
+    this.dashboardRequestVersion++;
+    this.dashboardRequest?.unsubscribe();
 
 
 

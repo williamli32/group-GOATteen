@@ -1,0 +1,22 @@
+<section class="funding-panel" aria-label="Account funding">
+  <div class="funding-heading">
+    <div><h2>Add funds</h2><p>Funds are added in your account currency: <strong>{{ account().currency }}</strong>.</p></div>
+    @if (!isOpen()) { <button type="button" (click)="open()">Add funds</button> }
+    @else { <button type="button" class="secondary" (click)="isOpen.set(false)" [disabled]="funding()">Close</button> }
+  </div>
+  @if (isOpen()) {
+    <form (ngSubmit)="submit()" [attr.aria-busy]="funding()">
+      <label for="funding-amount">Amount ({{ account().currency }})</label>
+      <div class="funding-controls">
+        <input id="funding-amount" name="fundingAmount" type="text" inputmode="decimal" autocomplete="off"
+          [(ngModel)]="amount" [readOnly]="funding() || pending() !== null" placeholder="e.g. 10000" required>
+        <button type="submit" [disabled]="funding()">
+          {{ funding() ? 'Confirming...' : pending() ? 'Confirm previous funding' : 'Add ' + account().currency }}
+        </button>
+      </div>
+      @if (pending() && !funding()) { <p>A previous request is awaiting confirmation. Retry to confirm it before adding another amount.</p> }
+      @if (error()) { <p class="funding-error" role="alert">{{ error() }}</p> }
+      @if (success()) { <p class="funding-success" role="status">{{ success() }}</p> }
+    </form>
+  }
+</section>

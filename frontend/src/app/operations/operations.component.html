@@ -5,7 +5,7 @@
     </header>
 
     <section class="search-panel">
-        <div class="panel-title"><div><p class="eyebrow">ORDER SEARCH</p><h2>Find an order</h2></div><div class="search-actions"><button type="button" class="reset-button" (click)="resetFilters()">Reset filters</button><span>ADMIN ACCESS</span></div></div>
+        <div class="panel-title"><div><p class="eyebrow">ORDER SEARCH</p><h2>Find an order</h2></div><div class="search-actions"><button type="button" class="reset-button" (click)="resetFilters()">Reset filters</button><span>OPERATIONS ACCESS</span></div></div>
         <div class="search-grid">
             <label><span>Order ID</span><input type="number" placeholder="Any order" [ngModel]="orderId() ?? ''" (ngModelChange)="setNumber('orderId', $event)"></label>
             <label><span>Client first name</span><input type="text" placeholder="Any first name" [ngModel]="clientFirstName()" (ngModelChange)="setClientFirstName($event)"></label>

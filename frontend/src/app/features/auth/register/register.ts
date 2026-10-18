@@ -1,9 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { Auth } from '../../../core/auth/auth';
+import { AccountCurrencyOption, Auth, RegistrationRole } from '../../../core/auth/auth';
 
 @Component({
   selector: 'app-register',
@@ -12,15 +13,20 @@ import { Auth } from '../../../core/auth/auth';
   templateUrl: './register.html',
   styleUrl: './register.scss'
 })
-export class Register {
+export class Register implements OnInit {
 
   firstName = '';
   lastName = '';
   email = '';
   password = '';
   confirmPassword = '';
-  role: 'CLIENT' | 'ANALYST' = 'CLIENT';
+  role: RegistrationRole = 'CLIENT';
+  currency = '';
   accessCode = '';
+  readonly currencyOptions = signal<AccountCurrencyOption[]>([]);
+  readonly currenciesLoading = signal(false);
+  readonly currenciesError = signal('');
+  private readonly destroyRef = inject(DestroyRef);
 
   showPassword = false;
   showConfirmPassword = false;
@@ -35,7 +41,26 @@ export class Register {
     private router: Router
   ) { }
 
+  ngOnInit(): void {
+    this.loadCurrencies();
+  }
+
+  loadCurrencies(): void {
+    if (this.currenciesLoading()) return;
+    this.currenciesLoading.set(true);
+    this.currenciesError.set('');
+    this.auth.getAccountCurrencies().pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.currenciesLoading.set(false))
+    ).subscribe({
+      next: currencies => this.currencyOptions.set(currencies),
+      error: () => this.currenciesError.set('Account currencies could not be loaded. Please retry.')
+    });
+  }
+
   register(): void {
+
+    if (this.loading()) return;
 
     this.errorMessage.set('');
     this.validationMessage.set('');
@@ -70,10 +95,15 @@ export class Register {
       return;
     }
 
-    if (this.role === 'ANALYST' && !this.accessCode.trim()) {
+    if (this.role !== 'CLIENT' && !this.accessCode.trim()) {
       this.validationMessage.set(
-        'An analyst access code is required.'
+        this.role === 'ANALYST' ? 'An analyst access code is required.' : 'An operations access code is required.'
       );
+      return;
+    }
+
+    if (!this.currencyOptions().some(option => option.code === this.currency)) {
+      this.validationMessage.set('Please select an account currency.');
       return;
     }
 
@@ -85,9 +115,11 @@ export class Register {
       email: this.email.trim(),
       password: this.password,
       role: this.role,
-      accessCode: this.role === 'ANALYST' ? this.accessCode : undefined
+      currency: this.currency,
+      accessCode: this.role !== 'CLIENT' ? this.accessCode : undefined
     })
       .pipe(
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.loading.set(false);
         })
@@ -107,7 +139,8 @@ export class Register {
 
           } else if (error.status === 400) {
             this.errorMessage.set(
-              'Please check your information and try again.'
+              error.error?.message && error.error.message !== 'Validation failed'
+                ? error.error.message : 'Please check your information and try again.'
             );
 
           } else {
