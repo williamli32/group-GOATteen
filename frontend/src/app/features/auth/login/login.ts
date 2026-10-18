@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
 
 import { Auth } from '../../../core/auth/auth';
 
@@ -20,9 +21,9 @@ export class Login {
   email = '';
   password = '';
 
-  errorMessage = '';
+  readonly errorMessage = signal('');
 
-  loading = false;
+  readonly loading = signal(false);
   showPassword = false;
 
 
@@ -35,12 +36,15 @@ export class Login {
   login(event: Event) {
 
     event.preventDefault();
-
+    if (this.loading()) return;
+    this.loading.set(true);
+    this.errorMessage.set('');
 
     this.auth.login({
       email: this.email,
       password: this.password
     })
+    .pipe(finalize(() => this.loading.set(false)))
     .subscribe({
 
       next: response => {
@@ -59,8 +63,7 @@ export class Login {
 
       error: () => {
 
-        this.errorMessage =
-          'Invalid email or password';
+        this.errorMessage.set('Invalid email or password');
 
       }
 

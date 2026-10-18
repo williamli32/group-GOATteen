@@ -1,7 +1,8 @@
 <main class="analyst-shell">
     @if (expandedMetric(); as metric) {
         <div class="metric-modal-backdrop" (click)="toggleMetric(metric)">
-            <section class="metric-modal" role="dialog" aria-modal="true" [attr.aria-label]="metricTitle(metric)"
+            <section #metricDialog class="metric-modal" role="dialog" tabindex="-1"
+                (keydown)="onMetricDialogKeydown($event)" aria-modal="true" [attr.aria-label]="metricTitle(metric)"
                 (click)="$event.stopPropagation()">
                 <button type="button" class="metric-modal-close" aria-label="Close metric details"
                     (click)="toggleMetric(metric)">×</button>
@@ -398,9 +399,9 @@
                     <p>Daily rejected orders as a percentage of submitted orders.</p>
                 </div>
                 <span class="rejection-trend-period">
-                    {{ insight.currentWindow.fromDate | date:'MMM d, y':'UTC' }}
+                    {{ (insight.currentWindow.fromDate + 'T00:00:00Z') | date:'MMM d, y':'UTC' }}
                     @if (insight.currentWindow.fromDate !== insight.currentWindow.toDate) {
-                        &ndash; {{ insight.currentWindow.toDate | date:'MMM d, y':'UTC' }}
+                        &ndash; {{ (insight.currentWindow.toDate + 'T00:00:00Z') | date:'MMM d, y':'UTC' }}
                     }
                 </span>
             </div>
@@ -440,7 +441,7 @@
                                 <span class="rejection-point-tooltip" aria-hidden="true"
                                     [class.rejection-tooltip-start]="point.x <= 15"
                                     [class.rejection-tooltip-end]="point.x >= 85">
-                                    <span>{{ point.date | date:'EEE, MMM d, y':'UTC' }}</span>
+                                    <span>{{ (point.date + 'T00:00:00Z') | date:'EEE, MMM d, y':'UTC' }}</span>
                                     <strong>{{ point.rejectionRate | number:'1.0-2' }}% rejection rate</strong>
                                     <span>{{ point.rejectedOrders | number }} of {{ point.totalOrders | number }} orders rejected</span>
                                 </span>
@@ -453,7 +454,7 @@
                                 [class.rejection-tick-start]="tick.x === 0"
                                 [class.rejection-tick-end]="tick.x === 100"
                                 [class.rejection-tick-secondary]="tick.secondary">
-                                {{ tick.date | date:'MMM d':'UTC' }}
+                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
                             </span>
                         }
                     </div>
@@ -494,11 +495,11 @@
             </div>
 
             <span class="period-label">
-                {{ fromDate() }}
+                {{ appliedFilters().fromDate }}
                 →
-                {{ toDate() }}
+                {{ appliedFilters().toDate }}
                 ·
-                {{ currency() }}
+                {{ reportedCurrency() }}
             </span>
 
         </div>
@@ -506,7 +507,7 @@
 
         <div class="metric-grid">
 
-            <article class="metric-card accent-blue" (click)="toggleMetric('trades')">
+            <button type="button" class="metric-card accent-blue" (click)="toggleMetric('trades')" aria-haspopup="dialog">
 
                 <span>
                     Total successful trades
@@ -521,10 +522,10 @@
                 </small>
 
 
-            </article>
+            </button>
 
 
-            <article class="metric-card accent-cyan" (click)="toggleMetric('quantity')">
+            <button type="button" class="metric-card accent-cyan" (click)="toggleMetric('quantity')" aria-haspopup="dialog">
 
                 <span>
                     Executed quantity
@@ -532,7 +533,7 @@
 
                 <strong>
                     {{
-                    formatNumber(
+                    formatQuantity(
                     summary()?.totalExecutedQuantity
                     )
                     }}
@@ -543,10 +544,10 @@
                 </small>
 
 
-            </article>
+            </button>
 
 
-            <article class="metric-card accent-green" (click)="toggleMetric('filled')">
+            <button type="button" class="metric-card accent-green" (click)="toggleMetric('filled')" aria-haspopup="dialog">
 
                 <span>
                     Filled orders
@@ -569,10 +570,10 @@
                 </small>
 
 
-            </article>
+            </button>
 
 
-            <article class="metric-card accent-red" (click)="toggleMetric('rejected')">
+            <button type="button" class="metric-card accent-red" (click)="toggleMetric('rejected')" aria-haspopup="dialog">
 
                 <span>
                     Rejected orders
@@ -595,10 +596,10 @@
                 </small>
 
 
-            </article>
+            </button>
 
 
-            <article class="metric-card accent-gold" (click)="toggleMetric('value')">
+            <button type="button" class="metric-card accent-gold" (click)="toggleMetric('value')" aria-haspopup="dialog">
 
                 <span>
                     Trading value
@@ -608,20 +609,20 @@
                     {{
                     formatMoney(
                     summary()?.totalTradedValue,
-                    currency()
+                    reportedCurrency()
                     )
                     }}
                 </strong>
 
                 <small>
-                    reported notional · {{ currency() }}
+                    reported notional · {{ reportedCurrency() }}
                 </small>
 
 
-            </article>
+            </button>
 
 
-            <article class="metric-card accent-violet" (click)="toggleMetric('clients')">
+            <button type="button" class="metric-card accent-violet" (click)="toggleMetric('clients')" aria-haspopup="dialog">
 
                 <span>
                     Active clients
@@ -640,10 +641,10 @@
                 </small>
 
 
-            </article>
+            </button>
 
 
-            <article class="metric-card accent-blue" (click)="toggleMetric('instruments')">
+            <button type="button" class="metric-card accent-blue" (click)="toggleMetric('instruments')" aria-haspopup="dialog">
 
                 <span>
                     Active instruments
@@ -658,7 +659,7 @@
                 </small>
 
 
-            </article>
+            </button>
 
         </div>
 
@@ -751,32 +752,12 @@
 
 
                     <div class="chart-labels">
-
-                        @for (
-                        point of trends();
-                        track point.date;
-                        let index = $index
-                        ) {
-
-                        @if (
-                        showTrendLabel(index)
-                        ) {
-
-                        <small>
-                            {{
-                            point.date
-                            | date:'MMM d'
-                            }}
-                        </small>
-
-                        } @else {
-
-                        <small></small>
-
+                        @for (tick of trendTicks(); track tick.date) {
+                            <small [style.left.%]="tick.x" [class.chart-tick-start]="tick.x === 0"
+                                [class.chart-tick-end]="tick.x === 100" [class.chart-tick-secondary]="tick.secondary">
+                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
+                            </small>
                         }
-
-                        }
-
                     </div>
 
                     } @else {
@@ -801,7 +782,7 @@
                     </h3>
 
                     <span>
-                        reported notional · {{ currency() }}
+                        reported notional · {{ reportedCurrency() }}
                     </span>
 
                 </div>
@@ -809,9 +790,9 @@
 
                 <div class="line-chart value-line-chart" role="img" aria-label="Trading value over time line chart">
 
-                    <div class="chart-y-axis" aria-hidden="true"><b>GBP</b>
+                    <div class="chart-y-axis" aria-hidden="true"><b>{{ reportedCurrency() }}</b>
                         @for (label of trendAxisLabels('value'); track label) {
-                        <small>{{ formatMoney(label, currency()) }}</small>
+                        <small>{{ formatMoney(label, reportedCurrency()) }}</small>
                         }
                     </div>
 
@@ -838,7 +819,7 @@
 
                         <circle class="value-point" [attr.cx]="trendPointX(index)"
                             [attr.cy]="trendPointY(index, 'value')" r="3"
-                            (mouseenter)="showTrendDialog('Trading value', graphDateLabel(point.date), formatMoney(point.tradedValue, currency()), 'Daily reported notional', $event)"
+                            (mouseenter)="showTrendDialog('Trading value', graphDateLabel(point.date), formatMoney(point.tradedValue, reportedCurrency()), 'Daily reported notional', $event)"
                             (mouseleave)="hideTrendDialog()"></circle>
 
                         }
@@ -847,32 +828,12 @@
 
 
                     <div class="chart-labels">
-
-                        @for (
-                        point of trends();
-                        track point.date;
-                        let index = $index
-                        ) {
-
-                        @if (
-                        showTrendLabel(index)
-                        ) {
-
-                        <small>
-                            {{
-                            point.date
-                            | date:'MMM d'
-                            }}
-                        </small>
-
-                        } @else {
-
-                        <small></small>
-
+                        @for (tick of trendTicks(); track tick.date) {
+                            <small [style.left.%]="tick.x" [class.chart-tick-start]="tick.x === 0"
+                                [class.chart-tick-end]="tick.x === 100" [class.chart-tick-secondary]="tick.secondary">
+                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
+                            </small>
                         }
-
-                        }
-
                     </div>
 
                     } @else {
@@ -982,10 +943,10 @@
                                     (mouseenter)="showBuySellDateDialog(index, $event)"
                                     (mouseleave)="hideTrendDialog()"></circle>
                             }
-                            @for (point of trends(); track point.date; let index = $index) {
-                                @if (showTrendLabel(index)) {
-                                    <text class="history-label" [attr.x]="buySellTrendPointX(index)" y="212">{{ point.date | date:'MMM d' }}</text>
-                                }
+                            @for (tick of trendTicks(); track tick.date) {
+                                <text class="history-label" [class.chart-tick-secondary]="tick.secondary"
+                                    [attr.x]="tick.x * 6" [attr.text-anchor]="tick.x === 0 ? 'start' : tick.x === 100 ? 'end' : 'middle'"
+                                    y="212">{{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}</text>
                             }
                         </svg>
                     </div>
@@ -1133,32 +1094,12 @@
 
 
                     <div class="chart-labels">
-
-                        @for (
-                        point of trends();
-                        track point.date;
-                        let index = $index
-                        ) {
-
-                        @if (
-                        showTrendLabel(index)
-                        ) {
-
-                        <small>
-                            {{
-                            point.date
-                            | date:'MMM d'
-                            }}
-                        </small>
-
-                        } @else {
-
-                        <small></small>
-
+                        @for (tick of trendTicks(); track tick.date) {
+                            <small [style.left.%]="tick.x" [class.chart-tick-start]="tick.x === 0"
+                                [class.chart-tick-end]="tick.x === 100" [class.chart-tick-secondary]="tick.secondary">
+                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
+                            </small>
                         }
-
-                        }
-
                     </div>
 
                     } @else {
@@ -1268,7 +1209,7 @@
 
                             <td>
                                 {{
-                                formatNumber(
+                                formatQuantity(
                                 item.executedQuantity
                                 )
                                 }}
@@ -1375,7 +1316,7 @@
 
                             <td>
                                 {{
-                                formatNumber(
+                                formatQuantity(
                                 item.executedQuantity
                                 )
                                 }}
@@ -1632,7 +1573,7 @@
                                 {{
                                 formatMoney(
                                 item.tradedValue,
-                                currency()
+                                reportedCurrency()
                                 )
                                 }}
 

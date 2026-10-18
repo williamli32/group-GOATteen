@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { Subscription, forkJoin } from 'rxjs';
 import {
     ActivityTrendPoint,
     BusinessInsights,
@@ -120,7 +120,7 @@ type MetricKey =
     templateUrl: './analyst-dashboard.component.html',
     styleUrls: ['./analyst-dashboard.component.scss', './business-insights.scss']
 })
-export class AnalystDashboardComponent implements OnInit {
+export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewChecked {
     readonly Math = Math;
     readonly today = new Date().toISOString().slice(0, 10);
     readonly defaultFromDate = this.dateDaysAgo(30);
@@ -132,12 +132,28 @@ export class AnalystDashboardComponent implements OnInit {
     readonly loading = signal(false);
     readonly errorMessage = signal('');
     readonly currency = signal<string>('GBP');
+    readonly appliedFilters = signal<ReportingFilters>({
+        fromDate: this.defaultFromDate, toDate: this.today, currency: 'GBP'
+    });
+    readonly reportedCurrency = computed(() => this.appliedFilters().currency ?? 'GBP');
     readonly accessDenied = signal(false);
     readonly summary = signal<ReportingSummary | null>(null);
     readonly insights = signal<BusinessInsights | null>(null);
     readonly rejectionRateTicks = [100, 75, 50, 25, 0];
     readonly rejectionChart = computed(() => buildRejectionTrendChart(this.insights()));
     readonly trends = signal<ActivityTrendPoint[]>([]);
+    readonly trendTicks = computed(() => {
+        const points = this.trends();
+        const count = Math.min(points.length, 5);
+        return Array.from({ length: count }, (_, tick) => {
+            const index = count === 1 ? 0 : Math.round(tick * (points.length - 1) / (count - 1));
+            return {
+                date: points[index].date,
+                x: points.length === 1 ? 50 : index / (points.length - 1) * 100,
+                secondary: count === 5 && (tick === 1 || tick === 3)
+            };
+        });
+    });
     readonly instruments = signal<InstrumentMetrics[]>([]);
     readonly clients = signal<ClientMetrics[]>([]);
     readonly activity = signal<ReportingActivity[]>([]);
@@ -146,6 +162,14 @@ export class AnalystDashboardComponent implements OnInit {
     readonly clientOptions = signal<ClientMetrics[]>([]);
     readonly graphDialog = signal<GraphDialog | null>(null);
     readonly expandedMetric = signal<MetricKey | null>(null);
+    @ViewChild('metricDialog') private metricDialog?: ElementRef<HTMLElement>;
+    private metricTrigger: HTMLElement | null = null;
+    private focusMetricDialog = false;
+    private reportingRequest?: Subscription;
+    private clientOptionsRequest?: Subscription;
+    private marketRequest?: Subscription;
+    private reportingVersion = 0;
+    private clientOptionsVersion = 0;
 
     constructor(
         private readonly reportingService: ReportingService,
@@ -156,6 +180,21 @@ export class AnalystDashboardComponent implements OnInit {
         this.loadMarketInstruments();
         this.loadClientOptions();
         this.loadReporting();
+    }
+
+    ngOnDestroy(): void {
+        this.reportingVersion++;
+        this.clientOptionsVersion++;
+        this.reportingRequest?.unsubscribe();
+        this.clientOptionsRequest?.unsubscribe();
+        this.marketRequest?.unsubscribe();
+    }
+
+    ngAfterViewChecked(): void {
+        if (this.focusMetricDialog && this.metricDialog) {
+            this.focusMetricDialog = false;
+            this.metricDialog.nativeElement.querySelector<HTMLButtonElement>('button')?.focus();
+        }
     }
 
     selectClient(value: string): void {
@@ -387,8 +426,9 @@ export class AnalystDashboardComponent implements OnInit {
     graphDateLabel(date: string): string {
         return new Intl.DateTimeFormat('en-GB', {
             month: 'short',
-            day: 'numeric'
-        }).format(new Date(`${date}T00:00:00`));
+            day: 'numeric',
+            timeZone: 'UTC'
+        }).format(new Date(`${date}T00:00:00Z`));
     }
 
     showBuySellDialog(side: 'BUY' | 'SELL', date: string, fills: number, event: MouseEvent): void {
@@ -419,11 +459,6 @@ export class AnalystDashboardComponent implements OnInit {
             `BUY ${this.summary()?.buyFills ?? 0} · SELL ${this.summary()?.sellFills ?? 0}`,
             event,
         );
-    }
-
-    showTrendLabel(index: number): boolean {
-        const count = this.trends().length;
-        return count <= 8 || index === 0 || index === count - 1 || index % 5 === 0;
     }
 
     trendAxisLabels(field: 'orders' | 'value'): number[] {
@@ -473,6 +508,12 @@ export class AnalystDashboardComponent implements OnInit {
     formatNumber(value: number | null | undefined): string {
         return new Intl.NumberFormat('en-GB', {
             maximumFractionDigits: 2
+        }).format(value ?? 0);
+    }
+
+    formatQuantity(value: number | null | undefined): string {
+        return new Intl.NumberFormat('en-GB', {
+            maximumFractionDigits: 8
         }).format(value ?? 0);
     }
 
@@ -530,29 +571,37 @@ export class AnalystDashboardComponent implements OnInit {
     }
 
     private loadMarketInstruments(): void {
-        this.marketDataService.getInstruments().subscribe({
+        this.marketRequest = this.marketDataService.getInstruments().subscribe({
             next: instruments => this.marketInstruments.set(instruments),
             error: () => this.marketInstruments.set([])
         });
     }
 
     private loadReporting(): void {
+        const version = ++this.reportingVersion;
+        this.reportingRequest?.unsubscribe();
+        this.closeMetric();
+        this.hideTrendDialog();
         this.errorMessage.set('');
         this.accessDenied.set(false);
         this.loading.set(true);
 
         const filters = this.currentFilters();
-        forkJoin({
+        this.reportingRequest = forkJoin({
             insights: this.reportingService.getInsights(filters),
-            summary: this.reportingService.getSummary(filters),
             trends: this.reportingService.getTrends(filters),
             instruments: this.reportingService.getInstruments(filters),
             clients: this.reportingService.getClients(filters),
             activity: this.reportingService.getActivity(filters)
         }).subscribe({
             next: result => {
+                if (version !== this.reportingVersion) return;
                 this.insights.set(result.insights);
-                this.summary.set(result.summary);
+                // Cards and their comparison dialogs must use the same server snapshot.
+                this.summary.set(result.insights.current);
+                this.appliedFilters.set({
+                    ...filters, ...result.insights.currentWindow, currency: result.insights.currency
+                });
                 this.trends.set(result.trends);
                 this.instruments.set(result.instruments);
                 this.clients.set(result.clients);
@@ -560,6 +609,7 @@ export class AnalystDashboardComponent implements OnInit {
                 this.loading.set(false);
             },
             error: response => {
+                if (version !== this.reportingVersion) return;
                 this.loading.set(false);
                 this.accessDenied.set(response?.status === 403);
                 this.errorMessage.set(this.reportingErrorMessage(response?.status));
@@ -601,6 +651,9 @@ export class AnalystDashboardComponent implements OnInit {
 
     private loadClientOptions(): void {
 
+        const version = ++this.clientOptionsVersion;
+        this.clientOptionsRequest?.unsubscribe();
+
         const filters: ReportingFilters = {
             fromDate: this.fromDate(),
             toDate: this.toDate(),
@@ -610,9 +663,13 @@ export class AnalystDashboardComponent implements OnInit {
             currency: this.currency()
         };
 
-        this.reportingService.getClients(filters).subscribe({
-            next: clients => this.clientOptions.set(clients),
-            error: () => this.clientOptions.set([])
+        this.clientOptionsRequest = this.reportingService.getClients(filters).subscribe({
+            next: clients => {
+                if (version === this.clientOptionsVersion) this.clientOptions.set(clients);
+            },
+            error: () => {
+                if (version === this.clientOptionsVersion) this.clientOptions.set([]);
+            }
         });
     }
 
@@ -640,7 +697,41 @@ export class AnalystDashboardComponent implements OnInit {
     }
 
     toggleMetric(metric: MetricKey): void {
-        this.expandedMetric.update(current => current === metric ? null : metric);
+        if (this.expandedMetric() === metric) {
+            this.closeMetric();
+            return;
+        }
+        this.metricTrigger = document.activeElement as HTMLElement | null;
+        this.expandedMetric.set(metric);
+        this.focusMetricDialog = true;
+    }
+
+    closeMetric(): void {
+        this.expandedMetric.set(null);
+        this.focusMetricDialog = false;
+        this.metricTrigger?.focus();
+        this.metricTrigger = null;
+    }
+
+    onMetricDialogKeydown(event: KeyboardEvent): void {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            this.closeMetric();
+        } else if (event.key === 'Tab' && this.metricDialog) {
+            const controls = this.metricDialog.nativeElement.querySelectorAll<HTMLElement>(
+                'button, a[href], input, select, textarea, [tabindex="0"]'
+            );
+            const first = controls[0];
+            const last = controls[controls.length - 1];
+            if (first && event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (last && !event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
     }
 
     metricTitle(metric: MetricKey): string {
@@ -735,9 +826,8 @@ export class AnalystDashboardComponent implements OnInit {
     }
 
     metricValue(metric: MetricKey, value: number): string {
-        return metric === 'value'
-            ? this.formatMoney(value, this.insights()?.currency ?? this.currency())
-            : this.formatNumber(value);
+        if (metric === 'value') return this.formatMoney(value, this.reportedCurrency());
+        return metric === 'quantity' ? this.formatQuantity(value) : this.formatNumber(value);
     }
 
     distinctClientCount(): number {

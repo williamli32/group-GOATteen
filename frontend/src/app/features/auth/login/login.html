@@ -191,9 +191,9 @@
         </div>
 
         <!-- Error -->
-        @if (errorMessage) {
+        @if (errorMessage()) {
           <div class="login-error">
-            {{ errorMessage }}
+            {{ errorMessage() }}
           </div>
         }
 
@@ -201,9 +201,9 @@
         <button
           type="submit"
           class="submit-button"
-          [disabled]="loading"
+          [disabled]="loading()"
         >
-          @if (loading) {
+          @if (loading()) {
             <span class="spinner"></span>
             Signing in...
           } @else {

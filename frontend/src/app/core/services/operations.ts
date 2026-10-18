@@ -19,8 +19,8 @@ export interface OperationsOrder {
 
 export interface TradeAuditResponse {
     order: { orderId: number; side: string; quantity: number; submittedAt: string };
-    account: { accountId: number };
-    instrument: { instrumentId: number };
+    account: { accountId: number; currency: string };
+    instrument: { instrumentId: number; symbol: string; currency: string };
     currentStatus: string;
     statusHistory: Array<{ historyId: number; status: string; changedAt: string; note: string | null }>;
     rejectionReason: string | null;

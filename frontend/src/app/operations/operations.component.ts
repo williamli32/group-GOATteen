@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import {
     OperationsAuditResponse,
     OperationsFilters,
@@ -15,7 +16,7 @@ import {
     templateUrl: './operations.component.html',
     styleUrl: './operations.component.scss'
 })
-export class OperationsComponent implements OnInit {
+export class OperationsComponent implements OnInit, OnDestroy {
     readonly today = new Date().toISOString().slice(0, 10);
     readonly fromDate = signal(this.dateDaysAgo(30));
     readonly toDate = signal(this.today);
@@ -32,6 +33,11 @@ export class OperationsComponent implements OnInit {
     readonly loading = signal(false);
     readonly detailLoading = signal(false);
     readonly errorMessage = signal('');
+    readonly detailError = signal('');
+    private searchRequest?: Subscription;
+    private auditRequest?: Subscription;
+    private searchVersion = 0;
+    private auditVersion = 0;
 
     constructor(private readonly operationsService: OperationsService) { }
 
@@ -39,15 +45,28 @@ export class OperationsComponent implements OnInit {
         this.search();
     }
 
+    ngOnDestroy(): void {
+        this.searchVersion++;
+        this.auditVersion++;
+        this.searchRequest?.unsubscribe();
+        this.auditRequest?.unsubscribe();
+    }
+
     search(): void {
+        const version = ++this.searchVersion;
+        this.searchRequest?.unsubscribe();
+        this.clearSelection();
         this.loading.set(true);
+        this.orders.set([]);
         this.errorMessage.set('');
-        this.operationsService.searchOrders(this.filters()).subscribe({
+        this.searchRequest = this.operationsService.searchOrders(this.filters()).subscribe({
             next: orders => {
+                if (version !== this.searchVersion) return;
                 this.orders.set(orders);
                 this.loading.set(false);
             },
             error: () => {
+                if (version !== this.searchVersion) return;
                 this.orders.set([]);
                 this.loading.set(false);
                 this.errorMessage.set('Operations data could not be loaded.');
@@ -69,24 +88,43 @@ export class OperationsComponent implements OnInit {
     }
 
     inspect(order: OperationsOrder): void {
+        const version = ++this.auditVersion;
+        this.auditRequest?.unsubscribe();
         this.selectedOrder.set(order);
         this.audit.set(null);
+        this.detailError.set('');
         this.detailLoading.set(true);
-        this.operationsService.inspectOrder(order.orderId).subscribe({
+        this.auditRequest = this.operationsService.inspectOrder(order.orderId).subscribe({
             next: response => {
+                if (version !== this.auditVersion) return;
+                if (response.evidence.order.orderId !== order.orderId) {
+                    this.detailLoading.set(false);
+                    this.detailError.set('The evidence does not match the selected order. Please retry.');
+                    return;
+                }
                 this.audit.set(response);
                 this.detailLoading.set(false);
             },
             error: () => {
+                if (version !== this.auditVersion) return;
                 this.detailLoading.set(false);
-                this.errorMessage.set('The order evidence could not be loaded.');
+                this.detailError.set('The order evidence could not be loaded.');
             }
         });
     }
 
     clearSelection(): void {
+        this.auditVersion++;
+        this.auditRequest?.unsubscribe();
         this.selectedOrder.set(null);
         this.audit.set(null);
+        this.detailLoading.set(false);
+        this.detailError.set('');
+    }
+
+    retryInspection(): void {
+        const order = this.selectedOrder();
+        if (order) this.inspect(order);
     }
 
     setNumber(target: 'orderId' | 'accountId', value: string): void {
@@ -101,12 +139,17 @@ export class OperationsComponent implements OnInit {
     setSide(value: string): void { this.side.set(value ? value as OperationsFilters['side'] : undefined); }
     setStatus(value: string): void { this.status.set(value || undefined); }
 
-    formatMoney(value: number | null | undefined): string {
-        return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value ?? 0);
+    formatMoney(value: number | null | undefined, currency: string | null | undefined, price = false): string {
+        if (value === null || value === undefined) return 'Not available';
+        if (!currency) return `${this.formatNumber(value)} (currency unavailable)`;
+        return new Intl.NumberFormat('en-GB', {
+            style: 'currency', currency, currencyDisplay: 'code',
+            maximumFractionDigits: price ? 8 : 2
+        }).format(value);
     }
 
     formatNumber(value: number | null | undefined): string {
-        return new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 }).format(value ?? 0);
+        return new Intl.NumberFormat('en-GB', { maximumFractionDigits: 8 }).format(value ?? 0);
     }
 
     private filters(): OperationsFilters {

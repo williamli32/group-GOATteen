@@ -319,6 +319,9 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .metric-card {
+    color: inherit;
+    font: inherit;
+    text-align: left;
     position: relative;
     min-height: 128px;
     padding: 18px;
@@ -331,6 +334,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .metric-card:hover { border-color: #4b7d80; background: #132435; }
+.metric-card:focus-visible { outline: 2px solid #72d8c0; outline-offset: 3px; }
 
 .metric-card::before {
     position: absolute;
@@ -629,11 +633,8 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .chart-labels {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 7px 0 0;
-    overflow: hidden;
+    position: relative;
+    height: 24px;
 }
 
 .line-chart::after {
@@ -647,12 +648,20 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .chart-labels small {
+    position: absolute;
+    top: 7px;
+    transform: translateX(-50%);
     min-width: 0;
     overflow: hidden;
     color: #718195;
     font: 13px 'JetBrains Mono', monospace;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.chart-labels .chart-tick-start { transform: none; }
+.chart-labels .chart-tick-end { transform: translateX(-100%); }
+@media (max-width: 650px) {
+    .chart-tick-secondary { display: none; }
 }
 
 .donut-copy {
@@ -760,7 +769,6 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .history-label {
     fill: #718195;
     font: 11px 'JetBrains Mono', monospace;
-    text-anchor: middle;
 }
 
 .outcome-bars {

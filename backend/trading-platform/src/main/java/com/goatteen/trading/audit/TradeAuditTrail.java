@@ -21,6 +21,9 @@ public class TradeAuditTrail {
     private final Long orderId;
     private final Long accountId;
     private final Long instrumentId;
+    private final String accountCurrency;
+    private final String instrumentCurrency;
+    private final String instrumentSymbol;
     private final String orderSide;
     private final BigDecimal orderQuantity;
     private final LocalDateTime submittedAt;
@@ -65,6 +68,9 @@ public class TradeAuditTrail {
         this.orderId = order.getId();
         this.accountId = order.getAccount().getId();
         this.instrumentId = order.getInstrument().getId();
+        this.accountCurrency = order.getAccount().getCurrency();
+        this.instrumentCurrency = order.getInstrument().getCurrency();
+        this.instrumentSymbol = order.getInstrument().getSymbol();
         this.orderSide = order.getSide().toString();
         this.orderQuantity = order.getQuantity();
         this.submittedAt = order.getSubmittedAt();
@@ -164,6 +170,18 @@ public class TradeAuditTrail {
 
     public Long getInstrumentId() {
         return instrumentId;
+    }
+
+    public String getAccountCurrency() {
+        return accountCurrency;
+    }
+
+    public String getInstrumentCurrency() {
+        return instrumentCurrency;
+    }
+
+    public String getInstrumentSymbol() {
+        return instrumentSymbol;
     }
 
     public String getOrderSide() {

@@ -5,6 +5,7 @@ import {
 
 import {
     of,
+    Subject,
     throwError
 } from 'rxjs';
 
@@ -114,7 +115,11 @@ describe('AnalystDashboardComponent', () => {
     beforeEach(async () => {
 
         reportingService = {
-            getInsights: vi.fn(() => of(null)),
+            getInsights: vi.fn(filters => of({
+                ...insight,
+                currentWindow: { fromDate: filters.fromDate, toDate: filters.toDate },
+                currency: filters.currency ?? 'GBP'
+            })),
 
             getSummary:
                 vi.fn(() => of(summary)),
@@ -279,7 +284,7 @@ describe('AnalystDashboardComponent', () => {
 
             expect(
                 reportingService
-                    .getSummary
+                    .getInsights
             )
                 .toHaveBeenCalledWith(
                     expected
@@ -527,7 +532,7 @@ describe('AnalystDashboardComponent', () => {
         () => {
 
             reportingService
-                .getSummary
+                .getInsights
                 .mockReturnValue(
                     throwError(
                         () => ({
@@ -562,7 +567,7 @@ describe('AnalystDashboardComponent', () => {
         () => {
 
             reportingService
-                .getSummary
+                .getInsights
                 .mockReturnValue(
                     throwError(
                         () => ({
@@ -591,7 +596,7 @@ describe('AnalystDashboardComponent', () => {
         () => {
 
             reportingService
-                .getSummary
+                .getInsights
                 .mockReturnValue(
                     throwError(
                         () => ({
@@ -675,7 +680,7 @@ describe('AnalystDashboardComponent', () => {
 
             expect(
                 reportingService
-                    .getSummary
+                    .getInsights
             )
                 .toHaveBeenLastCalledWith(
 
@@ -1330,4 +1335,124 @@ describe('AnalystDashboardComponent', () => {
         }
     );
 
+    it('keeps loaded currencies and dates until a new filter set succeeds', () => {
+        const original = component.appliedFilters();
+        component.selectCurrency('USD');
+        component.fromDate.set('2026-01-01');
+        component.toDate.set('2026-01-31');
+        fixture.detectChanges();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(component.appliedFilters()).toEqual(original);
+        expect(host.querySelector('.period-label')?.textContent).toContain(original.fromDate);
+        expect(host.querySelector('.accent-gold')?.textContent).toContain('£12,500.00');
+        expect(component.metricValue('value', 12500)).toContain('£');
+        expect(reportingService.getInsights).toHaveBeenCalledTimes(1);
+
+        component.applyFilters();
+        fixture.detectChanges();
+        expect(component.appliedFilters()).toMatchObject({
+            currency: 'USD', fromDate: '2026-01-01', toDate: '2026-01-31'
+        });
+        expect(host.querySelector('.value-line-chart .chart-y-axis b')?.textContent).toBe('USD');
+        expect(host.querySelector('.accent-gold')?.textContent).toContain('$12,500.00');
+    });
+
+    it('preserves applied filter metadata when the next load fails', () => {
+        const original = component.appliedFilters();
+        reportingService.getInsights.mockReturnValue(throwError(() => ({ status: 500 })));
+        component.selectCurrency('USD');
+        component.applyFilters();
+        expect(component.appliedFilters()).toEqual(original);
+        expect(component.reportedCurrency()).toBe('GBP');
+    });
+
+    it('uses one summary snapshot for cards and comparison dialogs', () => {
+        reportingService.getSummary.mockReturnValue(of({ ...summary, buyFills: 999 }));
+        reportingService.getInsights.mockReturnValue(of({
+            ...insight, current: { ...summary, buyFills: 45, sellFills: 1 }
+        }));
+        component.applyFilters();
+        expect(reportingService.getSummary).not.toHaveBeenCalled();
+        expect(component.totalTrades()).toBe(46);
+        expect(component.metricStats('trades').current).toBe(46);
+    });
+
+    it('cancels an earlier filter load when Reset starts a newer request', () => {
+        const first = new Subject<BusinessInsights>();
+        const reset = new Subject<BusinessInsights>();
+        reportingService.getInsights.mockReturnValueOnce(first).mockReturnValueOnce(reset);
+        component.selectCurrency('USD');
+        component.applyFilters();
+        expect(first.observed).toBe(true);
+        component.resetFilters();
+        expect(first.observed).toBe(false);
+
+        reset.next(insight);
+        reset.complete();
+        first.next({ ...insight, currency: 'USD', current: { ...summary, buyFills: 999 } });
+        first.complete();
+        expect(component.loading()).toBe(false);
+        expect(component.reportedCurrency()).toBe('GBP');
+        expect(component.insights()?.currency).toBe('GBP');
+        expect(component.totalTrades()).toBe(7);
+    });
+
+    it('keeps nonzero fractional quantities visible in the card and its dialog', () => {
+        reportingService.getInsights.mockReturnValue(of({
+            ...insight, current: { ...summary, totalExecutedQuantity: 0.004 }
+        }));
+        component.applyFilters();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.accent-cyan').textContent).toContain('0.004');
+        expect(component.metricValue('quantity', component.metricStats('quantity').current)).toBe('0.004');
+        expect(component.changeLabel(12.34567)).toBe('+12.35%');
+    });
+
+    it('limits every daily chart to five aligned ticks for a 366-day range', () => {
+        component.trends.set(Array.from({ length: 366 }, (_, index) => ({
+            date: new Date(Date.UTC(2024, 0, 1) + index * 86_400_000).toISOString().slice(0, 10),
+            totalOrders: 1, filledOrders: 1, rejectedOrders: 0, activeClients: 1,
+            executedQuantity: 1, tradedValue: 10, buyFills: 1, sellFills: 0
+        })));
+        fixture.detectChanges();
+        const host = fixture.nativeElement as HTMLElement;
+        const axes = host.querySelectorAll('.chart-labels');
+        expect(axes.length).toBe(3);
+        for (const axis of axes) {
+            const ticks = axis.querySelectorAll<HTMLElement>('small');
+            expect(ticks.length).toBe(5);
+            expect(ticks[0].style.left).toBe('0%');
+            expect(ticks[4].style.left).toBe('100%');
+        }
+        expect(host.querySelectorAll('.history-label').length).toBe(5);
+        expect(component.trendTicks()[0].date).toBe('2024-01-01');
+        expect(component.trendTicks()[4].date).toBe('2024-12-31');
+    });
+
+    it('centres the axis label for a single daily observation', () => {
+        component.trends.set([{
+            date: '2026-10-01', totalOrders: 1, filledOrders: 1, rejectedOrders: 0,
+            activeClients: 1, executedQuantity: 1, tradedValue: 10, buyFills: 1, sellFills: 0
+        }]);
+        expect(component.trendTicks()).toEqual([{ date: '2026-10-01', x: 50, secondary: false }]);
+    });
+
+    it('focuses the metric dialog, traps Tab, and restores focus on Escape', () => {
+        const card = fixture.nativeElement.querySelector('.metric-card') as HTMLButtonElement;
+        expect(card.tagName).toBe('BUTTON');
+        card.focus();
+        card.click();
+        fixture.detectChanges();
+        const close = fixture.nativeElement.querySelector('.metric-modal-close') as HTMLButtonElement;
+        expect(document.activeElement).toBe(close);
+        const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+        close.dispatchEvent(tab);
+        expect(tab.defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(close);
+        close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        fixture.detectChanges();
+        expect(component.expandedMetric()).toBeNull();
+        expect(document.activeElement).toBe(card);
+    });
 });
