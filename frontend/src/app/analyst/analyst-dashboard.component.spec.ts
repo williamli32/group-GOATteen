@@ -91,6 +91,25 @@ describe('AnalystDashboardComponent', () => {
         rejectionRateChangePercentagePoints: 0, rejectionTrend: []
     } satisfies BusinessInsights;
 
+    function showRejectionTrend(
+        points: BusinessInsights['rejectionTrend'],
+        fromDate = '2026-10-01',
+        toDate = '2026-10-03'
+    ): HTMLElement {
+        component.insights.set({
+            ...insight,
+            currentWindow: { fromDate, toDate },
+            current: {
+                ...summary,
+                totalOrders: points.reduce((total, point) => total + point.totalOrders, 0),
+                rejectedOrders: points.reduce((total, point) => total + point.rejectedOrders, 0)
+            },
+            rejectionTrend: points
+        });
+        fixture.detectChanges();
+        return fixture.nativeElement as HTMLElement;
+    }
+
 
     beforeEach(async () => {
 
@@ -346,6 +365,138 @@ describe('AnalystDashboardComponent', () => {
         });
         expect(component.rejectionTrendPath().match(/M/g)?.length).toBe(2);
         expect(component.rejectionTrendPath()).not.toContain('L');
+    });
+
+    it('plots sparse observations at their calendar dates within the complete reporting window', () => {
+        const host = showRejectionTrend([
+            { date: '2026-10-03', totalOrders: 4, rejectedOrders: 1, rejectionRate: 25 }
+        ], '2026-10-01', '2026-10-05');
+
+        expect(component.rejectionChart().dayCount).toBe(5);
+        expect(component.rejectionChart().points[0]).toMatchObject({ x: 50, y: 75 });
+        const marker = host.querySelector<HTMLButtonElement>('.rejection-trend-point')!;
+        expect(marker.style.left).toBe('50%');
+        expect(marker.style.top).toBe('75%');
+        expect(host.querySelector('.rejection-single-point')?.textContent).toContain('single point');
+        expect(host.querySelector('.rejection-trend-coverage')?.textContent).toContain('1 of 5');
+        expect(component.rejectionTrendPath()).toBe('M50,75');
+    });
+
+    it('does not bridge omitted calendar dates or depend on the API array order', () => {
+        showRejectionTrend([
+            { date: '2026-10-03', totalOrders: 2, rejectedOrders: 1, rejectionRate: 50 },
+            { date: '2026-10-01', totalOrders: 4, rejectedOrders: 1, rejectionRate: 25 }
+        ]);
+
+        expect(component.rejectionChart().points.map(point => point.date)).toEqual([
+            '2026-10-01', '2026-10-03'
+        ]);
+        expect(component.rejectionTrendPath()).toBe('M0,75 M100,50');
+        expect(component.rejectionTrendPath()).not.toContain('L');
+    });
+
+    it('keeps a genuine zero rejection rate visible rather than treating it as missing data', () => {
+        const host = showRejectionTrend([
+            { date: '2026-10-01', totalOrders: 3, rejectedOrders: 0, rejectionRate: 0 },
+            { date: '2026-10-02', totalOrders: 2, rejectedOrders: 0, rejectionRate: 0 }
+        ], '2026-10-01', '2026-10-02');
+
+        expect(component.rejectionTrendPath()).toBe('M0,100 L100,100');
+        expect(host.querySelectorAll('.rejection-trend-point').length).toBe(2);
+        expect(host.querySelector('.rejection-trend-empty')).toBeNull();
+        expect(host.querySelector('.rejection-trend-point')?.getAttribute('aria-label')).toContain('0%');
+    });
+
+    it('centres the point and date label for a single-day reporting window', () => {
+        const host = showRejectionTrend([
+            { date: '2026-10-16', totalOrders: 4, rejectedOrders: 1, rejectionRate: 25 }
+        ], '2026-10-16', '2026-10-16');
+
+        expect(component.rejectionChart().ticks).toEqual([
+            { date: '2026-10-16', x: 50, secondary: false }
+        ]);
+        expect(component.rejectionTrendPath()).toBe('M50,75');
+        expect(host.querySelector<HTMLElement>('.rejection-x-tick')?.style.left).toBe('50%');
+        expect(host.querySelectorAll('.rejection-trend-point').length).toBe(1);
+    });
+
+    it('shows a clear empty state for a period with no submitted orders', () => {
+        const host = showRejectionTrend([
+            { date: '2026-10-01', totalOrders: 0, rejectedOrders: 0, rejectionRate: null },
+            { date: '2026-10-02', totalOrders: 0, rejectedOrders: 0, rejectionRate: null },
+            { date: '2026-10-03', totalOrders: 0, rejectedOrders: 0, rejectionRate: null }
+        ]);
+
+        expect(host.querySelector('.rejection-trend-empty')?.textContent).toContain('No submitted orders');
+        expect(host.querySelector('.rejection-trend-svg')).toBeNull();
+        expect(host.querySelectorAll('.rejection-trend-point').length).toBe(0);
+        expect(component.rejectionTrendPath()).toBe('');
+    });
+
+    it('does not claim there were no orders when only the daily data is unavailable', () => {
+        component.insights.set(insight);
+        fixture.detectChanges();
+        const host = fixture.nativeElement as HTMLElement;
+
+        expect(host.querySelector('.rejection-trend-empty')?.textContent).toContain('No daily rejection-rate data');
+        expect(host.querySelector('.rejection-trend-empty')?.textContent).not.toContain('No submitted orders');
+    });
+
+    it('aligns percentage ticks and endpoint date labels with a full-width responsive plot', () => {
+        const host = showRejectionTrend([
+            { date: '2026-10-01', totalOrders: 2, rejectedOrders: 1, rejectionRate: 50 },
+            { date: '2026-10-31', totalOrders: 4, rejectedOrders: 1, rejectionRate: 25 }
+        ], '2026-10-01', '2026-10-31');
+
+        expect(Array.from(host.querySelectorAll('.rejection-y-tick'), tick => tick.textContent?.trim()))
+            .toEqual(['100%', '75%', '50%', '25%', '0%']);
+        expect(host.querySelector('svg.rejection-trend-svg')?.getAttribute('preserveAspectRatio')).toBe('none');
+        expect(host.querySelector('.rejection-trend-line')?.getAttribute('vector-effect')).toBe('non-scaling-stroke');
+        const ticks = host.querySelectorAll<HTMLElement>('.rejection-x-tick');
+        expect(ticks.length).toBe(5);
+        expect(ticks[0].style.left).toBe('0%');
+        expect(ticks[0].textContent).toContain('Oct 1');
+        expect(ticks[4].style.left).toBe('100%');
+        expect(ticks[4].textContent).toContain('Oct 31');
+        expect(host.querySelectorAll('.rejection-tick-secondary').length).toBe(2);
+    });
+
+    it('provides focusable points with the date, rate and source counts', () => {
+        const host = showRejectionTrend([
+            { date: '2026-10-01', totalOrders: 8, rejectedOrders: 1, rejectionRate: 12.5 }
+        ]);
+        const marker = host.querySelector<HTMLButtonElement>('.rejection-trend-point')!;
+
+        expect(marker.type).toBe('button');
+        expect(marker.tabIndex).toBe(0);
+        expect(marker.getAttribute('aria-label')).toContain('2026-10-01: 12.5%');
+        expect(marker.getAttribute('aria-label')).toContain('1 of 8 orders rejected');
+        expect(marker.querySelector('.rejection-point-tooltip')?.textContent).toContain('12.5% rejection rate');
+        expect(marker.querySelector('.rejection-point-tooltip')?.textContent).toContain('1 of 8 orders rejected');
+    });
+
+    it('keeps zero and one-hundred-percent observations on their correct plot boundaries', () => {
+        const host = showRejectionTrend([
+            { date: '2026-10-01', totalOrders: 2, rejectedOrders: 2, rejectionRate: 100 },
+            { date: '2026-10-02', totalOrders: 2, rejectedOrders: 0, rejectionRate: 0 }
+        ], '2026-10-01', '2026-10-02');
+
+        expect(Array.from(host.querySelectorAll<HTMLElement>('.rejection-trend-point'), marker => marker.style.top))
+            .toEqual(['0%', '100%']);
+        expect(component.rejectionTrendPath()).toBe('M0,0 L100,100');
+    });
+
+    it('uses UTC calendar days across leap days and does not join over the missing leap day', () => {
+        showRejectionTrend([
+            { date: '2024-02-28', totalOrders: 2, rejectedOrders: 1, rejectionRate: 50 },
+            { date: '2024-03-01', totalOrders: 4, rejectedOrders: 1, rejectionRate: 25 }
+        ], '2024-02-28', '2024-03-01');
+
+        expect(component.rejectionChart().dayCount).toBe(3);
+        expect(component.rejectionChart().ticks.map(tick => tick.date)).toEqual([
+            '2024-02-28', '2024-02-29', '2024-03-01'
+        ]);
+        expect(component.rejectionTrendPath()).toBe('M0,50 M100,75');
     });
 
     it('renders the business-insight section with the real comparison window', () => {

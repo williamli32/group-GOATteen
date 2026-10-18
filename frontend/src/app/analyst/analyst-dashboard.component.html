@@ -391,25 +391,88 @@
             </article>
         </div>
         <article class="chart-panel rejection-trend-panel">
-            <h3>Rejection rate over time</h3>
-            <p>0-100%; gaps mean no submitted orders, not a zero rejection rate.</p>
-            <svg viewBox="0 0 600 220" role="img" aria-label="Daily rejection-rate history from zero to one hundred percent">
-                <line x1="0" y1="22" x2="600" y2="22" class="chart-gridline" />
-                <line x1="0" y1="190" x2="600" y2="190" class="chart-axis" />
-                <path [attr.d]="rejectionTrendPath()" class="rejection-trend-line" />
-                @for (point of insight.rejectionTrend; track point.date; let index = $index) {
-                    @if (point.rejectionRate !== null) {
-                        <circle [attr.cx]="insight.rejectionTrend.length === 1 ? 300 : index / (insight.rejectionTrend.length - 1) * 600"
-                            [attr.cy]="190 - point.rejectionRate / 100 * 168" r="3" class="rejection-trend-point">
-                            <title>{{ point.date }}: {{ point.rejectionRate }}% ({{ point.rejectedOrders }}/{{ point.totalOrders }})</title>
-                        </circle>
+            @let chart = rejectionChart();
+            <div class="rejection-trend-heading">
+                <div>
+                    <h3 id="rejection-trend-title">Rejection rate over time</h3>
+                    <p>Daily rejected orders as a percentage of submitted orders.</p>
+                </div>
+                <span class="rejection-trend-period">
+                    {{ insight.currentWindow.fromDate | date:'MMM d, y':'UTC' }}
+                    @if (insight.currentWindow.fromDate !== insight.currentWindow.toDate) {
+                        &ndash; {{ insight.currentWindow.toDate | date:'MMM d, y':'UTC' }}
                     }
-                }
-            </svg>
-            <div class="rejection-trend-labels">
-                <small>{{ insight.currentWindow.fromDate }}</small>
-                <small>{{ insight.currentWindow.toDate }}</small>
+                </span>
             </div>
+            @if (chart.points.length) {
+                <p class="rejection-trend-coverage">
+                    {{ chart.points.length }} of {{ chart.dayCount }}
+                    {{ chart.dayCount === 1 ? 'day' : 'days' }} with submitted orders
+                </p>
+                @if (chart.points.length === 1) {
+                    <p class="rejection-single-point" role="status">
+                        Only one day has submitted orders. Its rate is shown as a single point.
+                    </p>
+                }
+                <p class="rejection-axis-title">Rejection rate (%)</p>
+                <div class="rejection-chart" role="group" aria-labelledby="rejection-trend-title">
+                    <div class="rejection-y-axis" aria-hidden="true">
+                        @for (rate of rejectionRateTicks; track rate) {
+                            <span class="rejection-y-tick" [style.top.%]="100 - rate">{{ rate }}%</span>
+                        }
+                    </div>
+                    <div class="rejection-plot">
+                        <svg class="rejection-trend-svg" viewBox="0 0 100 100" preserveAspectRatio="none"
+                            aria-hidden="true" focusable="false">
+                            @for (rate of rejectionRateTicks; track rate) {
+                                <line x1="0" [attr.y1]="100 - rate" x2="100" [attr.y2]="100 - rate"
+                                    class="rejection-gridline" [class.rejection-baseline]="rate === 0"
+                                    vector-effect="non-scaling-stroke" />
+                            }
+                            <path [attr.d]="chart.path" class="rejection-trend-line"
+                                vector-effect="non-scaling-stroke" />
+                        </svg>
+                        @for (point of chart.points; track point.date) {
+                            <button type="button" class="rejection-trend-point"
+                                [style.left.%]="point.x" [style.top.%]="point.y"
+                                [attr.aria-label]="point.date + ': ' + point.rejectionRate + '% rejection rate; '
+                                    + point.rejectedOrders + ' of ' + point.totalOrders + ' orders rejected'">
+                                <span class="rejection-point-tooltip" aria-hidden="true"
+                                    [class.rejection-tooltip-start]="point.x <= 15"
+                                    [class.rejection-tooltip-end]="point.x >= 85">
+                                    <span>{{ point.date | date:'EEE, MMM d, y':'UTC' }}</span>
+                                    <strong>{{ point.rejectionRate | number:'1.0-2' }}% rejection rate</strong>
+                                    <span>{{ point.rejectedOrders | number }} of {{ point.totalOrders | number }} orders rejected</span>
+                                </span>
+                            </button>
+                        }
+                    </div>
+                    <div class="rejection-x-axis" aria-hidden="true">
+                        @for (tick of chart.ticks; track tick.date) {
+                            <span class="rejection-x-tick" [style.left.%]="tick.x"
+                                [class.rejection-tick-start]="tick.x === 0"
+                                [class.rejection-tick-end]="tick.x === 100"
+                                [class.rejection-tick-secondary]="tick.secondary">
+                                {{ tick.date | date:'MMM d':'UTC' }}
+                            </span>
+                        }
+                    </div>
+                    <p class="rejection-date-title">Submission date</p>
+                </div>
+                <p class="rejection-trend-note">
+                    <span class="rejection-legend-dot" aria-hidden="true"></span>
+                    Dots show daily rates. Hover or focus a dot for order counts.
+                    Gaps mean no submitted orders, not a 0% rejection rate.
+                </p>
+            } @else {
+                <div class="rejection-trend-empty" role="status">
+                    <strong>{{ insight.current.totalOrders === 0
+                        ? 'No submitted orders in this period'
+                        : 'No daily rejection-rate data available' }}</strong>
+                    <p>Try a different date range or adjust the reporting filters.</p>
+                    <small>A rejection rate needs at least one submitted order.</small>
+                </div>
+            }
         </article>
     </section>
     }

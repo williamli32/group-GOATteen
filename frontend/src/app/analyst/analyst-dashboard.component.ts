@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import {
@@ -38,6 +38,72 @@ interface GraphDialog {
     y: number;
 }
 
+interface RejectionChartPoint {
+    date: string;
+    totalOrders: number;
+    rejectedOrders: number;
+    rejectionRate: number;
+    x: number;
+    y: number;
+}
+
+interface RejectionTrendChart {
+    points: RejectionChartPoint[];
+    ticks: Array<{ date: string; x: number; secondary: boolean }>;
+    dayCount: number;
+    path: string;
+}
+
+function buildRejectionTrendChart(insight: BusinessInsights | null): RejectionTrendChart {
+    const chart: RejectionTrendChart = { points: [], ticks: [], dayCount: 0, path: '' };
+    if (!insight) {
+        return chart;
+    }
+
+    const dayMs = 86_400_000;
+    const start = Date.parse(insight.currentWindow.fromDate + 'T00:00:00Z');
+    const end = Date.parse(insight.currentWindow.toDate + 'T00:00:00Z');
+    const dayCount = Math.round((end - start) / dayMs) + 1;
+    if (!Number.isFinite(dayCount) || dayCount < 1 || dayCount > 366) {
+        return chart;
+    }
+
+    chart.dayCount = dayCount;
+    const byDate = new Map(insight.rejectionTrend.map(point => [point.date, point]));
+    const xForDay = (index: number) => dayCount === 1 ? 50 : index / (dayCount - 1) * 100;
+    const commands: string[] = [];
+    let connected = false;
+
+    // Use calendar dates, not array positions. Missing dates and no-order days
+    // both break the line instead of inventing a zero rate or bridging a gap.
+    for (let index = 0; index < dayCount; index++) {
+        const date = new Date(start + index * dayMs).toISOString().slice(0, 10);
+        const source = byDate.get(date);
+        const rate = source?.rejectionRate;
+        if (!source || source.totalOrders <= 0 || rate === null || rate === undefined
+            || !Number.isFinite(rate) || rate < 0 || rate > 100) {
+            connected = false;
+            continue;
+        }
+        const point = { ...source, rejectionRate: rate, x: xForDay(index), y: 100 - rate };
+        chart.points.push(point);
+        commands.push(`${connected ? 'L' : 'M'}${point.x},${point.y}`);
+        connected = true;
+    }
+    chart.path = commands.join(' ');
+
+    const tickCount = Math.min(dayCount, 5);
+    chart.ticks = Array.from({ length: tickCount }, (_, index) => {
+        const offset = tickCount === 1 ? 0 : Math.round(index * (dayCount - 1) / (tickCount - 1));
+        return {
+            date: new Date(start + offset * dayMs).toISOString().slice(0, 10),
+            x: xForDay(offset),
+            secondary: tickCount === 5 && (index === 1 || index === 3)
+        };
+    });
+    return chart;
+}
+
 type MetricKey =
     | 'trades'
     | 'quantity'
@@ -69,6 +135,8 @@ export class AnalystDashboardComponent implements OnInit {
     readonly accessDenied = signal(false);
     readonly summary = signal<ReportingSummary | null>(null);
     readonly insights = signal<BusinessInsights | null>(null);
+    readonly rejectionRateTicks = [100, 75, 50, 25, 0];
+    readonly rejectionChart = computed(() => buildRejectionTrendChart(this.insights()));
     readonly trends = signal<ActivityTrendPoint[]>([]);
     readonly instruments = signal<InstrumentMetrics[]>([]);
     readonly clients = signal<ClientMetrics[]>([]);
@@ -663,19 +731,7 @@ export class AnalystDashboardComponent implements OnInit {
     }
 
     rejectionTrendPath(): string {
-        const points = this.insights()?.rejectionTrend ?? [];
-        let connected = false;
-        return points.map((point, index) => {
-            if (point.rejectionRate === null) {
-                connected = false;
-                return '';
-            }
-            const x = points.length === 1 ? 300 : index / (points.length - 1) * 600;
-            const y = 190 - Number(point.rejectionRate) / 100 * 168;
-            const command = (connected ? 'L' : 'M') + x + ',' + y;
-            connected = true;
-            return command;
-        }).join(' ');
+        return this.rejectionChart().path;
     }
 
     metricValue(metric: MetricKey, value: number): string {
