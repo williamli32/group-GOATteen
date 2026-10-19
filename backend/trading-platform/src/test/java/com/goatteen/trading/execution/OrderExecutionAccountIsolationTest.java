@@ -1,5 +1,7 @@
 package com.goatteen.trading.execution;
 
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class OrderExecutionAccountIsolationTest {
+class OrderExecutionAccountIsolationTest extends DatabaseIntegrationTestSupport {
 
     /*
      * Always use the dedicated integration-test database.
@@ -128,6 +130,9 @@ class OrderExecutionAccountIsolationTest {
                 account2Id,
                 instrumentId,
                 order2Key);
+
+        recordInitialLifecycle(order1Id);
+        recordInitialLifecycle(order2Id);
 
         /*
          * Orders must be ACCEPTED before execution.
@@ -322,6 +327,7 @@ class OrderExecutionAccountIsolationTest {
                 "account-"
                         + suffix
                         + "@test.com");
+        fixtures.user(userId);
 
         Long clientId = jdbc.queryForObject(
                 """
@@ -369,7 +375,7 @@ class OrderExecutionAccountIsolationTest {
     private Long createInstrument(
             String suffix) {
 
-        return jdbc.queryForObject(
+        return fixtures.instrument(jdbc.queryForObject(
                 """
                         INSERT INTO instruments
                             (
@@ -394,7 +400,7 @@ class OrderExecutionAccountIsolationTest {
                         RETURNING id
                         """,
                 Long.class,
-                "ISO" + suffix);
+                "ISO" + suffix));
     }
 
     private void createQuote(

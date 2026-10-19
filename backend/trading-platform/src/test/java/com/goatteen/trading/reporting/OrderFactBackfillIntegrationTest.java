@@ -1,5 +1,7 @@
 package com.goatteen.trading.reporting;
 
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+
 import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.client.Client;
@@ -30,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class OrderFactBackfillIntegrationTest {
+class OrderFactBackfillIntegrationTest extends DatabaseIntegrationTestSupport {
 
     @Autowired
     private OrderFactBackfillService backfillService;
@@ -62,6 +64,7 @@ class OrderFactBackfillIntegrationTest {
         User user = userRepository.save(
                 new User("backfill-" + unique + "@example.com", "hashed-password")
         );
+        fixtures.user(user.getId());
 
         Client client = clientRepository.save(
                 new Client(user, "Backfill", "Client")
@@ -81,6 +84,7 @@ class OrderFactBackfillIntegrationTest {
                         "USD"
                 )
         );
+        fixtures.instrument(instrument.getId());
 
         Order order = new Order();
         order.setAccount(account);
@@ -91,6 +95,7 @@ class OrderFactBackfillIntegrationTest {
         order.setSubmittedAt(LocalDateTime.now().minusDays(10));
 
         Order savedOrder = orderRepository.saveAndFlush(order);
+        recordInitialLifecycle(savedOrder.getId());
 
         // Repository-created order has not gone through the execution pipeline.
         assertTrue(orderFactRepository.findByOrderId(savedOrder.getId()).isEmpty());

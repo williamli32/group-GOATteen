@@ -12,10 +12,19 @@ spring:
     hibernate:
       ddl-auto: validate
 
-    show-sql: true
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
 
   flyway:
     enabled: true
+
+  task:
+    execution:
+      shutdown:
+        await-termination: true
+        await-termination-period: 10s
 
 app:
   jwt:

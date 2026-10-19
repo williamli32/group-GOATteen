@@ -1,5 +1,7 @@
 package com.goatteen.trading.execution;
 
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class OrderExecutionConcurrentDuplicateProcessingTest {
+class OrderExecutionConcurrentDuplicateProcessingTest extends DatabaseIntegrationTestSupport {
 
     /*
      * Always use the dedicated integration-test database.
@@ -97,6 +99,8 @@ class OrderExecutionConcurrentDuplicateProcessingTest {
                 accountId,
                 instrumentId,
                 sharedIdempotencyKey);
+
+        recordInitialLifecycle(orderId);
 
         executionService.acceptOrder(
                 orderId);
@@ -429,6 +433,7 @@ class OrderExecutionConcurrentDuplicateProcessingTest {
                 "concurrent-"
                         + suffix
                         + "@test.com");
+        fixtures.user(userId);
 
         Long clientId = jdbc.queryForObject(
                 """
@@ -476,7 +481,7 @@ class OrderExecutionConcurrentDuplicateProcessingTest {
     private Long createInstrument(
             String suffix) {
 
-        return jdbc.queryForObject(
+        return fixtures.instrument(jdbc.queryForObject(
                 """
                         INSERT INTO instruments
                             (
@@ -501,7 +506,7 @@ class OrderExecutionConcurrentDuplicateProcessingTest {
                         RETURNING id
                         """,
                 Long.class,
-                "CON" + suffix);
+                "CON" + suffix));
     }
 
     private void createQuote(

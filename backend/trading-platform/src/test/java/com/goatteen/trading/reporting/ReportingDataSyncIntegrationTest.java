@@ -2,6 +2,7 @@ package com.goatteen.trading.reporting;
 
 import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
+import com.goatteen.trading.audit.TradeReconstructionService;
 import com.goatteen.trading.client.Client;
 import com.goatteen.trading.client.ClientRepository;
 import com.goatteen.trading.execution.Fill;
@@ -38,6 +39,8 @@ import com.goatteen.trading.reporting.tracking.SyncTracking;
 import com.goatteen.trading.reporting.tracking.SyncTrackingRepository;
 import com.goatteen.trading.user.User;
 import com.goatteen.trading.user.UserRepository;
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+import com.goatteen.trading.support.ReportingLoadFixture;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +55,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
@@ -65,7 +69,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class ReportingDataSyncIntegrationTest {
+class ReportingDataSyncIntegrationTest extends DatabaseIntegrationTestSupport {
+
+        @Autowired
+        private TradeReconstructionService reconstructionService;
 
         @Autowired
         private OrderExecutionService orderExecutionService;
@@ -144,6 +151,7 @@ class ReportingDataSyncIntegrationTest {
                                 "hashed-password");
 
                 testUser = userRepository.save(testUser);
+                fixtures.user(testUser.getId());
 
                 testClient = new Client(
                                 testUser,
@@ -174,6 +182,7 @@ class ReportingDataSyncIntegrationTest {
                                 "USD");
 
                 testInstrument = instrumentRepository.save(testInstrument);
+                fixtures.instrument(testInstrument.getId());
 
                 testQuote = new Quote(
                                 testInstrument,
@@ -201,7 +210,7 @@ class ReportingDataSyncIntegrationTest {
                 order.setSubmittedAt(
                                 LocalDateTime.now());
 
-                Order savedOrder = orderRepository.save(order);
+                Order savedOrder = saveSubmittedFixture(order);
 
                 orderExecutionService.acceptOrder(
                                 savedOrder.getId());
@@ -287,6 +296,9 @@ class ReportingDataSyncIntegrationTest {
                                 0,
                                 expectedTradeValue.compareTo(
                                                 tradeFact.getTradeValue()));
+                assertEquals(1, tradeFactRepository.findByClientIdAndDateRange(
+                                testClient.getId(), LocalDateTime.now().minusMinutes(10),
+                                LocalDateTime.now().plusMinutes(10)).size());
         }
 
         @Test
@@ -309,7 +321,7 @@ class ReportingDataSyncIntegrationTest {
                 order.setIdempotencyKey(
                                 idempotencyKey);
 
-                Order savedOrder = orderRepository.save(order);
+                Order savedOrder = saveSubmittedFixture(order);
 
                 orderExecutionService.acceptOrder(
                                 savedOrder.getId());
@@ -331,12 +343,9 @@ class ReportingDataSyncIntegrationTest {
                                 firstFill.getId(),
                                 secondFill.getId());
 
-                long tradeFactCount = tradeFactRepository.findAll()
-                                .stream()
-                                .filter(tf -> tf.getFillId()
-                                                .equals(
-                                                                firstFill.getId()))
-                                .count();
+                long tradeFactCount = jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM reporting.trade_facts WHERE fill_id=?",
+                                Long.class, firstFill.getId());
 
                 assertEquals(
                                 1,
@@ -370,7 +379,7 @@ class ReportingDataSyncIntegrationTest {
                         order.setSubmittedAt(
                                         LocalDateTime.now());
 
-                        Order savedOrder = orderRepository.save(order);
+                        Order savedOrder = saveSubmittedFixture(order);
 
                         orderExecutionService.acceptOrder(
                                         savedOrder.getId());
@@ -438,7 +447,7 @@ class ReportingDataSyncIntegrationTest {
                 order.setSubmittedAt(
                                 LocalDateTime.now());
 
-                Order savedOrder = orderRepository.save(order);
+                Order savedOrder = saveSubmittedFixture(order);
 
                 orderExecutionService.acceptOrder(
                                 savedOrder.getId());
@@ -476,7 +485,7 @@ class ReportingDataSyncIntegrationTest {
                 buyOrder.setSubmittedAt(
                                 LocalDateTime.now());
 
-                Order savedBuyOrder = orderRepository.save(buyOrder);
+                Order savedBuyOrder = saveSubmittedFixture(buyOrder);
 
                 orderExecutionService.acceptOrder(
                                 savedBuyOrder.getId());
@@ -499,7 +508,7 @@ class ReportingDataSyncIntegrationTest {
                 sellOrder.setSubmittedAt(
                                 LocalDateTime.now());
 
-                Order savedSellOrder = orderRepository.save(sellOrder);
+                Order savedSellOrder = saveSubmittedFixture(sellOrder);
 
                 long executionStartMs = System.currentTimeMillis();
 
@@ -539,6 +548,7 @@ class ReportingDataSyncIntegrationTest {
                                 "hashed");
 
                 user2 = userRepository.save(user2);
+                fixtures.user(user2.getId());
 
                 Client client2 = new Client(
                                 user2,
@@ -570,7 +580,7 @@ class ReportingDataSyncIntegrationTest {
                 order1.setSubmittedAt(
                                 LocalDateTime.now());
 
-                Order savedOrder1 = orderRepository.save(order1);
+                Order savedOrder1 = saveSubmittedFixture(order1);
 
                 orderExecutionService.acceptOrder(
                                 savedOrder1.getId());
@@ -590,7 +600,7 @@ class ReportingDataSyncIntegrationTest {
                 order2.setSubmittedAt(
                                 LocalDateTime.now());
 
-                Order savedOrder2 = orderRepository.save(order2);
+                Order savedOrder2 = saveSubmittedFixture(order2);
 
                 orderExecutionService.acceptOrder(
                                 savedOrder2.getId());
@@ -657,26 +667,6 @@ class ReportingDataSyncIntegrationTest {
         }
 
         @Test
-        void singleTradeReconcilesTransactionalFillAndReportingTrade()
-                        throws Exception {
-
-                Fill fill = createFilledOrder(
-                                testAccount,
-                                testInstrument,
-                                OrderSide.BUY,
-                                new BigDecimal("12"),
-                                LocalDateTime.now().minusMinutes(2));
-
-                TradeFact trade = waitForTradeFact(fill.getId());
-
-                assertEquals(fill.getId(), trade.getFillId());
-                assertEquals(1, tradeFactRepository.findByClientIdAndDateRange(
-                                testClient.getId(),
-                                LocalDateTime.now().minusMinutes(10),
-                                LocalDateTime.now().plusMinutes(10)).size());
-        }
-
-        @Test
         void multipleInstrumentsAndBothSidesAggregateCorrectly()
                         throws Exception {
 
@@ -686,19 +676,25 @@ class ReportingDataSyncIntegrationTest {
                                 testAccount, testInstrument, OrderSide.BUY,
                                 new BigDecimal("10"), LocalDateTime.now().minusMinutes(4));
 
-                createFilledOrder(
+                Fill secondFill = createFilledOrder(
                                 testAccount, secondInstrument, OrderSide.BUY,
                                 new BigDecimal("20"), LocalDateTime.now().minusMinutes(3));
 
-                createFilledOrder(
+                Fill sellFill = createFilledOrder(
                                 testAccount, testInstrument, OrderSide.SELL,
                                 new BigDecimal("5"), LocalDateTime.now().minusMinutes(2));
 
-                waitForTradeFact(buyFill.getId());
+                for (Fill fill : List.of(buyFill, secondFill, sellFill)) {
+                        assertEquals(fill.getId(), waitForTradeFact(fill.getId()).getFillId());
+                        waitForOrderFact(fill.getOrder().getId());
+                }
 
                 TradingActivityMetrics metrics = currentMetrics();
 
                 assertEquals(3, metrics.totalOrders());
+                assertEquals(3, metrics.filledOrders());
+                assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM fills f JOIN orders o ON o.id=f.order_id "
+                                + "WHERE o.account_id=?", Long.class, testAccount.getId()));
                 assertEquals(2, metrics.buyFills());
                 assertEquals(1, metrics.sellFills());
                 assertEquals(0, new BigDecimal("30").compareTo(metrics.buyQuantity()));
@@ -754,33 +750,23 @@ class ReportingDataSyncIntegrationTest {
         }
 
         @Test
-        void reportingFillCountMatchesTransactionalFillCount()
-                        throws Exception {
-
-                Fill firstFill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
-                                new BigDecimal("3"), LocalDateTime.now().minusMinutes(3));
-                Fill secondFill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
-                                new BigDecimal("6"), LocalDateTime.now().minusMinutes(2));
-
-                TradingActivityMetrics metrics = currentMetrics();
-                assertNotNull(tradeFactRepository.findByFillId(firstFill.getId()).orElse(null));
-                assertNotNull(tradeFactRepository.findByFillId(secondFill.getId()).orElse(null));
-                assertEquals(2, metrics.filledOrders());
-        }
-
-        @Test
-        void repeatedRefreshDoesNotCreateDuplicateReportingRows()
+        void repeatedRefreshDoesNotCreateDuplicateOrderFacts()
                         throws Exception {
 
                 Fill fill = createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
                                 new BigDecimal("9"), LocalDateTime.now().minusMinutes(2));
-                TradeFact original = waitForTradeFact(fill.getId());
-
-                orderFactSyncService.syncOrderById(fill.getOrder().getId());
-
-                assertEquals(1, tradeFactRepository.findByFillId(fill.getId()).stream().count());
-                assertEquals(original.getTradeFactId(),
-                                tradeFactRepository.findByFillId(fill.getId()).orElseThrow().getTradeFactId());
+                Long orderId = fill.getOrder().getId();
+                OrderFact original = waitForOrderFact(orderId);
+                for (int i = 0; i < 3; i++) {
+                        orderFactSyncService.syncOrderById(orderId);
+                }
+                OrderFact refreshed = orderFactRepository.findByOrderId(orderId).orElseThrow();
+                assertEquals(1, jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM reporting.order_facts WHERE order_id=?", Long.class, orderId));
+                assertEquals(original.getOrderId(), refreshed.getOrderId());
+                assertEquals("FILLED", refreshed.getFinalStatus());
+                assertEquals(original.getAccountId(), refreshed.getAccountId());
+                assertEquals(original.getOrderQuantity(), refreshed.getOrderQuantity());
         }
 
         @Test
@@ -803,7 +789,8 @@ class ReportingDataSyncIntegrationTest {
                 OrderFact refreshed = waitForOrderFact(order.getId());
 
                 assertEquals("REJECTED", refreshed.getFinalStatus());
-                assertEquals(1, orderFactRepository.findByOrderId(order.getId()).stream().count());
+                assertEquals(1, jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM reporting.order_facts WHERE order_id=?", Long.class, order.getId()));
                 assertEquals("Refreshed rejection", refreshed.getRejectionReason());
         }
 
@@ -818,6 +805,12 @@ class ReportingDataSyncIntegrationTest {
                 persistTimedFill(testInstrument, OrderSide.BUY, new BigDecimal("10"), start.minusDays(1), start);
                 persistTimedFill(second, OrderSide.SELL, new BigDecimal("5"), start.minusDays(1), end.minusSeconds(1));
                 persistTimedFill(second, OrderSide.BUY, new BigDecimal("2"), start.minusDays(1), end);
+
+                for (Long orderId : jdbc.queryForList("SELECT id FROM orders WHERE account_id=?",
+                                Long.class, testAccount.getId())) {
+                        var integrity = reconstructionService.verifyTradeIntegrity(orderId);
+                        assertTrue(integrity.isValid(), "Timed fixture " + orderId + ": " + integrity.getMessage());
+                }
 
                 ReportingFilters all = new ReportingFilters(start, end, null, null, null,
                                 null, testAccount.getId(), "USD");
@@ -871,22 +864,23 @@ class ReportingDataSyncIntegrationTest {
                 assertTrue(budgetMs > 0, "goal5.maxExecutionMs must be greater than zero");
                 assertTrue(allowedSlowdown >= 1 && seedTrades >= 1 && seedTrades <= 2000
                                 && workers >= 1 && workers <= 8, "Invalid load-test settings");
-                testAccount.setCashBalance(BigDecimal.valueOf((seedTrades + 100L) * 200L));
+                BigDecimal initialCash = BigDecimal.valueOf((seedTrades + 100L) * 200L);
+                testAccount.setCashBalance(initialCash);
                 accountRepository.save(testAccount);
-                for (int i = 0; i < seedTrades; i++) {
-                        if (i % 25 == 0) {
-                                quoteRepository.save(new Quote(testInstrument, new BigDecimal("140.00"),
-                                                new BigDecimal("140.50"), new BigDecimal("140.25"),
-                                                LocalDateTime.now()));
-                        }
-                        createFilledOrder(testAccount, testInstrument, OrderSide.BUY,
-                                        BigDecimal.ONE, LocalDateTime.now());
-                }
-                List<Long> baseline = executeMeasuredOrders(5);
-                long baselineP95 = percentile95(baseline);
+                ReportingLoadFixture.seed(jdbc, testAccount.getId(), testInstrument.getId(), testQuote.getId(),
+                                seedTrades, initialCash, LocalDateTime.now());
                 var filters = new ReportingFilters(java.time.LocalDate.now().atStartOfDay(),
                                 java.time.LocalDate.now().plusDays(1).atStartOfDay(),
                                 null, null, null, null, testAccount.getId(), "USD");
+                assertEquals(seedTrades, assertExecutionReconciles(filters));
+                List<Long> seededOrders = jdbc.queryForList(
+                                "SELECT id FROM orders WHERE account_id=? ORDER BY id", Long.class, testAccount.getId());
+                assertTrue(reconstructionService.verifyTradeIntegrity(seededOrders.get(0)).isValid(),
+                                "First historical load fixture must have a valid settlement and audit trail");
+                assertTrue(reconstructionService.verifyTradeIntegrity(seededOrders.get(seededOrders.size() - 1)).isValid(),
+                                "Last historical load fixture must have a valid settlement and audit trail");
+                List<Long> baseline = executeMeasuredOrders(5);
+                long baselineP95 = percentile95(baseline);
                 var pool = Executors.newFixedThreadPool(workers);
                 var stop = new AtomicBoolean(false);
                 var completedBatches = new AtomicLong();
@@ -993,6 +987,13 @@ class ReportingDataSyncIntegrationTest {
                         source.setFillPrice(side == OrderSide.BUY ? quote.getAskPrice() : quote.getBidPrice());
                         source.setExecutedAt(executedAt);
                         source = fillRepository.save(source);
+                        persistTimedSettlement(source, instrument, side, quantity, executedAt);
+                        jdbc.update("""
+                                        INSERT INTO order_status_history(order_id,status,changed_at,note)
+                                        VALUES (?,'ACCEPTED',?,'Timed fixture accepted'),
+                                               (?,'FILLED',?,'Timed fixture filled')
+                                        """, order.getId(), java.sql.Timestamp.valueOf(order.getAcceptedAt()),
+                                        order.getId(), java.sql.Timestamp.valueOf(executedAt));
                         orderFactSyncService.syncOrder(order);
                         events.publishEvent(new OrderFilledEvent(this, source.getId(), order.getId(),
                                         testAccount.getId(), testClient.getId(), instrument.getId(), side.name(),
@@ -1004,6 +1005,43 @@ class ReportingDataSyncIntegrationTest {
                 assertNotNull(fill);
                 waitForTradeFact(fill.getId());
                 return fill;
+        }
+
+        private void persistTimedSettlement(Fill fill, Instrument instrument, OrderSide side,
+                        BigDecimal quantity, LocalDateTime executedAt) {
+                Account account = accountRepository.findById(testAccount.getId()).orElseThrow();
+                BigDecimal beforeCash = account.getCashBalance();
+                BigDecimal value = fill.getFillPrice().multiply(quantity).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal amount = side == OrderSide.BUY ? value.negate() : value;
+                BigDecimal afterCash = beforeCash.add(amount);
+                account.setCashBalance(afterCash);
+                accountRepository.save(account);
+
+                Position position = positionRepository
+                                .findByAccountIdAndInstrumentId(account.getId(), instrument.getId())
+                                .orElseGet(Position::new);
+                BigDecimal beforeQuantity = position.getQuantity() == null ? BigDecimal.ZERO : position.getQuantity();
+                if (side == OrderSide.SELL && beforeQuantity.compareTo(quantity) < 0) {
+                        beforeQuantity = quantity; // Opening holdings for this test-only SELL fixture.
+                }
+                BigDecimal change = side == OrderSide.BUY ? quantity : quantity.negate();
+                BigDecimal afterQuantity = beforeQuantity.add(change);
+                position.setAccount(account);
+                position.setInstrument(instrument);
+                position.setQuantity(afterQuantity);
+                position.setUpdatedAt(executedAt);
+                positionRepository.save(position);
+
+                jdbc.update("""
+                                INSERT INTO cash_transactions(account_id,fill_id,amount,balance_before,balance_after,created_at,description)
+                                VALUES (?,?,?,?,?,?,'Timed reporting fixture')
+                                """, account.getId(), fill.getId(), amount, beforeCash, afterCash,
+                                java.sql.Timestamp.valueOf(executedAt));
+                jdbc.update("""
+                                INSERT INTO position_history(account_id,instrument_id,fill_id,quantity_before,quantity_after,quantity_change,recorded_at)
+                                VALUES (?,?,?,?,?,?,?)
+                                """, account.getId(), instrument.getId(), fill.getId(), beforeQuantity,
+                                afterQuantity, change, java.sql.Timestamp.valueOf(executedAt));
         }
 
         private long assertExecutionReconciles(ReportingFilters filters) {
@@ -1100,7 +1138,15 @@ class ReportingDataSyncIntegrationTest {
                 order.setQuantity(quantity);
                 order.setStatus(OrderStatus.SUBMITTED);
                 order.setSubmittedAt(submittedAt);
-                return orderRepository.save(order);
+                return saveSubmittedFixture(order);
+        }
+
+        private Order saveSubmittedFixture(Order order) {
+                return new TransactionTemplate(transactionManager).execute(status -> {
+                        Order saved = orderRepository.saveAndFlush(order);
+                        recordInitialLifecycle(saved.getId());
+                        return saved;
+                });
         }
 
         private Fill createFilledOrder(
@@ -1140,6 +1186,7 @@ class ReportingDataSyncIntegrationTest {
                                 countryCode,
                                 "USD");
                 instrument = instrumentRepository.save(instrument);
+                fixtures.instrument(instrument.getId());
                 quoteRepository.save(new Quote(
                                 instrument,
                                 new BigDecimal("90.00"),
@@ -1150,10 +1197,11 @@ class ReportingDataSyncIntegrationTest {
         }
 
         private OrderFact waitForOrderFact(Long orderId) throws InterruptedException {
+                String expectedStatus = orderRepository.findById(orderId).orElseThrow().getStatus().name();
                 long timeoutAt = System.currentTimeMillis() + 5000;
                 while (System.currentTimeMillis() < timeoutAt) {
                         var fact = orderFactRepository.findByOrderId(orderId);
-                        if (fact.isPresent()) {
+                        if (fact.isPresent() && expectedStatus.equals(fact.get().getFinalStatus())) {
                                 return fact.get();
                         }
                         Thread.sleep(50);
@@ -1194,14 +1242,7 @@ class ReportingDataSyncIntegrationTest {
 
                 while (System.currentTimeMillis() < timeoutAt) {
 
-                        List<SyncTracking> records = syncTrackingRepository.findAll();
-
-                        var matchingRecord = records.stream()
-                                        .filter(record -> fillId.equals(
-                                                        record.getFillId()))
-                                        .filter(record -> "SUCCESS".equals(
-                                                        record.getSyncStatus()))
-                                        .findFirst();
+                        var matchingRecord = syncTrackingRepository.findByFillIdAndSyncStatus(fillId, "SUCCESS");
 
                         if (matchingRecord.isPresent()) {
                                 return matchingRecord.get();

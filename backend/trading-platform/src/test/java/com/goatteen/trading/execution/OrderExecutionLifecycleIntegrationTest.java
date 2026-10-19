@@ -1,5 +1,7 @@
 package com.goatteen.trading.execution;
 
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class OrderExecutionLifecycleIntegrationTest {
+class OrderExecutionLifecycleIntegrationTest extends DatabaseIntegrationTestSupport {
 
         private static final String TEST_DB = "leap_trading_test";
 
@@ -361,6 +363,7 @@ class OrderExecutionLifecycleIntegrationTest {
                                                 """,
                                 Long.class,
                                 "lifecycle-" + suffix + "@example.test");
+                fixtures.user(userId);
 
                 Long clientId = jdbc.queryForObject(
                                 """
@@ -386,7 +389,7 @@ class OrderExecutionLifecycleIntegrationTest {
         }
 
         private Long createInstrument(String suffix) {
-                return jdbc.queryForObject(
+                return fixtures.instrument(jdbc.queryForObject(
                                 """
                                                 INSERT INTO instruments
                                                     (symbol, name, instrument_class, exchange,
@@ -396,7 +399,7 @@ class OrderExecutionLifecycleIntegrationTest {
                                                 RETURNING id
                                                 """,
                                 Long.class,
-                                "LIFE" + suffix);
+                                "LIFE" + suffix));
         }
 
         private Long createQuote(Long instrumentId) {
@@ -416,7 +419,7 @@ class OrderExecutionLifecycleIntegrationTest {
                         Long instrumentId,
                         String status) {
 
-                return jdbc.queryForObject(
+                Long orderId = jdbc.queryForObject(
                                 """
                                                 INSERT INTO orders
                                                     (account_id, instrument_id, side, quantity,
@@ -428,6 +431,8 @@ class OrderExecutionLifecycleIntegrationTest {
                                 accountId,
                                 instrumentId,
                                 status);
+                recordInitialLifecycle(orderId);
+                return orderId;
         }
 
         private String orderStatus(Long orderId) {

@@ -1,5 +1,7 @@
 package com.goatteen.trading.account;
 
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+
 import com.goatteen.trading.account.dto.AddFundsRequest;
 import com.goatteen.trading.account.dto.AddFundsResponse;
 import com.goatteen.trading.auth.dto.RegisterRequest;
@@ -24,9 +26,9 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(properties = "spring.jpa.show-sql=false")
+@SpringBootTest
 @ActiveProfiles("test")
-class AccountFundingIntegrationTest {
+class AccountFundingIntegrationTest extends DatabaseIntegrationTestSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired AccountFundingService funding;
     @Autowired AuthService registration;
@@ -42,6 +44,7 @@ class AccountFundingIntegrationTest {
         String suffix = UUID.randomUUID().toString();
         Long userId = jdbc.queryForObject("INSERT INTO users(email,password_hash) VALUES (?,?) RETURNING id",
                 Long.class, suffix + "@funding.test", "integration-test-password-hash");
+        fixtures.user(userId);
         Long clientId = jdbc.queryForObject("INSERT INTO clients(user_id,first_name,last_name) VALUES (?,'Funding','Test') RETURNING id",
                 Long.class, userId);
         Long accountId = jdbc.queryForObject("INSERT INTO accounts(client_id,account_number,currency) VALUES (?,?,'USD') RETURNING id",
@@ -74,6 +77,8 @@ class AccountFundingIntegrationTest {
             return new AddFundsResponse[]{a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS)};
         } finally {
             executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS),
+                    "Funding workers must finish before fixture cleanup");
         }
     }
 
@@ -117,6 +122,7 @@ class AccountFundingIntegrationTest {
         request.setRole(role); request.setCurrency(currency);
         request.setAccessCode((String) ReflectionTestUtils.getField(AuthService.class, "ANALYST_ACCESS_CODE"));
         var result = registration.register(request);
+        fixtures.user(jdbc.queryForObject("SELECT id FROM users WHERE email=?", Long.class, request.getEmail()));
         assertEquals(currency, result.getCurrency());
         assertEquals(currency, jdbc.queryForObject("SELECT currency FROM accounts WHERE account_number=?",
                 String.class, result.getAccountNumber()));
