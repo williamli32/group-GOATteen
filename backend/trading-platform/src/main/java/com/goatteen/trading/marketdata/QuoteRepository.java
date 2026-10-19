@@ -40,6 +40,12 @@ public interface QuoteRepository
                   WHERE f.quote_id = q.id
               )
 
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM price_alert_notifications n
+                  WHERE n.quote_id = q.id
+              )
+
               AND EXISTS (
                   SELECT 1
                   FROM market_quotes newer

@@ -1,3 +1,4 @@
+import { PriceAlertPopupListenerComponent } from './price-alert-popup-listener.component';
 import { FxRateService, type FxQuote } from '../core/services/fx-rate';
 import {
 
@@ -143,6 +144,7 @@ type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
     CommonModule,
 
     FormsModule,
+    PriceAlertPopupListenerComponent,
 
     AccountFundingComponent,
     WatchlistComponent,

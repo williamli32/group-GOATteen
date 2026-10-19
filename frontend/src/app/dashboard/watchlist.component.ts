@@ -4,13 +4,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { MarketInstrumentResponse } from '../core/services/market-data';
+import { PriceAlertsComponent } from './price-alerts.component';
 import { WatchlistService } from '../core/services/watchlist';
 import { DailyPriceChangeComponent } from './daily-price-change.component';
 
 @Component({
   selector: 'app-watchlist',
   standalone: true,
-  imports: [CommonModule, FormsModule, DailyPriceChangeComponent],
+  imports: [CommonModule, FormsModule, DailyPriceChangeComponent, PriceAlertsComponent],
   templateUrl: './watchlist.component.html',
   styleUrl: './watchlist.component.scss'
 })

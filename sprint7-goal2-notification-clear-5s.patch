@@ -1,0 +1,631 @@
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertController.java b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertController.java
+index e40d334..946ee0e 100644
+--- a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertController.java
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertController.java
+@@ -26,6 +26,13 @@ public class PriceAlertController {
+     public void delete(@PathVariable long id) {service.delete(id);}
+     @GetMapping("/notifications")
+     public List<PriceAlertService.Notice> notifications() {return service.notifications();}
++    @DeleteMapping("/notifications") @ResponseStatus(HttpStatus.NO_CONTENT)
++    public void clearAllNotifications() { service.clearAllNotifications(); }
++
++    @DeleteMapping("/notifications/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
++    public void clearNotification(@PathVariable long id) { service.clearNotification(id); }
++
++    // Retain the old endpoint for backward compatibility with already deployed clients.
+     @PatchMapping("/notifications/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT)
+     public void read(@PathVariable long id) {service.markRead(id);}
+ }
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
+index 2d3f88b..f0a82e7 100644
+--- a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
+@@ -100,7 +100,8 @@ public class PriceAlertService {
+         return jdbc.query("""
+             SELECT id,alert_id,instrument_id,symbol,direction,threshold,observed_price,
+                    quote_currency,quote_at,created_at,read_at
+-            FROM price_alert_notifications WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 100
++            FROM price_alert_notifications WHERE user_id=? AND cleared_at IS NULL
++            ORDER BY created_at DESC,id DESC LIMIT 100
+             """,(r,n)-> new Notice(r.getLong(1),r.getLong(2),r.getLong(3),r.getString(4),
+                 r.getString(5),r.getBigDecimal(6),r.getBigDecimal(7),r.getString(8),
+                 r.getTimestamp(9).toLocalDateTime(),r.getTimestamp(10).toLocalDateTime(),
+@@ -115,6 +116,27 @@ public class PriceAlertService {
+             """,notificationId,userId())==0) throw notFound();
+     }
+ 
++    /** Hide a single triggered notification without deleting its immutable price evidence. */
++    @Transactional
++    public void clearNotification(long notificationId) {
++        // The account predicate prevents clearing another customer's notification.
++        // COALESCE makes a repeated DELETE safely idempotent.
++        if (jdbc.update("""
++            UPDATE price_alert_notifications
++            SET cleared_at=COALESCE(cleared_at,CURRENT_TIMESTAMP)
++            WHERE id=? AND user_id=?
++            """, notificationId, userId()) == 0) throw notFound();
++    }
++
++    /** Clear the whole notification inbox, not the customer's configured alerts. */
++    @Transactional
++    public void clearAllNotifications() {
++        jdbc.update("""
++            UPDATE price_alert_notifications SET cleared_at=CURRENT_TIMESTAMP
++            WHERE user_id=? AND cleared_at IS NULL
++            """, userId());
++    }
++
+     private Alert one(long user,long id) {
+         return jdbc.queryForObject("""
+             SELECT a.id,a.instrument_id,i.symbol,i.currency,a.direction,a.threshold,
+diff --git a/backend/trading-platform/src/main/resources/db/migration/V27__clear_price_alert_notifications.sql b/backend/trading-platform/src/main/resources/db/migration/V27__clear_price_alert_notifications.sql
+new file mode 100644
+index 0000000..ab075ea
+--- /dev/null
++++ b/backend/trading-platform/src/main/resources/db/migration/V27__clear_price_alert_notifications.sql
+@@ -0,0 +1,9 @@
++-- Clearing an inbox entry hides it from the user but preserves the
++-- triggered price, source quote and generation for investigation/audit.
++-- Configured price_alerts are deliberately NOT deleted or disabled.
++ALTER TABLE price_alert_notifications
++    ADD COLUMN cleared_at TIMESTAMP NULL;
++
++CREATE INDEX idx_price_alert_notices_visible
++    ON price_alert_notifications(user_id, created_at DESC, id DESC)
++    WHERE cleared_at IS NULL;
+diff --git a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
+index 9c4b67d..78e18e9 100644
+--- a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
++++ b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
+@@ -37,6 +37,43 @@ class PriceAlertServiceTest {
+             new PriceAlertService.Change(1,"BELOW",new BigDecimal("0.000000001"),true)));
+         verifyNoInteractions(jdbc);
+     }
++    @Test void clearingOneNotificationIsScopedToTheSignedInUser() {
++        when(currentUser.getCurrentUserId()).thenReturn(7L);
++        when(jdbc.update(anyString(), eq(24L), eq(7L))).thenReturn(1);
++        var service = new PriceAlertService(jdbc, currentUser);
++        service.clearNotification(24L);
++        service.clearNotification(24L); // repeated DELETE is idempotent
++        verify(jdbc, times(2)).update(argThat(sql ->
++            sql.contains("SET cleared_at=COALESCE(cleared_at,CURRENT_TIMESTAMP)") &&
++            sql.contains("WHERE id=? AND user_id=?")), eq(24L), eq(7L));
++    }
++
++    @Test void clearingAnotherUsersNotificationFails() {
++        when(currentUser.getCurrentUserId()).thenReturn(7L);
++        var service = new PriceAlertService(jdbc, currentUser);
++        assertThrows(ResponseStatusException.class, () -> service.clearNotification(99L));
++        verify(jdbc).update(argThat(sql -> sql.contains("WHERE id=? AND user_id=?")),
++            eq(99L), eq(7L));
++    }
++
++    @Test void clearAllOnlyAffectsTheSignedInUsersVisibleNotifications() {
++        when(currentUser.getCurrentUserId()).thenReturn(7L);
++        var service = new PriceAlertService(jdbc, currentUser);
++        service.clearAllNotifications();
++        verify(jdbc).update(argThat(sql ->
++            sql.contains("UPDATE price_alert_notifications") &&
++            sql.contains("WHERE user_id=? AND cleared_at IS NULL")), eq(7L));
++    }
++
++    @Test void listingNotificationsExcludesClearedHistory() {
++        when(currentUser.getCurrentUserId()).thenReturn(7L);
++        var service = new PriceAlertService(jdbc, currentUser);
++        service.notifications();
++        verify(jdbc).query(argThat(sql ->
++            sql.contains("cleared_at IS NULL") && sql.contains("user_id=?")),
++            any(org.springframework.jdbc.core.RowMapper.class), eq(7L));
++    }
++
+     @Test void markingReadIsScopedToAuthenticatedUserAndIdempotent() {
+         when(currentUser.getCurrentUserId()).thenReturn(7L);
+         when(jdbc.update(anyString(), eq(24L), eq(7L))).thenReturn(1);
+diff --git a/frontend/src/app/core/services/price-alerts.ts b/frontend/src/app/core/services/price-alerts.ts
+index fabdd08..13b46cd 100644
+--- a/frontend/src/app/core/services/price-alerts.ts
++++ b/frontend/src/app/core/services/price-alerts.ts
+@@ -1,8 +1,10 @@
+ import { Injectable, inject } from '@angular/core';
+ import { HttpClient } from '@angular/common/http';
+ import { environment } from '../../../environments/environment';
++import { Subject, tap } from 'rxjs';
+ 
+ export type AlertDirection = 'ABOVE' | 'BELOW';
++export type NoticeClearedEvent = { kind: 'one'; id: number } | { kind: 'all' };
+ export interface PriceAlert {
+   id:number; instrumentId:number; symbol:string; currency:string;
+   direction:AlertDirection; threshold:number; enabled:boolean; armed:boolean;
+@@ -20,11 +22,24 @@ export interface PriceAlertChange {
+ export class PriceAlertsService {
+   private readonly http=inject(HttpClient);
+   private readonly url=environment.apiUrl+'/price-alerts';
++  private readonly cleared = new Subject<NoticeClearedEvent>();
++  readonly noticeCleared$ = this.cleared.asObservable();
+   list(){return this.http.get<PriceAlert[]>(this.url);}
+   create(body:PriceAlertChange){return this.http.post<PriceAlert>(this.url,body);}
+   update(id:number,body:PriceAlertChange){return this.http.put<PriceAlert>(`${this.url}/${id}`,body);}
+   enabled(id:number,enabled:boolean){return this.http.patch<PriceAlert>(`${this.url}/${id}/enabled`,{enabled});}
+   delete(id:number){return this.http.delete<void>(`${this.url}/${id}`);}
+   notifications(){return this.http.get<PriceNotice[]>(`${this.url}/notifications`);}
++  // Legacy mark-read endpoint is retained for older clients.
+   read(id:number){return this.http.patch<void>(`${this.url}/notifications/${id}/read`,{});}
++  clearNotice(id:number){
++    return this.http.delete<void>(`${this.url}/notifications/${id}`).pipe(
++      tap(() => this.cleared.next({kind:'one',id}))
++    );
++  }
++  clearAllNotices(){
++    return this.http.delete<void>(`${this.url}/notifications`).pipe(
++      tap(() => this.cleared.next({kind:'all'}))
++    );
++  }
+ }
+diff --git a/frontend/src/app/dashboard/price-alert-popup-listener.component.spec.ts b/frontend/src/app/dashboard/price-alert-popup-listener.component.spec.ts
+index ac4fd97..efb18a8 100644
+--- a/frontend/src/app/dashboard/price-alert-popup-listener.component.spec.ts
++++ b/frontend/src/app/dashboard/price-alert-popup-listener.component.spec.ts
+@@ -1,15 +1,16 @@
+ import { ComponentFixture, TestBed } from '@angular/core/testing';
+ import { vi } from 'vitest';
+-import { of, throwError } from 'rxjs';
++import { of, throwError, Subject } from 'rxjs';
+ import { PriceAlertPopupListenerComponent } from './price-alert-popup-listener.component';
+-import { PriceAlertsService, PriceNotice } from '../core/services/price-alerts';
++import { PriceAlertsService, PriceNotice, NoticeClearedEvent } from '../core/services/price-alerts';
+ import { NotificationService } from '../core/services/notification';
+ 
+ describe('PriceAlertPopupListenerComponent', () => {
+   let fixture: ComponentFixture<PriceAlertPopupListenerComponent>;
+   let notices: PriceNotice[];
+-  const api = { notifications: vi.fn() };
+-  const toast = { show: vi.fn() };
++  const cleared = new Subject<NoticeClearedEvent>();
++  const api = { notifications: vi.fn(), noticeCleared$: cleared.asObservable() };
++  const toast = { show: vi.fn(), dismiss: vi.fn() };
+   const key = 'goatteen_price_alert_popups_42';
+   const event: PriceNotice = {
+     id: 9001, alertId: 44, instrumentId: 1, symbol: 'AAPL', direction: 'ABOVE',
+@@ -22,7 +23,8 @@ describe('PriceAlertPopupListenerComponent', () => {
+     sessionStorage.removeItem(key);
+     notices = [event];
+     api.notifications.mockReset().mockImplementation(() => of(notices));
+-    toast.show.mockReset();
++    toast.show.mockReset().mockReturnValue('toast-for-alert');
++    toast.dismiss.mockReset();
+     await TestBed.configureTestingModule({
+       imports: [PriceAlertPopupListenerComponent],
+       providers: [
+@@ -45,6 +47,7 @@ describe('PriceAlertPopupListenerComponent', () => {
+     expect(toast.show).toHaveBeenCalledTimes(1);
+     expect(toast.show.mock.calls[0][0]).toContain('AAPL');
+     expect(toast.show.mock.calls[0][0]).toContain('205 USD');
++    expect(toast.show.mock.calls[0][2]).toBe(5000);
+     vi.advanceTimersByTime(15000);
+     expect(toast.show).toHaveBeenCalledTimes(1);
+   });
+@@ -53,7 +56,8 @@ describe('PriceAlertPopupListenerComponent', () => {
+     // Re-initialize with an already-read notification and a clean seen history.
+     fixture.destroy();
+     notices = [{ ...event, readAt: '2026-10-19T18:40:00' }];
+-    toast.show.mockReset();
++    toast.show.mockReset().mockReturnValue('toast-for-alert');
++    toast.dismiss.mockReset();
+     sessionStorage.removeItem(key);
+     fixture = TestBed.createComponent(PriceAlertPopupListenerComponent);
+     fixture.componentRef.setInput('accountId', 42);
+@@ -69,10 +73,43 @@ describe('PriceAlertPopupListenerComponent', () => {
+     expect(toast.show).toHaveBeenCalledTimes(1);
+   });
+ 
+-  it('recovers from a temporary network failure', () => {
++  it('dismisses a cleared notification and does not show it again', () => {
++    cleared.next({ kind: 'one', id: event.id });
++    expect(toast.dismiss).toHaveBeenCalledWith('toast-for-alert');
++    vi.advanceTimersByTime(5000);
++    expect(toast.show).toHaveBeenCalledTimes(1);
++  });
++
++  it('dismisses price popups when all triggered notifications are cleared', () => {
++    notices = [];
++    cleared.next({ kind: 'all' });
++    expect(toast.dismiss).toHaveBeenCalledWith('toast-for-alert');
++    vi.advanceTimersByTime(5000);
++    expect(toast.show).toHaveBeenCalledTimes(1);
++  });
++
++  it('ignores a stale pending GET response following a clear-all action', () => {
+     fixture.destroy();
+     sessionStorage.removeItem(key);
+     toast.show.mockReset();
++    const pending = new Subject<PriceNotice[]>();
++    api.notifications.mockReturnValueOnce(pending).mockReturnValue(of([]));
++    fixture = TestBed.createComponent(PriceAlertPopupListenerComponent);
++    fixture.componentRef.setInput('accountId', 42);
++    fixture.detectChanges();
++    cleared.next({kind: 'all'});
++    pending.next([event]);
++    pending.complete();
++    expect(toast.show).not.toHaveBeenCalled();
++    vi.advanceTimersByTime(5000);
++    expect(toast.show).not.toHaveBeenCalled();
++  });
++
++  it('recovers from a temporary network failure', () => {
++    fixture.destroy();
++    sessionStorage.removeItem(key);
++    toast.show.mockReset().mockReturnValue('toast-for-alert');
++    toast.dismiss.mockReset();
+     api.notifications.mockReset()
+       .mockReturnValueOnce(throwError(() => new Error('temporary outage')))
+       .mockReturnValue(of(notices));
+diff --git a/frontend/src/app/dashboard/price-alert-popup-listener.component.ts b/frontend/src/app/dashboard/price-alert-popup-listener.component.ts
+index a6bd399..9c9b2bd 100644
+--- a/frontend/src/app/dashboard/price-alert-popup-listener.component.ts
++++ b/frontend/src/app/dashboard/price-alert-popup-listener.component.ts
+@@ -2,7 +2,7 @@ import { Component, DestroyRef, inject, input, OnInit } from '@angular/core';
+ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ import { catchError, exhaustMap, interval, map, of, startWith } from 'rxjs';
+ import { NotificationService } from '../core/services/notification';
+-import { PriceAlertsService, PriceNotice } from '../core/services/price-alerts';
++import { PriceAlertsService, PriceNotice, NoticeClearedEvent } from '../core/services/price-alerts';
+ 
+ /**
+  * Runs for the entire customer Dashboard route, NOT inside the hidden Watchlist tab.
+@@ -20,22 +20,29 @@ export class PriceAlertPopupListenerComponent implements OnInit {
+   private readonly notificationService = inject(NotificationService);
+   private readonly destroyRef = inject(DestroyRef);
+   private readonly seenByAccount = new Map<number, Set<number>>();
++  private readonly popupByNotice = new Map<number, string>();
++  private readonly summaryPopups = new Set<string>();
++  private requestEpoch = 0;
+ 
+   ngOnInit(): void {
++    // Successful Clear / Clear all actions also dismiss their current popups.
++    this.api.noticeCleared$.pipe(takeUntilDestroyed(this.destroyRef))
++      .subscribe(event => this.onNoticeCleared(event));
+     interval(5000).pipe(
+       startWith(0),
+       takeUntilDestroyed(this.destroyRef),
+       exhaustMap(() => {
+         const accountId = this.accountId();
+         if (accountId === null) return of(null);
++        const epoch = this.requestEpoch;
+         return this.api.notifications().pipe(
+-          map(notices => ({ accountId, notices })),
++          map(notices => ({ accountId, epoch, notices })),
+           catchError(() => of(null)) // Temporary outages must not break subsequent checks.
+         );
+       })
+     ).subscribe(result => {
+       // Ignore responses from the previously signed-in account, if it changed.
+-      if (result === null || this.accountId() !== result.accountId) return;
++      if (result === null || this.accountId() !== result.accountId || result.epoch !== this.requestEpoch) return;
+       this.notifyNewAlerts(result.accountId, result.notices);
+     });
+   }
+@@ -52,19 +59,40 @@ export class PriceAlertPopupListenerComponent implements OnInit {
+     // A user returning after several offline alerts should not receive a wall of popups.
+     for (const notice of newUnread.slice(0, 3)) {
+       const verb = notice.direction === 'ABOVE' ? 'at or above' : 'at or below';
+-      this.notificationService.show(
++      const toastId = this.notificationService.show(
+         `Price alert · ${notice.symbol}: ${this.format(notice.observedPrice)} ${notice.currency} ` +
+         `(${verb} ${this.format(notice.threshold)} ${notice.currency}). View details in Watchlist → Price alerts.`,
+         'info',
+-        12000
++        5000
+       );
++      this.popupByNotice.set(notice.id, toastId);
+     }
+     if (newUnread.length > 3) {
+-      this.notificationService.show(
++      this.summaryPopups.add(this.notificationService.show(
+         `${newUnread.length - 3} more price alerts triggered. See your Watchlist for details.`,
+         'info',
+-        12000
+-      );
++        5000
++      ));
++    }
++  }
++
++  private onNoticeCleared(event: NoticeClearedEvent): void {
++    const accountId = this.accountId();
++    if (accountId === null) return;
++    // Ignore any GET that was started before the completed DELETE.
++    this.requestEpoch++;
++    if (event.kind === 'one') {
++      const seen = this.seenFor(accountId);
++      seen.add(event.id);
++      this.remember(accountId, seen);
++      const toastId = this.popupByNotice.get(event.id);
++      if (toastId) this.notificationService.dismiss(toastId);
++      this.popupByNotice.delete(event.id);
++    } else {
++      for (const toastId of this.popupByNotice.values()) this.notificationService.dismiss(toastId);
++      for (const toastId of this.summaryPopups) this.notificationService.dismiss(toastId);
++      this.popupByNotice.clear();
++      this.summaryPopups.clear();
+     }
+   }
+ 
+diff --git a/frontend/src/app/dashboard/price-alerts.component.html b/frontend/src/app/dashboard/price-alerts.component.html
+index 44db4f1..c70a5f3 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.html
++++ b/frontend/src/app/dashboard/price-alerts.component.html
+@@ -113,13 +113,30 @@
+   <div class="list-heading notifications-heading">
+     <div>
+       <h3>Triggered notifications</h3>
+-      <span>{{ unreadCount() }} unread</span>
++      <span>{{ notices().length }} saved</span>
+     </div>
++    @if (confirmClearAll()) {
++      <div class="clear-all-confirm" role="group" aria-label="Confirm clearing notifications">
++        <span>Clear all saved notifications?</span>
++        <button type="button" class="danger-button clear-all-button" (click)="clearAllNotices()"
++          [disabled]="clearingAll() || clearingIds().length > 0 || loading()">
++          {{ clearingAll() ? 'Clearing...' : 'Yes, clear all' }}
++        </button>
++        <button type="button" class="secondary-button" (click)="confirmClearAll.set(false)"
++          [disabled]="clearingAll()">Cancel</button>
++      </div>
++    } @else {
++      <button type="button" class="danger-button clear-all-button" (click)="confirmClearAll.set(true)"
++        [disabled]="notices().length === 0 || clearingAll() || clearingIds().length > 0 || loading()"
++        aria-label="Clear all triggered price alert notifications">
++        Clear all notifications
++      </button>
++    }
+   </div>
+-  <p class="list-description">Alerts appear as dashboard popups and are saved here for when you return.</p>
++  <p class="list-description">Notifications appear across your Dashboard and stay here until cleared. Clearing notifications does not delete or pause your configured price alerts.</p>
+   <ul class="alert-list notification-history">
+     @for (notice of notices(); track notice.id) {
+-      <li class="notification-card" [class.unread]="!notice.readAt">
++      <li class="notification-card">
+         <span class="notification-indicator" aria-hidden="true"></span>
+         <div class="notification-detail">
+           <strong>{{ notice.symbol }} {{ notice.direction === 'ABOVE' ? 'reached your upper target' : 'reached your lower target' }}</strong>
+@@ -127,16 +144,14 @@
+             · Target {{ notice.threshold | number:'1.2-8' }} {{ notice.currency }}</p>
+           <small>{{ notice.quoteAt | date:'medium' }}</small>
+         </div>
+-        @if (!notice.readAt) {
+-          <button type="button" class="secondary-button" (click)="markRead(notice)"
+-            [disabled]="readingIds().includes(notice.id)"
+-            [attr.aria-label]="'Mark ' + notice.symbol + ' price alert as read'">{{ readingIds().includes(notice.id) ? 'Saving...' : 'Mark read' }}</button>
+-        } @else {
+-          <span class="read-label">Read</span>
+-        }
++        <button type="button" class="secondary-button" (click)="clearNotice(notice)"
++          [disabled]="clearingAll() || clearingIds().includes(notice.id)"
++          [attr.aria-label]="'Clear ' + notice.symbol + ' triggered price notification">
++          {{ clearingIds().includes(notice.id) ? 'Clearing...' : 'Clear' }}
++        </button>
+       </li>
+     } @empty {
+-      <li class="empty-state">No alerts have triggered yet. We'll keep checking the market.</li>
++      <li class="empty-state">No saved notifications. Your configured alerts will continue monitoring the market.</li>
+     }
+   </ul>
+ </section>
+diff --git a/frontend/src/app/dashboard/price-alerts.component.scss b/frontend/src/app/dashboard/price-alerts.component.scss
+index ed90db5..5933eb5 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.scss
++++ b/frontend/src/app/dashboard/price-alerts.component.scss
+@@ -54,7 +54,12 @@ select:disabled, input:disabled { opacity: .65; }
+ .alert-condition strong { color: $text; }
+ .alert-meta { display: block; margin-top: 5px; color: $muted; font-size: 11px; }
+ .card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+-.notifications-heading { margin-bottom: 5px; }
++.notifications-heading { margin-bottom: 5px; flex-wrap: wrap; }
++.clear-all-button { flex-shrink: 0; font-size: 11px; }
++.clear-all-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
++.clear-all-confirm > span { color: $muted; font-size: 11px; }
++.notification-card > .secondary-button { flex-shrink: 0; }
++
+ .list-description { margin: 0 0 12px; }
+ .notification-history { max-height: 400px; overflow-y: auto; }
+ .notification-card { flex-wrap: nowrap; }
+diff --git a/frontend/src/app/dashboard/price-alerts.component.spec.ts b/frontend/src/app/dashboard/price-alerts.component.spec.ts
+new file mode 100644
+index 0000000..ed57bf3
+--- /dev/null
++++ b/frontend/src/app/dashboard/price-alerts.component.spec.ts
+@@ -0,0 +1,85 @@
++import { TestBed } from '@angular/core/testing';
++import { of, Subject, throwError } from 'rxjs';
++import { vi } from 'vitest';
++import { PriceAlertsComponent } from './price-alerts.component';
++import { PriceAlert, PriceNotice, PriceAlertsService } from '../core/services/price-alerts';
++
++describe('PriceAlertsComponent notification clear actions', () => {
++  const alert: PriceAlert = {
++    id: 44, instrumentId: 1, symbol: 'AAPL', currency: 'USD', direction: 'ABOVE',
++    threshold: 200, enabled: true, armed: false, generation: 1, triggeredAt: '2026-10-19T18:00:00'
++  };
++  const first: PriceNotice = {
++    id: 101, alertId: 44, instrumentId: 1, symbol: 'AAPL', direction: 'ABOVE',
++    threshold: 200, observedPrice: 210, currency: 'USD',
++    quoteAt: '2026-10-19T18:00:00', createdAt: '2026-10-19T18:00:01', readAt: null
++  };
++  const second: PriceNotice = {
++    ...first, id: 102, instrumentId: 2, symbol: 'TSLA', observedPrice: 250
++  };
++  const api = {
++    list: vi.fn(), notifications: vi.fn(), clearNotice: vi.fn(), clearAllNotices: vi.fn()
++  };
++
++  beforeEach(async () => {
++    api.list.mockReset().mockReturnValue(of([alert]));
++    api.notifications.mockReset().mockReturnValue(of([first, second]));
++    api.clearNotice.mockReset().mockReturnValue(of(void 0));
++    api.clearAllNotices.mockReset().mockReturnValue(of(void 0));
++    await TestBed.configureTestingModule({
++      imports: [PriceAlertsComponent],
++      providers: [{provide: PriceAlertsService, useValue: api}]
++    }).compileComponents();
++  });
++
++  it('clears one notification without removing the configured price alert', () => {
++    const fixture = TestBed.createComponent(PriceAlertsComponent);
++    fixture.detectChanges();
++    fixture.componentInstance.clearNotice(first);
++    fixture.detectChanges();
++    expect(api.clearNotice).toHaveBeenCalledWith(101);
++    expect(fixture.componentInstance.notices().map(n => n.id)).toEqual([102]);
++    expect(fixture.componentInstance.alerts()).toEqual([alert]);
++    expect(fixture.nativeElement.textContent).toContain('Clear all notifications');
++    fixture.destroy();
++  });
++
++  it('clears the full notification inbox, not the alert configurations', () => {
++    const fixture = TestBed.createComponent(PriceAlertsComponent);
++    fixture.detectChanges();
++    const clearAll = fixture.nativeElement.querySelector('.clear-all-button') as HTMLButtonElement;
++    clearAll.click();
++    fixture.detectChanges();
++    expect(fixture.nativeElement.textContent).toContain('Yes, clear all');
++    fixture.nativeElement.querySelector('.clear-all-button').click();
++    fixture.detectChanges();
++    expect(api.clearAllNotices).toHaveBeenCalledTimes(1);
++    expect(fixture.componentInstance.notices()).toEqual([]);
++    expect(fixture.componentInstance.alerts()).toEqual([alert]);
++    expect(fixture.nativeElement.textContent).toContain('No saved notifications');
++    fixture.destroy();
++  });
++
++  it('keeps notifications visible when the clear request fails', () => {
++    api.clearNotice.mockReturnValue(throwError(() => new Error('offline')));
++    const fixture = TestBed.createComponent(PriceAlertsComponent);
++    fixture.detectChanges();
++    fixture.componentInstance.clearNotice(first);
++    fixture.detectChanges();
++    expect(fixture.componentInstance.notices()).toHaveLength(2);
++    expect(fixture.componentInstance.error()).toContain('Could not clear');
++    fixture.destroy();
++  });
++
++  it('disables bulk clear during an in-flight individual deletion', () => {
++    const pending = new Subject<void>();
++    api.clearNotice.mockReturnValue(pending);
++    const fixture = TestBed.createComponent(PriceAlertsComponent);
++    fixture.detectChanges();
++    fixture.componentInstance.clearNotice(first);
++    fixture.componentInstance.clearAllNotices();
++    expect(api.clearAllNotices).not.toHaveBeenCalled();
++    pending.next(); pending.complete();
++    fixture.destroy();
++  });
++});
+diff --git a/frontend/src/app/dashboard/price-alerts.component.ts b/frontend/src/app/dashboard/price-alerts.component.ts
+index e08f847..86603b8 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.ts
++++ b/frontend/src/app/dashboard/price-alerts.component.ts
+@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
+ import { Component, computed, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
+ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ import { FormsModule } from '@angular/forms';
+-import { catchError, exhaustMap, finalize, forkJoin, interval, of } from 'rxjs';
++import { catchError, exhaustMap, finalize, forkJoin, interval, map, of } from 'rxjs';
+ import { MarketInstrumentResponse } from '../core/services/market-data';
+ import {
+   AlertDirection, PriceAlert, PriceAlertChange, PriceAlertsService, PriceNotice
+@@ -24,8 +24,10 @@ export class PriceAlertsComponent implements OnInit {
+   readonly error = signal('');
+   readonly info = signal('');
+   readonly activeCount = computed(() => this.alerts().filter(alert => alert.enabled).length);
+-  readonly unreadCount = computed(() => this.notices().filter(notice => !notice.readAt).length);
+-  readonly readingIds = signal<number[]>([]);
++  readonly clearingIds = signal<number[]>([]);
++  readonly clearingAll = signal(false);
++  readonly confirmClearAll = signal(false);
++  private noticesVersion = 0;
+ 
+   instrumentId: number | null = null;
+   direction: AlertDirection = 'ABOVE';
+@@ -46,14 +48,16 @@ export class PriceAlertsComponent implements OnInit {
+     interval(5000).pipe(
+       takeUntilDestroyed(this.destroyRef),
+       exhaustMap(() => {
+-        if (this.busy() || this.loading() || this.readingIds().length > 0) return of(null);
++        if (this.busy() || this.loading() || this.clearingAll() || this.clearingIds().length) return of(null);
++        const version = this.noticesVersion;
+         return forkJoin({ alerts: this.api.list(), notices: this.api.notifications() })
+-          .pipe(catchError(() => of(null)));
++          .pipe(map(data => ({data,version})), catchError(() => of(null)));
+       })
+     ).subscribe(result => {
+-      if (result !== null) {
+-        this.alerts.set(result.alerts);
+-        this.notices.set(result.notices);
++      // Discard a request that started before a successful clear operation.
++      if (result !== null && result.version === this.noticesVersion) {
++        this.alerts.set(result.data.alerts);
++        this.notices.set(result.data.notices);
+       }
+     });
+   }
+@@ -62,11 +66,13 @@ export class PriceAlertsComponent implements OnInit {
+     if (this.loading()) return;
+     this.loading.set(true);
+     this.error.set('');
++    const version = this.noticesVersion;
+     forkJoin({ alerts: this.api.list(), notices: this.api.notifications() }).pipe(
+       takeUntilDestroyed(this.destroyRef),
+       finalize(() => this.loading.set(false))
+     ).subscribe({
+       next: result => {
++        if (version !== this.noticesVersion) return;
+         this.alerts.set(result.alerts);
+         this.notices.set(result.notices);
+       },
+@@ -151,17 +157,38 @@ export class PriceAlertsComponent implements OnInit {
+     });
+   }
+ 
+-  markRead(notice: PriceNotice): void {
+-    if (this.readingIds().includes(notice.id)) return;
+-    this.readingIds.update(ids => [...ids, notice.id]);
++  clearNotice(notice: PriceNotice): void {
++    if (this.clearingAll() || this.clearingIds().includes(notice.id)) return;
++    this.clearingIds.update(ids => [...ids, notice.id]);
++    this.error.set('');
++    this.api.clearNotice(notice.id).pipe(
++      takeUntilDestroyed(this.destroyRef),
++      finalize(() => this.clearingIds.update(ids => ids.filter(id => id !== notice.id)))
++    ).subscribe({
++      next: () => {
++        this.noticesVersion++;
++        this.notices.update(items => items.filter(item => item.id !== notice.id));
++        this.info.set('Notification cleared. Your price alert is still active.');
++      },
++      error: () => this.error.set('Could not clear that notification. Please try again.')
++    });
++  }
++
++  clearAllNotices(): void {
++    if (this.clearingAll() || this.clearingIds().length > 0 || this.notices().length === 0) return;
++    this.confirmClearAll.set(false);
++    this.clearingAll.set(true);
+     this.error.set('');
+-    this.api.read(notice.id).pipe(
++    this.api.clearAllNotices().pipe(
+       takeUntilDestroyed(this.destroyRef),
+-      finalize(() => this.readingIds.update(ids => ids.filter(id => id !== notice.id)))
++      finalize(() => this.clearingAll.set(false))
+     ).subscribe({
+-      next: () => this.notices.update(items => items.map(item => item.id === notice.id
+-        ? { ...item, readAt: new Date().toISOString() } : item)),
+-      error: () => this.error.set('Could not mark that notification as read.')
++      next: () => {
++        this.noticesVersion++;
++        this.notices.set([]);
++        this.info.set('All triggered notifications cleared. Your price alerts are unchanged.');
++      },
++      error: () => this.error.set('Could not clear your notifications. Please try again.')
+     });
+   }
+ }

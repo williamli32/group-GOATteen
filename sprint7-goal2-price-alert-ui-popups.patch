@@ -1,0 +1,712 @@
+diff --git a/frontend/src/app/dashboard/price-alert-popup-listener.component.spec.ts b/frontend/src/app/dashboard/price-alert-popup-listener.component.spec.ts
+new file mode 100644
+index 0000000..ac4fd97
+--- /dev/null
++++ b/frontend/src/app/dashboard/price-alert-popup-listener.component.spec.ts
+@@ -0,0 +1,86 @@
++import { ComponentFixture, TestBed } from '@angular/core/testing';
++import { vi } from 'vitest';
++import { of, throwError } from 'rxjs';
++import { PriceAlertPopupListenerComponent } from './price-alert-popup-listener.component';
++import { PriceAlertsService, PriceNotice } from '../core/services/price-alerts';
++import { NotificationService } from '../core/services/notification';
++
++describe('PriceAlertPopupListenerComponent', () => {
++  let fixture: ComponentFixture<PriceAlertPopupListenerComponent>;
++  let notices: PriceNotice[];
++  const api = { notifications: vi.fn() };
++  const toast = { show: vi.fn() };
++  const key = 'goatteen_price_alert_popups_42';
++  const event: PriceNotice = {
++    id: 9001, alertId: 44, instrumentId: 1, symbol: 'AAPL', direction: 'ABOVE',
++    threshold: 200, observedPrice: 205, currency: 'USD', quoteAt: '2026-10-19T18:30:00',
++    createdAt: '2026-10-19T18:30:01', readAt: null
++  };
++
++  beforeEach(async () => {
++    vi.useFakeTimers();
++    sessionStorage.removeItem(key);
++    notices = [event];
++    api.notifications.mockReset().mockImplementation(() => of(notices));
++    toast.show.mockReset();
++    await TestBed.configureTestingModule({
++      imports: [PriceAlertPopupListenerComponent],
++      providers: [
++        { provide: PriceAlertsService, useValue: api },
++        { provide: NotificationService, useValue: toast }
++      ]
++    }).compileComponents();
++    fixture = TestBed.createComponent(PriceAlertPopupListenerComponent);
++    fixture.componentRef.setInput('accountId', 42);
++    fixture.detectChanges();
++  });
++
++  afterEach(() => {
++    fixture.destroy();
++    vi.useRealTimers();
++    sessionStorage.removeItem(key);
++  });
++
++  it('shows a toast once for an unread triggered alert and never repeats it on polls', () => {
++    expect(toast.show).toHaveBeenCalledTimes(1);
++    expect(toast.show.mock.calls[0][0]).toContain('AAPL');
++    expect(toast.show.mock.calls[0][0]).toContain('205 USD');
++    vi.advanceTimersByTime(15000);
++    expect(toast.show).toHaveBeenCalledTimes(1);
++  });
++
++  it('does not popup a read notification', () => {
++    // Re-initialize with an already-read notification and a clean seen history.
++    fixture.destroy();
++    notices = [{ ...event, readAt: '2026-10-19T18:40:00' }];
++    toast.show.mockReset();
++    sessionStorage.removeItem(key);
++    fixture = TestBed.createComponent(PriceAlertPopupListenerComponent);
++    fixture.componentRef.setInput('accountId', 42);
++    fixture.detectChanges();
++    expect(toast.show).not.toHaveBeenCalled();
++  });
++
++  it('remembers popup IDs within the browser session across component remounts', () => {
++    fixture.destroy();
++    fixture = TestBed.createComponent(PriceAlertPopupListenerComponent);
++    fixture.componentRef.setInput('accountId', 42);
++    fixture.detectChanges();
++    expect(toast.show).toHaveBeenCalledTimes(1);
++  });
++
++  it('recovers from a temporary network failure', () => {
++    fixture.destroy();
++    sessionStorage.removeItem(key);
++    toast.show.mockReset();
++    api.notifications.mockReset()
++      .mockReturnValueOnce(throwError(() => new Error('temporary outage')))
++      .mockReturnValue(of(notices));
++    fixture = TestBed.createComponent(PriceAlertPopupListenerComponent);
++    fixture.componentRef.setInput('accountId', 42);
++    fixture.detectChanges();
++    expect(toast.show).not.toHaveBeenCalled();
++    vi.advanceTimersByTime(5000);
++    expect(toast.show).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/frontend/src/app/dashboard/price-alert-popup-listener.component.ts b/frontend/src/app/dashboard/price-alert-popup-listener.component.ts
+new file mode 100644
+index 0000000..a6bd399
+--- /dev/null
++++ b/frontend/src/app/dashboard/price-alert-popup-listener.component.ts
+@@ -0,0 +1,105 @@
++import { Component, DestroyRef, inject, input, OnInit } from '@angular/core';
++import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
++import { catchError, exhaustMap, interval, map, of, startWith } from 'rxjs';
++import { NotificationService } from '../core/services/notification';
++import { PriceAlertsService, PriceNotice } from '../core/services/price-alerts';
++
++/**
++ * Runs for the entire customer Dashboard route, NOT inside the hidden Watchlist tab.
++ * Reuses Dashboard's existing notification popups and does not affect backend alerts.
++ */
++@Component({
++  selector: 'app-price-alert-popup-listener',
++  standalone: true,
++  template: ''
++})
++export class PriceAlertPopupListenerComponent implements OnInit {
++  readonly accountId = input<number | null>(null);
++
++  private readonly api = inject(PriceAlertsService);
++  private readonly notificationService = inject(NotificationService);
++  private readonly destroyRef = inject(DestroyRef);
++  private readonly seenByAccount = new Map<number, Set<number>>();
++
++  ngOnInit(): void {
++    interval(5000).pipe(
++      startWith(0),
++      takeUntilDestroyed(this.destroyRef),
++      exhaustMap(() => {
++        const accountId = this.accountId();
++        if (accountId === null) return of(null);
++        return this.api.notifications().pipe(
++          map(notices => ({ accountId, notices })),
++          catchError(() => of(null)) // Temporary outages must not break subsequent checks.
++        );
++      })
++    ).subscribe(result => {
++      // Ignore responses from the previously signed-in account, if it changed.
++      if (result === null || this.accountId() !== result.accountId) return;
++      this.notifyNewAlerts(result.accountId, result.notices);
++    });
++  }
++
++  private notifyNewAlerts(accountId: number, notices: PriceNotice[]): void {
++    const seen = this.seenFor(accountId);
++    const newUnread = notices.filter(notice => !notice.readAt && !seen.has(notice.id));
++    if (newUnread.length === 0) return;
++
++    // Record IDs before displaying popups so polling and tab changes cannot repeat them.
++    for (const notice of newUnread) seen.add(notice.id);
++    this.remember(accountId, seen);
++
++    // A user returning after several offline alerts should not receive a wall of popups.
++    for (const notice of newUnread.slice(0, 3)) {
++      const verb = notice.direction === 'ABOVE' ? 'at or above' : 'at or below';
++      this.notificationService.show(
++        `Price alert · ${notice.symbol}: ${this.format(notice.observedPrice)} ${notice.currency} ` +
++        `(${verb} ${this.format(notice.threshold)} ${notice.currency}). View details in Watchlist → Price alerts.`,
++        'info',
++        12000
++      );
++    }
++    if (newUnread.length > 3) {
++      this.notificationService.show(
++        `${newUnread.length - 3} more price alerts triggered. See your Watchlist for details.`,
++        'info',
++        12000
++      );
++    }
++  }
++
++  private format(value: number): string {
++    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 8 }).format(value);
++  }
++
++  private seenFor(accountId: number): Set<number> {
++    const cached = this.seenByAccount.get(accountId);
++    if (cached) return cached;
++    let ids: number[] = [];
++    try {
++      const saved = window.sessionStorage.getItem(this.storageKey(accountId));
++      if (saved) {
++        const parsed: unknown = JSON.parse(saved);
++        if (Array.isArray(parsed)) {
++          ids = parsed.filter((id): id is number => Number.isSafeInteger(id) && id > 0);
++        }
++      }
++    } catch { /* Storage can be unavailable in privacy-restricted browsers. */ }
++    const seen = new Set(ids);
++    this.seenByAccount.set(accountId, seen);
++    return seen;
++  }
++
++  private remember(accountId: number, seen: Set<number>): void {
++    try {
++      // Bound session storage size; backend serves only the 100 most recent notices.
++      window.sessionStorage.setItem(
++        this.storageKey(accountId), JSON.stringify([...seen].slice(-300))
++      );
++    } catch { /* The in-memory Set still prevents duplicate popups in this route. */ }
++  }
++
++  private storageKey(accountId: number): string {
++    return `goatteen_price_alert_popups_${accountId}`;
++  }
++}
+diff --git a/frontend/src/app/dashboard/price-alerts.component.html b/frontend/src/app/dashboard/price-alerts.component.html
+index 555a023..300dc31 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.html
++++ b/frontend/src/app/dashboard/price-alerts.component.html
+@@ -1,47 +1,138 @@
+-<section class="price-alerts" aria-labelledby="alerts-heading">
+-<h2 id="alerts-heading">Persistent price alerts</h2>
+-<p>Alerts use each instrument's quote currency and last price. They are checked on the server even when you are signed out. Each alert fires once until you reactivate it.</p>
+-<form (ngSubmit)="save()" class="alert-form">
+- <label for="alert-instrument">Instrument</label>
+- <select id="alert-instrument" name="instrument" [(ngModel)]="instrumentId" required>
+-  <option [ngValue]="null">Choose instrument</option>
+-  @for (i of instruments();track i.instrumentId) {
+-   <option [ngValue]="i.instrumentId">{{i.symbol}} · {{i.exchange}} ({{i.currency}})</option>
+-  }
+- </select>
+- <label for="alert-direction">Condition</label>
+- <select id="alert-direction" name="direction" [(ngModel)]="direction">
+-  <option value="ABOVE">Price at or above</option><option value="BELOW">Price at or below</option>
+- </select>
+- <label for="alert-threshold">Threshold (instrument quote currency)</label>
+- <input id="alert-threshold" name="threshold" type="number" min="0.00000001" step="any" required [(ngModel)]="threshold" />
+- <button type="submit" [disabled]="busy() || instrumentId===null || threshold===null">{{editId===null?'Create alert':'Save and reactivate alert'}}</button>
+- @if(editId!==null){<button type="button" (click)="reset()">Cancel edit</button>}
+-</form>
+-@if(error()){<p role="alert" class="error">{{error()}}</p>}
+-@if(info()){<p role="status">{{info()}}</p>}
+-<h3>Your alerts</h3>
+-<button type="button" (click)="reload()" [disabled]="busy() || loading()">Refresh alerts</button>
+-<ul>
+-@for(a of alerts();track a.id){
+-<li>
+- <strong>{{a.symbol}} ({{a.currency}})</strong> {{a.direction==='ABOVE'?'≥':'≤'}} {{a.threshold | number:'1.2-8'}} ·
+- {{a.triggeredAt?'Triggered':a.enabled?'Active':'Disabled'}}
+- <button type="button" (click)="edit(a)" [disabled]="busy()">Edit</button>
+- <button type="button" (click)="toggle(a)" [disabled]="busy()">{{a.enabled?'Disable':'Reactivate'}}</button>
+- <button type="button" (click)="remove(a)" [disabled]="busy()">Delete</button>
+-</li>
+-} @empty {<li>No alerts created yet.</li>}
+-</ul>
+-<h3>Triggered notifications</h3>
+-<p>Saved notifications remain available after you close your browser. Recent notifications update automatically.</p>
+-<ul>
+-@for(n of notices();track n.id){
+-<li [class.unread]="!n.readAt">
+- {{n.symbol}} {{n.direction==='ABOVE'?'reached or exceeded':'fell to or below'}} {{n.threshold | number:'1.2-8'}} {{n.currency}}.
+- Last price {{n.observedPrice | number:'1.2-8'}} {{n.currency}} at {{n.quoteAt | date:'medium'}}.
+- @if(!n.readAt){<button type="button" (click)="markRead(n)">Mark read</button>}
+-</li>
+-} @empty {<li>No alerts have triggered.</li>}
+-</ul>
++<section class="price-alerts" aria-labelledby="price-alerts-heading" [attr.aria-busy]="loading() || busy()">
++  <header class="alerts-header">
++    <div>
++      <div class="eyebrow">AUTOMATED MARKET MONITORING</div>
++      <h2 id="price-alerts-heading">Price alerts</h2>
++      <p>Set a target and we'll watch the market for you, even while you're signed out.</p>
++    </div>
++    <span class="active-count">{{ activeCount() }} active</span>
++  </header>
++
++  <form class="alert-form" (ngSubmit)="save()" aria-label="Price alert settings">
++    <div class="form-title">
++      <strong>{{ editId === null ? 'Create a price alert' : 'Edit price alert' }}</strong>
++      <span>One notification per activation</span>
++    </div>
++    <div class="alert-fields">
++      <div class="field">
++        <label for="alert-instrument">Instrument</label>
++        <select id="alert-instrument" name="instrument" [(ngModel)]="instrumentId" required [disabled]="busy()">
++          <option [ngValue]="null">Select an instrument</option>
++          @for (instrument of instruments(); track instrument.instrumentId) {
++            <option [ngValue]="instrument.instrumentId">
++              {{ instrument.symbol }} · {{ instrument.exchange }} · {{ instrument.currency }}
++            </option>
++          }
++        </select>
++      </div>
++      <div class="field">
++        <label for="alert-direction">Notify me when</label>
++        <select id="alert-direction" name="direction" [(ngModel)]="direction" [disabled]="busy()">
++          <option value="ABOVE">Price is at or above</option>
++          <option value="BELOW">Price is at or below</option>
++        </select>
++      </div>
++      <div class="field">
++        <label for="alert-threshold">Target price ({{ selectedInstrument()?.currency ?? 'quote currency' }})</label>
++        <input id="alert-threshold" name="threshold" type="number" min="0.00000001" step="any"
++          [(ngModel)]="threshold" placeholder="e.g. 200.00" required [disabled]="busy()" />
++      </div>
++    </div>
++    @if (selectedInstrument(); as instrument) {
++      <p class="quote-hint">
++        {{ instrument.symbol }} · {{ instrument.currency }}
++        @if (instrument.latestQuote; as quote) {
++          · Latest {{ quote.lastPrice | number:'1.2-8' }} {{ instrument.currency }}
++          · {{ quote.quotedAt | date:'MMM d, HH:mm:ss' }}
++        } @else {
++          · Latest price unavailable
++        }
++      </p>
++    }
++    <div class="form-actions">
++      <button type="submit" class="primary-button"
++        [disabled]="busy() || instrumentId === null || (threshold ?? 0) <= 0">
++        {{ busy() ? 'Saving...' : editId === null ? 'Create alert' : 'Save and reactivate' }}
++      </button>
++      @if (editId !== null) {
++        <button type="button" class="secondary-button" (click)="reset()" [disabled]="busy()">Cancel editing</button>
++      }
++    </div>
++  </form>
++
++  @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
++  @if (info()) { <p class="feedback success" role="status">{{ info() }}</p> }
++
++  <div class="list-heading">
++    <div>
++      <h3>My price alerts</h3>
++      <span>{{ alerts().length }} saved</span>
++    </div>
++    <button type="button" class="text-button" (click)="reload()" [disabled]="busy() || loading()">
++      {{ loading() ? 'Refreshing...' : 'Refresh' }}
++    </button>
++  </div>
++  <ul class="alert-list">
++    @for (alert of alerts(); track alert.id) {
++      <li class="alert-card">
++        <div class="alert-details">
++          <div class="alert-card-top">
++            <strong>{{ alert.symbol }}</strong>
++            <span class="status" [class.status-active]="alert.enabled"
++              [class.status-triggered]="alert.triggeredAt !== null">
++              {{ alert.triggeredAt ? 'Triggered' : alert.enabled ? 'Active' : 'Paused' }}
++            </span>
++          </div>
++          <p class="alert-condition">
++            {{ alert.direction === 'ABOVE' ? 'At or above' : 'At or below' }}
++            <strong>{{ alert.threshold | number:'1.2-8' }} {{ alert.currency }}</strong>
++          </p>
++          @if (alert.triggeredAt) {
++            <span class="alert-meta">Triggered {{ alert.triggeredAt | date:'medium' }} · Reactivate to monitor again</span>
++          } @else {
++            <span class="alert-meta">{{ alert.enabled ? 'Monitoring the market' : 'Monitoring paused' }}</span>
++          }
++        </div>
++        <div class="card-actions">
++          <button type="button" class="secondary-button" (click)="edit(alert)" [disabled]="busy()">Edit</button>
++          <button type="button" class="secondary-button" (click)="toggle(alert)" [disabled]="busy()">
++            {{ alert.enabled ? 'Pause' : 'Reactivate' }}
++          </button>
++          <button type="button" class="danger-button" (click)="remove(alert)" [disabled]="busy()"
++            [attr.aria-label]="'Delete price alert for ' + alert.symbol">Delete</button>
++        </div>
++      </li>
++    } @empty {
++      <li class="empty-state">No alerts yet. Create your first alert above to start monitoring a price.</li>
++    }
++  </ul>
++
++  <div class="list-heading notifications-heading">
++    <div>
++      <h3>Triggered notifications</h3>
++      <span>{{ unreadCount() }} unread</span>
++    </div>
++  </div>
++  <p class="list-description">Alerts appear as dashboard popups and are saved here for when you return.</p>
++  <ul class="alert-list notification-history">
++    @for (notice of notices(); track notice.id) {
++      <li class="notification-card" [class.unread]="!notice.readAt">
++        <span class="notification-indicator" aria-hidden="true"></span>
++        <div class="notification-detail">
++          <strong>{{ notice.symbol }} {{ notice.direction === 'ABOVE' ? 'reached your upper target' : 'reached your lower target' }}</strong>
++          <p>{{ notice.observedPrice | number:'1.2-8' }} {{ notice.currency }} observed
++            · Target {{ notice.threshold | number:'1.2-8' }} {{ notice.currency }}</p>
++          <small>{{ notice.quoteAt | date:'medium' }}</small>
++        </div>
++        @if (!notice.readAt) {
++          <button type="button" class="secondary-button" (click)="markRead(notice)"
++            [attr.aria-label]="'Mark ' + notice.symbol + ' price alert as read'">Mark read</button>
++        } @else {
++          <span class="read-label">Read</span>
++        }
++      </li>
++    } @empty {
++      <li class="empty-state">No alerts have triggered yet. We'll keep checking the market.</li>
++    }
++  </ul>
+ </section>
+diff --git a/frontend/src/app/dashboard/price-alerts.component.scss b/frontend/src/app/dashboard/price-alerts.component.scss
+index 6e5de06..ed90db5 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.scss
++++ b/frontend/src/app/dashboard/price-alerts.component.scss
+@@ -1,8 +1,71 @@
+-.price-alerts {padding:1rem;margin-top:1.25rem;border:1px solid #aab3c3;border-radius:0.75rem}
+-.alert-form {display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+-.alert-form label {font-weight:600}
+-.alert-form input,.alert-form select {min-height:2.4rem;max-width:14rem}
+-button {cursor:pointer;margin:.15rem;padding:.4rem .65rem}
+-li {padding:.5rem 0;border-bottom:1px solid #9da7b366}
+-.unread {font-weight:600}
+-.error {color:#b32323}
++$surface: #101a27;
++$inner: #0b1420;
++$border: #26394a;
++$text: #e2e8f0;
++$muted: #a5b6c6;
++$accent: #00d4aa;
++$danger: #f87171;
++
++:host { display: block; min-width: 0; margin-top: 18px; font: 13px 'JetBrains Mono', monospace; }
++.price-alerts { min-width: 0; padding: 20px; background: $surface; border: 1px solid $border; border-radius: 10px; color: $text; }
++button, select, input { font: inherit; }
++button { min-height: 36px; cursor: pointer; border-radius: 5px; }
++button:disabled { opacity: .55; cursor: not-allowed; }
++button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #f0b75d; outline-offset: 3px; }
++.alerts-header, .list-heading, .form-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
++.alerts-header { padding-bottom: 20px; border-bottom: 1px solid $border; }
++.eyebrow { color: $accent; font-weight: 700; font-size: 10px; letter-spacing: 1.3px; }
++h2 { font-size: 20px; line-height: 1.4; margin: 6px 0 0; }
++h3 { font-size: 15px; margin: 0; }
++p { margin: 6px 0 0; line-height: 1.65; color: $muted; font-size: 12px; }
++.active-count { flex-shrink: 0; padding: 6px 10px; color: $accent; background: rgba($accent, .09); border: 1px solid rgba($accent, .3); border-radius: 4px; font-size: 11px; }
++.alert-form { margin-top: 18px; padding: 16px; border: 1px solid $border; border-radius: 6px; background: $inner; }
++.form-title { flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
++.form-title strong { color: $text; font-size: 14px; }
++.form-title span { color: $muted; font-size: 11px; }
++.alert-fields { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
++.field { display: flex; flex-direction: column; min-width: 0; gap: 8px; }
++label { font-size: 11px; color: $muted; }
++select, input { width: 100%; min-width: 0; min-height: 42px; padding: 10px 12px; color: $text; border: 1px solid #365064; border-radius: 5px; background: #080f1c; box-sizing: border-box; font-size: 12px; }
++select:disabled, input:disabled { opacity: .65; }
++.quote-hint { padding-top: 10px; color: #a7efdf; font-size: 11px; }
++.form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
++.primary-button { padding: 10px 16px; border: 1px solid $accent; color: #071b18; background: $accent; font-weight: 700; }
++.primary-button:hover:not(:disabled) { background: #64e7ca; }
++.secondary-button, .text-button { padding: 9px 12px; border: 1px solid #315368; color: #a7efdf; background: #123244; }
++.secondary-button:hover:not(:disabled), .text-button:hover:not(:disabled) { background: #194557; }
++.text-button { background: transparent; }
++.danger-button { padding: 9px 12px; color: #ffadb4; border: 1px solid rgba($danger,.4); background: transparent; }
++.danger-button:hover:not(:disabled) { background: rgba($danger, .10); }
++.feedback { padding: 10px 12px; border-radius: 4px; margin-top: 12px; }
++.error { color: #ffb0b7; background: rgba($danger,.08); }
++.success { color: #a7efdf; background: rgba($accent,.08); }
++.list-heading { align-items: center; margin: 26px 0 12px; }
++.list-heading > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
++.list-heading span { color: $muted; font-size: 11px; }
++.alert-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
++.alert-card, .notification-card { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; padding: 14px; border-radius: 6px; border: 1px solid $border; background: $inner; }
++.alert-details, .notification-detail { min-width: 0; flex: 1 1 220px; }
++.alert-card-top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
++.alert-card-top > strong { font-size: 14px; }
++.status { display: inline-flex; padding: 4px 7px; border-radius: 4px; border: 1px solid #415068; color: $muted; background: #172337; font-size: 10px; }
++.status-active { color: $accent; border-color: rgba($accent,.35); background: rgba($accent,.08); }
++.status-triggered { color: #f2c879; border-color: rgba(#f2c879,.4); background: rgba(#f2c879,.08); }
++.alert-condition strong { color: $text; }
++.alert-meta { display: block; margin-top: 5px; color: $muted; font-size: 11px; }
++.card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
++.notifications-heading { margin-bottom: 5px; }
++.list-description { margin: 0 0 12px; }
++.notification-history { max-height: 400px; overflow-y: auto; }
++.notification-card { flex-wrap: nowrap; }
++.notification-card.unread { border-color: rgba($accent,.42); background: #122631; }
++.notification-indicator { flex: 0 0 6px; align-self: flex-start; margin-top: 7px; width: 6px; height: 6px; border-radius: 50%; background: #64748b; }
++.unread .notification-indicator { background: $accent; }
++.notification-detail strong { overflow-wrap: anywhere; font-size: 12px; }
++.notification-detail p { font-size: 11px; }
++.notification-detail small { display: block; margin-top: 6px; color: $muted; font-size: 10px; }
++.read-label { color: $muted; font-size: 11px; }
++.empty-state { display: block; padding: 20px; border: 1px dashed $border; border-radius: 5px; color: $muted; font-size: 12px; line-height: 1.7; }
++@media (max-width: 850px) { .alert-fields { grid-template-columns: minmax(0, 1fr); } }
++@media (max-width: 500px) { .price-alerts { padding: 12px; } .alerts-header { flex-wrap: wrap; } .card-actions { width: 100%; } .notification-card { flex-wrap: wrap; } }
++@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto; } }
+diff --git a/frontend/src/app/dashboard/price-alerts.component.ts b/frontend/src/app/dashboard/price-alerts.component.ts
+index 3ff9daf..590d042 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.ts
++++ b/frontend/src/app/dashboard/price-alerts.component.ts
+@@ -1,77 +1,152 @@
+ import { CommonModule } from '@angular/common';
+-import { Component, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
++import { Component, computed, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
+ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ import { FormsModule } from '@angular/forms';
+-import { forkJoin, interval, switchMap, catchError, of } from 'rxjs';
++import { catchError, finalize, forkJoin, interval, of, switchMap } from 'rxjs';
+ import { MarketInstrumentResponse } from '../core/services/market-data';
+-import { AlertDirection, PriceAlert, PriceAlertChange, PriceAlertsService, PriceNotice } from '../core/services/price-alerts';
++import {
++  AlertDirection, PriceAlert, PriceAlertChange, PriceAlertsService, PriceNotice
++} from '../core/services/price-alerts';
+ 
+ @Component({
+-  selector:'app-price-alerts',standalone:true,
+-  imports:[CommonModule,FormsModule],
+-  templateUrl:'./price-alerts.component.html',styleUrl:'./price-alerts.component.scss'
++  selector: 'app-price-alerts',
++  standalone: true,
++  imports: [CommonModule, FormsModule],
++  templateUrl: './price-alerts.component.html',
++  styleUrl: './price-alerts.component.scss'
+ })
+ export class PriceAlertsComponent implements OnInit {
+-  readonly instruments=input<MarketInstrumentResponse[]>([]);
+-  readonly alerts=signal<PriceAlert[]>([]);
+-  readonly notices=signal<PriceNotice[]>([]);
+-  readonly loading=signal(false);
+-  readonly busy=signal(false);
+-  readonly error=signal('');
+-  readonly info=signal('');
+-  instrumentId:number|null=null;
+-  direction:AlertDirection='ABOVE';
+-  threshold:number|null=null;
+-  editId:number|null=null;
+-  private readonly api=inject(PriceAlertsService);
+-  private readonly destroyRef=inject(DestroyRef);
++  readonly instruments = input<MarketInstrumentResponse[]>([]);
++  readonly alerts = signal<PriceAlert[]>([]);
++  readonly notices = signal<PriceNotice[]>([]);
++  readonly loading = signal(false);
++  readonly busy = signal(false);
++  readonly error = signal('');
++  readonly info = signal('');
++  readonly activeCount = computed(() => this.alerts().filter(alert => alert.enabled).length);
++  readonly unreadCount = computed(() => this.notices().filter(notice => !notice.readAt).length);
+ 
+-  ngOnInit():void {
++  instrumentId: number | null = null;
++  direction: AlertDirection = 'ABOVE';
++  threshold: number | null = null;
++  editId: number | null = null;
++
++  selectedInstrument(): MarketInstrumentResponse | null {
++    return this.instruments().find(instrument => instrument.instrumentId === this.instrumentId) ?? null;
++  }
++
++  private readonly api = inject(PriceAlertsService);
++  private readonly destroyRef = inject(DestroyRef);
++
++  ngOnInit(): void {
+     this.reload();
+-    interval(5000).pipe(takeUntilDestroyed(this.destroyRef),
+-      switchMap(()=>this.api.notifications().pipe(catchError(()=>of(null))))
+-    ).subscribe(notes=>{if(notes!==null)this.notices.set(notes);});
++    // Notifications are persisted by the backend; this merely refreshes the visible history.
++    interval(5000).pipe(
++      takeUntilDestroyed(this.destroyRef),
++      switchMap(() => this.api.notifications().pipe(catchError(() => of(null))))
++    ).subscribe(notices => {
++      if (notices !== null) this.notices.set(notices);
++    });
+   }
+-  reload():void {
+-    this.loading.set(true);this.error.set('');
+-    forkJoin({alerts:this.api.list(),notices:this.api.notifications()})
+-      .pipe(takeUntilDestroyed(this.destroyRef))
+-      .subscribe({next:r=>{this.alerts.set(r.alerts);this.notices.set(r.notices);this.loading.set(false);},
+-        error:()=>{this.error.set('Could not load saved alerts. Please retry.');this.loading.set(false);}});
++
++  reload(): void {
++    if (this.loading()) return;
++    this.loading.set(true);
++    this.error.set('');
++    forkJoin({ alerts: this.api.list(), notices: this.api.notifications() }).pipe(
++      takeUntilDestroyed(this.destroyRef),
++      finalize(() => this.loading.set(false))
++    ).subscribe({
++      next: result => {
++        this.alerts.set(result.alerts);
++        this.notices.set(result.notices);
++      },
++      error: () => this.error.set('Could not load your saved price alerts. Please try again.')
++    });
+   }
+-  edit(a:PriceAlert):void {
+-    this.editId=a.id;this.instrumentId=a.instrumentId;this.direction=a.direction;
+-    this.threshold=a.threshold;this.error.set('');this.info.set('Editing alert #'+a.id);
++
++  edit(alert: PriceAlert): void {
++    this.editId = alert.id;
++    this.instrumentId = alert.instrumentId;
++    this.direction = alert.direction;
++    this.threshold = alert.threshold;
++    this.error.set('');
++    this.info.set('Editing ' + alert.symbol + '. Saving will reactivate this one-shot alert.');
+   }
+-  reset():void {this.editId=null;this.instrumentId=null;this.direction='ABOVE';this.threshold=null;}
+-  save():void {
+-    const id=Number(this.instrumentId),v=Number(this.threshold);
+-    if(!Number.isInteger(id)||id<1||!Number.isFinite(v)||v<=0||
+-       !this.instruments().some(i=>i.instrumentId===id)) {
+-      this.error.set('Choose an instrument and a positive threshold.');return;
++
++  reset(): void {
++    this.editId = null;
++    this.instrumentId = null;
++    this.direction = 'ABOVE';
++    this.threshold = null;
++    this.info.set('');
++  }
++
++  save(): void {
++    if (this.busy()) return;
++    const id = Number(this.instrumentId);
++    const amount = this.threshold;
++    if (!Number.isInteger(id) || id <= 0 || amount === null ||
++        !Number.isFinite(amount) || amount <= 0 ||
++        !this.instruments().some(instrument => instrument.instrumentId === id)) {
++      this.error.set('Select an instrument and enter a positive target price.');
++      return;
+     }
+-    const body:PriceAlertChange={instrumentId:id,direction:this.direction,threshold:v,enabled:true};
+-    this.busy.set(true);this.error.set('');this.info.set('');
+-    const req=this.editId===null?this.api.create(body):this.api.update(this.editId,body);
+-    req.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({next:()=>{
+-      this.busy.set(false);this.info.set('Alert saved. It will trigger once until reactivated.');
+-      this.reset();this.reload();},error:()=>{this.busy.set(false);this.error.set('Could not save alert.');}});
++
++    const body: PriceAlertChange = {
++      instrumentId: id, direction: this.direction, threshold: amount, enabled: true
++    };
++    this.busy.set(true);
++    this.error.set('');
++    this.info.set('');
++    const request = this.editId === null ? this.api.create(body) : this.api.update(this.editId, body);
++    request.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false)))
++      .subscribe({
++        next: () => {
++          this.reset();
++          this.info.set('Price alert saved. It will notify you once, until reactivated.');
++          this.reload();
++        },
++        error: () => this.error.set('Could not save this price alert. Check your details and retry.')
++      });
+   }
+-  toggle(a:PriceAlert):void {
+-    this.busy.set(true);this.error.set('');
+-    this.api.enabled(a.id,!a.enabled).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+-      next:()=>{this.busy.set(false);this.reload();},
+-      error:()=>{this.busy.set(false);this.error.set('Could not update alert.');}});
++
++  toggle(alert: PriceAlert): void {
++    if (this.busy()) return;
++    this.busy.set(true);
++    this.error.set('');
++    this.api.enabled(alert.id, !alert.enabled).pipe(
++      takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))
++    ).subscribe({
++      next: () => {
++        this.info.set(alert.enabled ? 'Alert paused.' : 'Alert reactivated.');
++        this.reload();
++      },
++      error: () => this.error.set('Could not update this price alert.')
++    });
+   }
+-  remove(a:PriceAlert):void {
+-    this.busy.set(true);this.error.set('');
+-    this.api.delete(a.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+-      next:()=>{this.busy.set(false);if(this.editId===a.id)this.reset();this.reload();},
+-      error:()=>{this.busy.set(false);this.error.set('Could not delete alert.');}});
++
++  remove(alert: PriceAlert): void {
++    if (this.busy()) return;
++    this.busy.set(true);
++    this.error.set('');
++    this.api.delete(alert.id).pipe(
++      takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))
++    ).subscribe({
++      next: () => {
++        if (this.editId === alert.id) this.reset();
++        this.info.set('Alert deleted.');
++        this.reload();
++      },
++      error: () => this.error.set('Could not delete this price alert.')
++    });
+   }
+-  markRead(n:PriceNotice):void {
+-    this.api.read(n.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+-      next:()=>this.notices.update(items=>items.map(i=>i.id===n.id?{...i,readAt:new Date().toISOString()}:i)),
+-      error:()=>this.error.set('Could not mark notification as read.')});
++
++  markRead(notice: PriceNotice): void {
++    this.api.read(notice.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++      next: () => this.notices.update(items => items.map(item => item.id === notice.id
++        ? { ...item, readAt: new Date().toISOString() } : item)),
++      error: () => this.error.set('Could not mark that notification as read.')
++    });
+   }
+ }
+diff --git a/frontend/src/app/dashboard/dashboard.component.ts b/frontend/src/app/dashboard/dashboard.component.ts
+--- a/frontend/src/app/dashboard/dashboard.component.ts
++++ b/frontend/src/app/dashboard/dashboard.component.ts
+@@ -1,2 +1,3 @@
++import { PriceAlertPopupListenerComponent } from './price-alert-popup-listener.component';
+ import { FxRateService, type FxQuote } from '../core/services/fx-rate';
+ import {
+@@ -9,4 +10,5 @@
+ 
+     FormsModule,
++    PriceAlertPopupListenerComponent,
+ 
+     AccountFundingComponent,
+diff --git a/frontend/src/app/dashboard/dashboard.component.html b/frontend/src/app/dashboard/dashboard.component.html
+--- a/frontend/src/app/dashboard/dashboard.component.html
++++ b/frontend/src/app/dashboard/dashboard.component.html
+@@ -1,3 +1,4 @@
+ <div class="dashboard-container">
++  <app-price-alert-popup-listener [accountId]="account()?.accountId ?? null" />
+   <div class="notification-container">
+     @for (notification of notificationService.notifications(); track notification.id) {
