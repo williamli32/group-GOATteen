@@ -13,8 +13,6 @@ pipeline {
          * Ephemeral PostgreSQL container used only by CI.
          */
         CI_DB_CONTAINER = 'leap-postgres-ci'
-        CI_TEST_DB = 'leap_trading_test'
-        TEST_DB_USERNAME = 'leap_test'
 
         /*
          * All backend integration tests now share one
@@ -31,9 +29,7 @@ pipeline {
         TEST_DB_USERNAME = 'leap_test'
 
         /*
-         * Keep the Maven repository and wrapper distributions beside the
-         * workspace so Maven clean and checkout cleanup do not remove them.
-         * Builds on another Jenkins agent will populate that agent's cache.
+         * Password for the disposable CI database, supplied by Jenkins.
          */
         TEST_DB_PASSWORD = credentials('leap-ci-db-password')
 
