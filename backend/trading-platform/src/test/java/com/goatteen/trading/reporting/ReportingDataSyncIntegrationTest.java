@@ -986,6 +986,13 @@ class ReportingDataSyncIntegrationTest extends DatabaseIntegrationTestSupport {
                         source.setFillQuantity(quantity);
                         source.setFillPrice(side == OrderSide.BUY ? quote.getAskPrice() : quote.getBidPrice());
                         source.setExecutedAt(executedAt);
+                        source.setFxSourceCurrency(instrument.getCurrency());
+                        source.setFxTargetCurrency(testAccount.getCurrency());
+                        source.setFxRate(BigDecimal.ONE);
+                        source.setFxRateDate(executedAt.toLocalDate());
+                        source.setFxProvider("TEST_SAME_CURRENCY");
+                        source.setCashSettlementAmount(source.getFillPrice().multiply(quantity)
+                                        .setScale(2, java.math.RoundingMode.HALF_UP));
                         source = fillRepository.save(source);
                         persistTimedSettlement(source, instrument, side, quantity, executedAt);
                         jdbc.update("""

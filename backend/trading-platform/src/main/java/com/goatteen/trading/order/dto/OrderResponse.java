@@ -15,6 +15,10 @@ public class OrderResponse {
     private OrderStatus status;
     private String rejectionReason;
     private BigDecimal fillPrice;
+    private String fillCurrency;
+    private String accountCurrency;
+    private BigDecimal fxRate;
+    private BigDecimal settlementAmount;
     private LocalDateTime submittedAt;
     private LocalDateTime filledAt;
 
@@ -68,6 +72,15 @@ public class OrderResponse {
     public void setFillPrice(BigDecimal fillPrice) {
         this.fillPrice = fillPrice;
     }
+
+    public String getFillCurrency() { return fillCurrency; }
+    public void setFillCurrency(String v) { fillCurrency = v; }
+    public String getAccountCurrency() { return accountCurrency; }
+    public void setAccountCurrency(String v) { accountCurrency = v; }
+    public BigDecimal getFxRate() { return fxRate; }
+    public void setFxRate(BigDecimal v) { fxRate = v; }
+    public BigDecimal getSettlementAmount() { return settlementAmount; }
+    public void setSettlementAmount(BigDecimal v) { settlementAmount = v; }
 
     public LocalDateTime getSubmittedAt() {
         return submittedAt;

@@ -180,6 +180,12 @@
                     <span>EST. VALUE</span>
                     <span class="mono">@if (estimatedNotional() !== null) { {{ estimatedNotional() | number:'1.2-6' }} {{ selected.currency }} } @else { — }</span>
                   </div>
+                  <div class="summary-row"><span>EST. ACCOUNT CASH {{ orderSide === 'BUY' ? 'DEBIT' : 'CREDIT' }}</span>
+                    <span class="mono">@if (estimatedAccountSettlement() !== null) { {{ estimatedAccountSettlement() | currency:(account()?.currency ?? 'GBP') }} } @else { — }</span>
+                  </div>
+                  @if (fxQuote(); as fx) {
+                    <div class="summary-row"><span>INDICATIVE FX ({{ fx.asOf }})</span><span class="mono">1 {{ fx.from }} = {{ fx.rate | number:'1.2-8' }} {{ fx.to }}</span></div>
+                  }
                   <div class="summary-row"><span>ACCOUNT CASH</span><span class="mono">{{ (account()?.cashBalance ?? 0) | number:'1.2-2' }} {{ account()?.currency }}</span></div>
                 </div>
                 <button type="button" class="submit-btn" [class.buy]="orderSide === 'BUY'" [class.sell]="orderSide === 'SELL'"
@@ -200,7 +206,10 @@
                   <div class="order-details">
                     <span [class]="'side-' + order.side.toLowerCase()">{{ order.side }}</span>
                     @if (order.fillPrice !== null) {
-                      <span>{{ order.quantity }} @ {{ order.fillPrice | currency:(account()?.currency ?? 'GBP') }}</span>
+                      <span>{{ order.quantity }} @ {{ order.fillPrice | currency:order.fillCurrency }}</span>
+                      @if (order.settlementAmount !== null) {
+                        <span>Cash: {{ (order.side === 'BUY' ? -order.settlementAmount : order.settlementAmount) | currency:order.accountCurrency }}</span>
+                      }
                     } @else { <span>Qty {{ order.quantity }}</span> }
                   </div>
                   <p class="order-time">Submitted: {{ order.submittedAt | date:'medium' }}</p>

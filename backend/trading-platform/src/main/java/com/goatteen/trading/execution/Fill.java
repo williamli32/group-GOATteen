@@ -5,6 +5,7 @@ import com.goatteen.trading.order.Order;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -34,6 +35,37 @@ public class Fill {
 
     @Column(name = "idempotency_key", unique = true)
     private String idempotencyKey;
+
+    @Column(name = "fx_source_currency", nullable = false, length = 3)
+    private String fxSourceCurrency;
+
+    @Column(name = "fx_target_currency", nullable = false, length = 3)
+    private String fxTargetCurrency;
+
+    @Column(name = "fx_rate", nullable = false, precision = 24, scale = 12)
+    private BigDecimal fxRate;
+
+    @Column(name = "fx_rate_date", nullable = false)
+    private LocalDate fxRateDate;
+
+    @Column(name = "fx_provider", nullable = false, length = 40)
+    private String fxProvider;
+
+    @Column(name = "cash_settlement_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal cashSettlementAmount;
+
+    public String getFxSourceCurrency() { return fxSourceCurrency; }
+    public void setFxSourceCurrency(String value) { fxSourceCurrency = value; }
+    public String getFxTargetCurrency() { return fxTargetCurrency; }
+    public void setFxTargetCurrency(String value) { fxTargetCurrency = value; }
+    public BigDecimal getFxRate() { return fxRate; }
+    public void setFxRate(BigDecimal value) { fxRate = value; }
+    public LocalDate getFxRateDate() { return fxRateDate; }
+    public void setFxRateDate(LocalDate value) { fxRateDate = value; }
+    public String getFxProvider() { return fxProvider; }
+    public void setFxProvider(String value) { fxProvider = value; }
+    public BigDecimal getCashSettlementAmount() { return cashSettlementAmount; }
+    public void setCashSettlementAmount(BigDecimal value) { cashSettlementAmount = value; }
 
     public Long getId() {
         return id;

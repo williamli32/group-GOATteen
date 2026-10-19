@@ -108,12 +108,16 @@ public class AccountController {
         response.setStatus(order.getStatus());
         response.setRejectionReason(order.getRejectionReason());
         response.setSubmittedAt(order.getSubmittedAt());
+        response.setFillCurrency(order.getInstrument().getCurrency());
+        response.setAccountCurrency(order.getAccount().getCurrency());
         
 
         if (order.getStatus() == OrderStatus.FILLED) {
             Fill fill = fillRepository.findByOrderId(order.getId()).orElse(null);
             if (fill != null) {
                 response.setFillPrice(fill.getFillPrice());
+                response.setFxRate(fill.getFxRate());
+                response.setSettlementAmount(fill.getCashSettlementAmount());
                 response.setFilledAt(fill.getExecutedAt());
             }
         }

@@ -48,6 +48,10 @@ export interface OrderResponse {
   status: string;
   rejectionReason: string | null;
   fillPrice: number | null;
+  fillCurrency: string;
+  accountCurrency: string;
+  fxRate: number | null;
+  settlementAmount: number | null;
   submittedAt: string;
   filledAt: string | null;
 }

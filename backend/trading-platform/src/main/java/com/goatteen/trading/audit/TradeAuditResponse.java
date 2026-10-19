@@ -34,7 +34,13 @@ public record TradeAuditResponse(
                     audit.getQuoteId(),
                     audit.getBidPrice(),
                     audit.getAskPrice(),
-                    audit.getQuotedAt());
+                    audit.getQuotedAt(),
+                    audit.getFxSourceCurrency(),
+                    audit.getFxTargetCurrency(),
+                    audit.getFxRate(),
+                    audit.getFxRateDate(),
+                    audit.getFxProvider(),
+                    audit.getCashSettlementAmount());
         }
 
         List<StatusHistoryEntry> statusHistory = audit.getStatusHistory()
@@ -127,7 +133,13 @@ public record TradeAuditResponse(
             Long quoteId,
             BigDecimal bidPrice,
             BigDecimal askPrice,
-            LocalDateTime quotedAt) {
+            LocalDateTime quotedAt,
+            String fxSourceCurrency,
+            String fxTargetCurrency,
+            BigDecimal fxRate,
+            java.time.LocalDate fxRateDate,
+            String fxProvider,
+            BigDecimal cashSettlementAmount) {
     }
 
     public record CashImpact(

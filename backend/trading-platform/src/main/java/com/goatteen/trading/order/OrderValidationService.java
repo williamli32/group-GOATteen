@@ -1,6 +1,7 @@
 package com.goatteen.trading.order;
 
 import com.goatteen.trading.account.Account;
+import com.goatteen.trading.fx.FxRateService;
 import com.goatteen.trading.instrument.Instrument;
 import com.goatteen.trading.marketdata.Quote;
 import com.goatteen.trading.marketdata.QuoteRepository;
@@ -15,13 +16,16 @@ public class OrderValidationService {
 
         private final PositionRepository positionRepository;
         private final QuoteRepository quoteRepository;
+        private final FxRateService fxRateService;
 
         public OrderValidationService(
                         PositionRepository positionRepository,
-                        QuoteRepository quoteRepository) {
+                        QuoteRepository quoteRepository,
+                        FxRateService fxRateService) {
                 this.positionRepository = positionRepository;
 
                 this.quoteRepository = quoteRepository;
+                this.fxRateService = fxRateService;
         }
 
         public ValidationResult validate(
@@ -81,56 +85,28 @@ public class OrderValidationService {
                         Instrument instrument,
                         BigDecimal quantity,
                         Quote quote) {
-
-                /*
-                 * LEAP does not perform FX conversion yet.
-                 *
-                 * Do not compare a GBP account balance directly
-                 * against a USD/INR-denominated instrument.
-                 */
-                if (!account.getCurrency()
-                                .equalsIgnoreCase(
-                                                instrument.getCurrency())) {
-
-                        return ValidationResult.rejected(
-                                        "Currency conversion is not supported yet");
+                try {
+                        // The ask is expressed in instrument currency; compare account currency.
+                        var fx = fxRateService.quote(instrument.getCurrency(), account.getCurrency());
+                        BigDecimal estimatedCost = fxRateService.settlementAmount(
+                                        quote.getAskPrice().multiply(quantity), fx, OrderSide.BUY);
+                        if (account.getCashBalance().compareTo(estimatedCost) < 0) {
+                                return ValidationResult.rejected("Insufficient cash balance");
+                        }
+                        return ValidationResult.accepted();
+                } catch (FxRateService.FxRateUnavailableException ex) {
+                        return ValidationResult.rejected(ex.getMessage());
                 }
-
-                /*
-                 * BUY orders are valued against the ask price.
-                 */
-                BigDecimal estimatedCost = quote.getAskPrice()
-                                .multiply(quantity);
-
-                if (account.getCashBalance()
-                                .compareTo(
-                                                estimatedCost) < 0) {
-
-                        return ValidationResult.rejected(
-                                        "Insufficient cash balance");
-                }
-
-                return ValidationResult.accepted();
         }
 
         private ValidationResult validateSellOrder(
                         Account account,
                         Instrument instrument,
                         BigDecimal quantity) {
-
-                /*
-                 * LEAP does not perform currency conversion yet.
-                 *
-                 * Without this check a USD-denominated sale,
-                 * for example, could incorrectly be credited
-                 * directly into a GBP cash balance.
-                 */
-                if (!account.getCurrency()
-                                .equalsIgnoreCase(
-                                                instrument.getCurrency())) {
-
-                        return ValidationResult.rejected(
-                                        "Currency conversion is not supported yet");
+                try {
+                        fxRateService.quote(instrument.getCurrency(), account.getCurrency());
+                } catch (FxRateService.FxRateUnavailableException ex) {
+                        return ValidationResult.rejected(ex.getMessage());
                 }
 
                 Position position = positionRepository

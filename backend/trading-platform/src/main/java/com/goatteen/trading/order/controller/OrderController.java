@@ -228,10 +228,15 @@ public class OrderController {
                                         .acceptOrder(
                                                         order.getId());
 
-                        executionService
-                                        .executeOrder(
-                                                        order.getId(),
-                                                        idempotencyKey);
+                        try {
+                                executionService.executeOrder(order.getId(), idempotencyKey);
+                        } catch (OrderExecutionService.OrderExecutionException ex) {
+                                // executeOrder rolled back independently: reject with a new transaction.
+                                executionService.rejectAcceptedOrder(order.getId(), ex.getMessage());
+                                Order rejected = orderRepository.findById(order.getId()).orElseThrow();
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                                .body(toOrderResponse(rejected));
+                        }
 
                         Order filledOrder = orderRepository
                                         .findById(
@@ -316,12 +321,16 @@ public class OrderController {
                 response.setStatus(order.getStatus());
                 response.setRejectionReason(order.getRejectionReason());
                 response.setSubmittedAt(order.getSubmittedAt());
+                response.setFillCurrency(order.getInstrument().getCurrency());
+                response.setAccountCurrency(order.getAccount().getCurrency());
 
                 // Fetch fill price if order is filled
                 if (order.getStatus() == com.goatteen.trading.order.OrderStatus.FILLED) {
                         Fill fill = fillRepository.findByOrderId(order.getId()).orElse(null);
                         if (fill != null) {
                                 response.setFillPrice(fill.getFillPrice());
+                                response.setFxRate(fill.getFxRate());
+                                response.setSettlementAmount(fill.getCashSettlementAmount());
                                 response.setFilledAt(fill.getExecutedAt());
                         }
                 }

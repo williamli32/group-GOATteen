@@ -1,6 +1,7 @@
 package com.goatteen.trading.execution;
 
 import com.goatteen.trading.account.Account;
+import com.goatteen.trading.fx.FxRateService;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.audit.OrderStatusHistory;
 import com.goatteen.trading.audit.OrderStatusHistoryRepository;
@@ -43,12 +44,14 @@ public class OrderExecutionService {
         private final OrderStatusHistoryRepository orderStatusHistoryRepository;
         private final PositionHistoryRepository positionHistoryRepository;
         private final ApplicationEventPublisher applicationEventPublisher;
+        private final FxRateService fxRateService;
 
         public OrderExecutionService(OrderRepository orderRepository, FillRepository fillRepository,
                         QuoteRepository quoteRepository, AccountRepository accountRepository,
                         PositionRepository positionRepository, CashTransactionRepository cashTransactionRepository,
                         OrderStatusHistoryRepository orderStatusHistoryRepository,
-                        PositionHistoryRepository positionHistoryRepository, ApplicationEventPublisher applicationEventPublisher) {
+                        PositionHistoryRepository positionHistoryRepository, ApplicationEventPublisher applicationEventPublisher,
+                        FxRateService fxRateService) {
                 this.orderRepository = orderRepository;
                 this.fillRepository = fillRepository;
                 this.quoteRepository = quoteRepository;
@@ -58,6 +61,7 @@ public class OrderExecutionService {
                 this.orderStatusHistoryRepository = orderStatusHistoryRepository;
                 this.positionHistoryRepository = positionHistoryRepository;
                 this.applicationEventPublisher = applicationEventPublisher;
+                this.fxRateService = fxRateService;
         }
 
         @Transactional
@@ -215,15 +219,18 @@ public class OrderExecutionService {
                                                                 "Account not found"));
 
                 /*
-                 * 6. Currency check.
+                 * 6. Capture the rate actually used for this fill.
+                 * An unavailable rate must never be replaced by a guessed rate.
                  */
-                if (!account.getCurrency()
-                                .equalsIgnoreCase(
-                                                order.getInstrument().getCurrency())) {
-
-                        throw new OrderExecutionException(
-                                        "Currency conversion is not supported yet");
+                FxRateService.FxQuote fx;
+                try {
+                        fx = fxRateService.quote(
+                                        order.getInstrument().getCurrency(), account.getCurrency());
+                } catch (FxRateService.FxRateUnavailableException ex) {
+                        throw new OrderExecutionException(ex.getMessage());
                 }
+                BigDecimal settlementAmount = fxRateService.settlementAmount(
+                                executionPrice.multiply(order.getQuantity()), fx, order.getSide());
 
                 /*
                  * 7. Validate settlement prerequisites BEFORE creating
@@ -235,7 +242,7 @@ public class OrderExecutionService {
                 validateCashAvailable(
                                 account,
                                 order,
-                                executionPrice);
+                                settlementAmount);
 
                 validateSellHoldingAvailable(
                                 account,
@@ -266,6 +273,12 @@ public class OrderExecutionService {
 
                 fill.setIdempotencyKey(
                                 normalizedKey);
+                fill.setFxSourceCurrency(fx.from());
+                fill.setFxTargetCurrency(fx.to());
+                fill.setFxRate(fx.rate());
+                fill.setFxRateDate(fx.asOf());
+                fill.setFxProvider(fx.provider());
+                fill.setCashSettlementAmount(settlementAmount);
 
                 fill = fillRepository.saveAndFlush(fill);
 
@@ -278,7 +291,9 @@ public class OrderExecutionService {
                 CashTransaction cashTransaction = updateCashBalance(
                                 account,
                                 order,
-                                executionPrice);
+                                executionPrice,
+                                settlementAmount,
+                                fx);
 
                 /*
                  * The CashTransaction was already persisted by
@@ -361,6 +376,20 @@ public class OrderExecutionService {
                 }
 
         @Transactional
+        public void rejectAcceptedOrder(Long orderId, String reason) throws OrderExecutionException {
+                Order order = orderRepository.findByIdForUpdate(orderId)
+                                .orElseThrow(() -> new OrderExecutionException("Order not found"));
+                if (order.getStatus() != OrderStatus.ACCEPTED) {
+                        throw new OrderExecutionException("Order is not in ACCEPTED state");
+                }
+                order.setStatus(OrderStatus.REJECTED);
+                order.setRejectionReason(reason);
+                order.setCompletedAt(LocalDateTime.now());
+                orderRepository.save(order);
+                recordStatusChange(order, OrderStatus.REJECTED, reason);
+        }
+
+        @Transactional
         public void rejectOrder(Long orderId, String reason) throws OrderExecutionException {
                 Order order = orderRepository.findByIdForUpdate(orderId)
                                 .orElseThrow(() -> new OrderExecutionException("Order not found"));
@@ -379,29 +408,11 @@ public class OrderExecutionService {
         private void validateCashAvailable(
                         Account account,
                         Order order,
-                        BigDecimal executionPrice)
+                        BigDecimal settlementAmount)
                         throws OrderExecutionException {
-
-                /*
-                 * SELL orders receive cash, so there is no cash
-                 * sufficiency requirement here.
-                 */
-                if (order.getSide() != OrderSide.BUY) {
-                        return;
-                }
-
-                BigDecimal totalCost = executionPrice
-                        .multiply(order.getQuantity())
-                        .setScale(2, RoundingMode.HALF_UP);
-
-                BigDecimal newBalance = account.getCashBalance()
-                                .subtract(totalCost);
-
-                if (newBalance.compareTo(
-                                BigDecimal.ZERO) < 0) {
-
-                        throw new OrderExecutionException(
-                                        "Insufficient cash after fill");
+                if (order.getSide() == OrderSide.BUY &&
+                                account.getCashBalance().compareTo(settlementAmount) < 0) {
+                        throw new OrderExecutionException("Insufficient cash after fill");
                 }
         }
 
@@ -433,25 +444,14 @@ public class OrderExecutionService {
                 }
         }
 
-        private CashTransaction updateCashBalance(Account account, Order order, BigDecimal executionPrice)
-                        throws OrderExecutionException {
+        private CashTransaction updateCashBalance(Account account, Order order,
+                        BigDecimal executionPrice, BigDecimal settlementAmount,
+                        FxRateService.FxQuote fx) throws OrderExecutionException {
                 BigDecimal balanceBefore = account.getCashBalance();
-
-                BigDecimal totalCost = executionPrice
-                        .multiply(order.getQuantity())
-                        .setScale(2, RoundingMode.HALF_UP);
-
-                BigDecimal signedAmount;
-
-                if (order.getSide() == OrderSide.BUY) {
-                        signedAmount = totalCost.negate();
-                } else {
-                        signedAmount = totalCost;
-                }
-
+                BigDecimal signedAmount = order.getSide() == OrderSide.BUY
+                                ? settlementAmount.negate() : settlementAmount;
                 BigDecimal balanceAfter = balanceBefore.add(signedAmount);
-
-                if (balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
+                if (balanceAfter.signum() < 0) {
                         throw new OrderExecutionException("Insufficient cash after fill");
                 }
 
@@ -464,11 +464,10 @@ public class OrderExecutionService {
                 transaction.setAmount(signedAmount);
                 transaction.setBalanceAfter(balanceAfter);
                 transaction.setCreatedAt(LocalDateTime.now());
-                transaction.setDescription(
-                        order.getSide() + " " + order.getQuantity() + " @ " + executionPrice);
-
+                transaction.setDescription(order.getSide() + " " + order.getQuantity()
+                                + " @ " + executionPrice + " " + fx.from()
+                                + "; FX " + fx.rate() + " " + fx.to());
                 cashTransactionRepository.save(transaction);
-
                 return transaction;
         }
 
