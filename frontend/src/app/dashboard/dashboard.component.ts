@@ -2,6 +2,8 @@ import {
 
   Component,
 
+  ElementRef,
+
   OnInit,
 
   signal,
@@ -40,8 +42,9 @@ import {
 
 
 
-import { AppResizableDirective } from './resizable.directive';
 import { AccountFundingComponent } from './account-funding.component';
+import { WatchlistComponent } from './watchlist.component';
+import { DailyPriceChangeComponent } from './daily-price-change.component';
 
 
 
@@ -122,6 +125,8 @@ import {
 
 } from '../core/services/notification';
 
+type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
+
 
 
 
@@ -138,8 +143,9 @@ import {
 
     FormsModule,
 
-    AppResizableDirective,
-    AccountFundingComponent
+    AccountFundingComponent,
+    WatchlistComponent,
+    DailyPriceChangeComponent
 
   ],
 
@@ -153,46 +159,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
-  chartAreaWidth = signal(600);
+  readonly dashboardTabs: ReadonlyArray<{ id: DashboardTab; label: string }> = [
+    { id: 'overview', label: 'Account overview' },
+    { id: 'watchlist', label: 'Watchlist' },
+    { id: 'orders', label: 'Orders' },
+    { id: 'holdings', label: 'Holdings' }
+  ];
 
-  orderPanelHeight = signal(300);
+  readonly activeTab = signal<DashboardTab>('overview');
 
-  positionsPanelHeight = signal(250);
-
-
-
-  onResizeEnd(event: any) {
-
-    if (event.edges.right) {
-
-      this.chartAreaWidth.set(event.edges.right);
-
-    }
-
+  selectTab(tab: DashboardTab): void {
+    this.activeTab.set(tab);
+    // Also move focus when a shortcut leaves a panel that is about to be hidden.
+    this.host.nativeElement.querySelector<HTMLButtonElement>(`#dashboard-tab-${tab}`)?.focus();
   }
 
-
-
-  onResizeOrderPanel(event: any) {
-
-    if (event.edges.bottom) {
-
-      this.orderPanelHeight.set(event.edges.bottom);
-
+  onTabKeydown(event: KeyboardEvent, index: number): void {
+    let nextIndex: number;
+    switch (event.key) {
+      case 'ArrowRight': nextIndex = (index + 1) % this.dashboardTabs.length; break;
+      case 'ArrowLeft': nextIndex = (index - 1 + this.dashboardTabs.length) % this.dashboardTabs.length; break;
+      case 'Home': nextIndex = 0; break;
+      case 'End': nextIndex = this.dashboardTabs.length - 1; break;
+      default: return;
     }
-
-  }
-
-
-
-  onResizePositionsPanel(event: any) {
-
-    if (event.edges.top) {
-
-      this.positionsPanelHeight.set(event.edges.top);
-
-    }
-
+    event.preventDefault();
+    this.selectTab(this.dashboardTabs[nextIndex].id);
   }
 
 
@@ -345,7 +337,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     public notificationService: NotificationService,
 
-    private idempotencyService: IdempotencyService
+    private idempotencyService: IdempotencyService,
+
+    private readonly host: ElementRef<HTMLElement>
 
   ) { }
 
@@ -1121,7 +1115,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ): void {
 
-
+    if (this.orderSubmitting()) return;
 
     this.selectedInstrument.set(
 
@@ -1141,7 +1135,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.quantityError.set('');
 
-
+    this.selectTab('orders');
 
   }
 

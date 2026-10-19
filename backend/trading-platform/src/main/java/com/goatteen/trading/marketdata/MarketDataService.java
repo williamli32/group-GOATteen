@@ -4,32 +4,40 @@ import com.goatteen.trading.instrument.Instrument;
 import com.goatteen.trading.instrument.InstrumentRepository;
 import com.goatteen.trading.marketdata.dto.LatestQuoteResponse;
 import com.goatteen.trading.marketdata.dto.MarketInstrumentResponse;
+import com.goatteen.trading.marketdata.dto.DailyPriceChange;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 @Service
 public class MarketDataService {
 
         private final InstrumentRepository instrumentRepository;
         private final QuoteRepository quoteRepository;
+        private final DailyMarketBaselineRepository dailyBaselines;
 
         public MarketDataService(
                         InstrumentRepository instrumentRepository,
-                        QuoteRepository quoteRepository) {
+                        QuoteRepository quoteRepository,
+                        DailyMarketBaselineRepository dailyBaselines) {
                 this.instrumentRepository = instrumentRepository;
 
                 this.quoteRepository = quoteRepository;
+                this.dailyBaselines = dailyBaselines;
         }
 
         @Transactional(readOnly = true)
         public List<MarketInstrumentResponse> getTradableInstruments() {
 
+                var baselines = dailyBaselines.findForDay(LocalDate.now(ZoneOffset.UTC));
+
                 return instrumentRepository
                                 .findByTradableTrueOrderBySymbolAscExchangeAsc()
                                 .stream()
-                                .map(this::toInstrumentResponse)
+                                .map(instrument -> toInstrumentResponse(instrument, baselines.get(instrument.getId())))
                                 .toList();
         }
 
@@ -56,7 +64,7 @@ public class MarketDataService {
         }
 
         private MarketInstrumentResponse toInstrumentResponse(
-                        Instrument instrument) {
+                        Instrument instrument, DailyMarketBaselineRepository.Baseline baseline) {
 
                 LatestQuoteResponse latestQuote = quoteRepository
                                 .findTopByInstrumentIdOrderByQuotedAtDesc(
@@ -76,7 +84,9 @@ public class MarketDataService {
                                 instrument.getCountryCode(),
                                 instrument.getCurrency(),
                                 instrument.isTradable(),
-                                latestQuote);
+                                latestQuote,
+                                baseline == null || latestQuote == null ? null : DailyPriceChange.calculate(
+                                        latestQuote.lastPrice(), baseline.price(), baseline.tradingDay(), baseline.observedAt()));
         }
 
         private LatestQuoteResponse toQuoteResponse(

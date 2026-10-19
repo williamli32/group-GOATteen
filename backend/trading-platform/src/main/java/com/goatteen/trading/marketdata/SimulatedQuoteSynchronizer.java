@@ -24,6 +24,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,15 +49,18 @@ public class SimulatedQuoteSynchronizer {
         private final InstrumentRepository instrumentRepository;
 
         private final QuoteRepository quoteRepository;
+        private final DailyMarketBaselineRepository dailyBaselines;
 
         public SimulatedQuoteSynchronizer(
                         SimulatedMarketDataClient simulatorClient,
                         InstrumentRepository instrumentRepository,
-                        QuoteRepository quoteRepository) {
+                        QuoteRepository quoteRepository,
+                        DailyMarketBaselineRepository dailyBaselines) {
 
                 this.simulatorClient = simulatorClient;
                 this.instrumentRepository = instrumentRepository;
                 this.quoteRepository = quoteRepository;
+                this.dailyBaselines = dailyBaselines;
         }
 
         @Scheduled(fixedDelayString = "${app.market-simulator.sync-ms:3000}", initialDelayString = "${app.market-simulator.initial-delay-ms:1000}")
@@ -141,8 +146,10 @@ public class SimulatedQuoteSynchronizer {
                                                         marketData.price()));
                 }
 
-                quoteRepository.saveAll(
+                List<Quote> storedQuotes = quoteRepository.saveAllAndFlush(
                                 quotes);
+                dailyBaselines.record(storedQuotes.stream().map(Quote::getId).toList(),
+                                OffsetDateTime.now(ZoneOffset.UTC));
 
                 logger.debug(
                                 "Stored {} simulated market quotes for {} instruments",
