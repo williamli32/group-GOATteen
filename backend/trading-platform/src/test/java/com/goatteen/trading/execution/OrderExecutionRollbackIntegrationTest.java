@@ -1,6 +1,8 @@
 
 package com.goatteen.trading.execution;
 
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+
 import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.Test;
@@ -26,7 +28,7 @@ import static org.mockito.Mockito.doAnswer;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class OrderExecutionRollbackIntegrationTest {
+class OrderExecutionRollbackIntegrationTest extends DatabaseIntegrationTestSupport {
 
         /*
          * Safety: this test connects only to the
@@ -104,6 +106,7 @@ class OrderExecutionRollbackIntegrationTest {
                                 Long.class,
                                 "rollback-" + suffix + "@example.test",
                                 "test-password-hash");
+                fixtures.user(userId);
 
                 /*
                  * Create the client's profile.
@@ -168,6 +171,7 @@ class OrderExecutionRollbackIntegrationTest {
                                 "GB",
                                 "GBP",
                                 true);
+                fixtures.instrument(instrumentId);
 
                 /*
                  * Create a market quote:
@@ -216,6 +220,7 @@ class OrderExecutionRollbackIntegrationTest {
                                 "BUY",
                                 new BigDecimal("2"),
                                 "ACCEPTED");
+                recordInitialLifecycle(orderId);
 
                 /*
                  * Deliberately fail Fill creation.

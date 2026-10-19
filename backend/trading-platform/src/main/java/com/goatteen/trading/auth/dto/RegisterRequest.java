@@ -3,6 +3,7 @@ package com.goatteen.trading.auth.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 public class RegisterRequest {
 
@@ -27,6 +28,16 @@ public class RegisterRequest {
     )
     private String password;
 
+    @NotBlank(message = "Account type is required")
+    @Pattern(regexp = "CLIENT|ANALYST|OPERATIONS", message = "Select customer, analyst or operations")
+    private String role = "CLIENT";
+
+    @NotBlank(message = "Account currency is required")
+    @Size(min = 3, max = 3, message = "Use a three-letter account currency code")
+    private String currency;
+
+    private String accessCode;
+
     public RegisterRequest() {
     }
 
@@ -46,6 +57,18 @@ public class RegisterRequest {
         return password;
     }
 
+    public String getRole() {
+        return role;
+    }
+
+    public String getAccessCode() {
+        return accessCode;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
@@ -60,5 +83,17 @@ public class RegisterRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public void setAccessCode(String accessCode) {
+        this.accessCode = accessCode;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 }

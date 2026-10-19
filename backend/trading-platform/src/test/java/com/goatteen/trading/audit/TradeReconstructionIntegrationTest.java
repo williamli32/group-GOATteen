@@ -1,5 +1,7 @@
 package com.goatteen.trading.audit;
 
+import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
+
 import com.goatteen.trading.execution.OrderExecutionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class TradeReconstructionIntegrationTest {
+class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport {
 
         private static final String TEST_DB = "leap_trading_test";
 
@@ -418,6 +420,7 @@ class TradeReconstructionIntegrationTest {
                                 "reconstruct-"
                                                 + suffix
                                                 + "@example.test");
+                fixtures.user(userId);
 
                 Long clientId = jdbc.queryForObject(
                                 """
@@ -450,7 +453,7 @@ class TradeReconstructionIntegrationTest {
         private Long createInstrument(
                         String suffix) {
 
-                return jdbc.queryForObject(
+                return fixtures.instrument(jdbc.queryForObject(
                                 """
                                                 INSERT INTO instruments
                                                     (symbol,
@@ -470,7 +473,7 @@ class TradeReconstructionIntegrationTest {
                                                 RETURNING id
                                                 """,
                                 Long.class,
-                                "RECON" + suffix);
+                                "RECON" + suffix));
         }
 
         private Long createQuote(

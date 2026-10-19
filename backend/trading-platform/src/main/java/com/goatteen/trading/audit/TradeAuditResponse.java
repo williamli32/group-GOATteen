@@ -72,10 +72,10 @@ public record TradeAuditResponse(
                         audit.getSubmittedAt()),
 
                 new AccountDetails(
-                        audit.getAccountId()),
+                        audit.getAccountId(), audit.getAccountCurrency()),
 
                 new InstrumentDetails(
-                        audit.getInstrumentId()),
+                        audit.getInstrumentId(), audit.getInstrumentSymbol(), audit.getInstrumentCurrency()),
 
                 audit.getCurrentStatus().name(),
 
@@ -102,11 +102,14 @@ public record TradeAuditResponse(
     }
 
     public record AccountDetails(
-            Long accountId) {
+            Long accountId,
+            String currency) {
     }
 
     public record InstrumentDetails(
-            Long instrumentId) {
+            Long instrumentId,
+            String symbol,
+            String currency) {
     }
 
     public record StatusHistoryEntry(

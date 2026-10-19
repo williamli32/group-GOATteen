@@ -3,7 +3,6 @@ package com.goatteen.trading.reporting.metrics;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -118,17 +117,6 @@ public class PeriodicReportingService {
     private BigDecimal percentChange(
             BigDecimal current,
             BigDecimal previous) {
-
-        if (previous.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO.setScale(2);
-        }
-
-        return current
-                .subtract(previous)
-                .multiply(BigDecimal.valueOf(100))
-                .divide(
-                        previous,
-                        2,
-                        RoundingMode.HALF_UP);
+        return BusinessInsightsCalculator.percentChange(current, previous);
     }
 }

@@ -1,8 +1,11 @@
 package com.goatteen.trading.reporting.metrics;
 
+import com.goatteen.trading.client.Client;
+import com.goatteen.trading.client.ClientRepository;
 import com.goatteen.trading.reporting.data.OrderFactRepository;
 import com.goatteen.trading.reporting.data.TradeFactRepository;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,14 +20,32 @@ import java.util.Map;
 public class ClientMetricsService {
 
         private final OrderFactRepository orderFactRepository;
+
         private final TradeFactRepository tradeFactRepository;
+
+        private final ClientRepository clientRepository;
+
+        @Autowired
+        public ClientMetricsService(
+                        OrderFactRepository orderFactRepository,
+                        TradeFactRepository tradeFactRepository,
+                        ClientRepository clientRepository) {
+
+                this.orderFactRepository = orderFactRepository;
+
+                this.tradeFactRepository = tradeFactRepository;
+
+                this.clientRepository = clientRepository;
+        }
 
         public ClientMetricsService(
                         OrderFactRepository orderFactRepository,
                         TradeFactRepository tradeFactRepository) {
 
-                this.orderFactRepository = orderFactRepository;
-                this.tradeFactRepository = tradeFactRepository;
+                this(
+                                orderFactRepository,
+                                tradeFactRepository,
+                                null);
         }
 
         @Transactional(readOnly = true)
@@ -32,24 +53,35 @@ public class ClientMetricsService {
                         LocalDateTime startDate,
                         LocalDateTime endDate) {
 
-                if (startDate == null
-                                || endDate == null
-                                || !startDate.isBefore(endDate)) {
+                return calculate(
+                                ReportingFilters.forPeriod(
+                                                startDate,
+                                                endDate));
+        }
 
-                        throw new IllegalArgumentException(
-                                        "Start date must be before end date");
-                }
+        @Transactional(readOnly = true)
+        public List<ClientMetrics> calculate(
+                        ReportingFilters filters) {
 
                 Map<ClientCurrencyKey, MutableClientMetrics> metrics = new HashMap<>();
 
                 /*
-                 * All orders, including rejected orders.
+                 * All orders,
+                 * including rejected orders.
                  */
-                for (Object[] row : orderFactRepository.summarizeOrdersByClient(
-                                startDate,
-                                endDate)) {
+                for (Object[] row : orderFactRepository
+                                .summarizeOrdersByClient(
+                                                filters.fromDate(),
+                                                filters.toDate(),
+                                                filters.instrumentId(),
+                                                filters.side(),
+                                                filters.status(),
+                                                filters.clientId(),
+                                                filters.accountId(),
+                                                filters.currency())) {
 
-                        Long clientId = ((Number) row[0]).longValue();
+                        Long clientId = ((Number) row[0])
+                                        .longValue();
 
                         String currency = (String) row[1];
 
@@ -61,17 +93,26 @@ public class ClientMetricsService {
                                         key,
                                         ignored -> new MutableClientMetrics());
 
-                        value.orderCount = ((Number) row[2]).longValue();
+                        value.orderCount = ((Number) row[2])
+                                        .longValue();
                 }
 
                 /*
                  * Successful executions only.
                  */
-                for (Object[] row : tradeFactRepository.summarizeByClient(
-                                startDate,
-                                endDate)) {
+                for (Object[] row : tradeFactRepository
+                                .summarizeByClient(
+                                                filters.fromDate(),
+                                                filters.toDate(),
+                                                filters.instrumentId(),
+                                                filters.side(),
+                                                filters.status(),
+                                                filters.clientId(),
+                                                filters.accountId(),
+                                                filters.currency())) {
 
-                        Long clientId = ((Number) row[0]).longValue();
+                        Long clientId = ((Number) row[0])
+                                        .longValue();
 
                         String currency = (String) row[1];
 
@@ -83,29 +124,67 @@ public class ClientMetricsService {
                                         key,
                                         ignored -> new MutableClientMetrics());
 
-                        value.fillCount = ((Number) row[2]).longValue();
+                        value.fillCount = ((Number) row[2])
+                                        .longValue();
 
-                        value.executedQuantity = decimal(row[3]);
+                        value.executedQuantity = decimal(
+                                        row[3]);
 
-                        value.tradedValue = decimal(row[4]);
+                        value.tradedValue = decimal(
+                                        row[4]);
                 }
 
-                return metrics.entrySet()
+                Map<Long, String> clientNames = clientRepository == null
+
+                                ? Map.of()
+
+                                : clientRepository
+                                                .findAllById(
+                                                                metrics
+                                                                                .keySet()
+                                                                                .stream()
+                                                                                .map(
+                                                                                                ClientCurrencyKey::clientId)
+                                                                                .distinct()
+                                                                                .toList())
+                                                .stream()
+                                                .collect(
+                                                                java.util.stream.Collectors
+                                                                                .toMap(
+                                                                                                Client::getId,
+                                                                                                client -> client.getFirstName()
+                                                                                                                + " "
+                                                                                                                + client.getLastName()));
+
+                return metrics
+                                .entrySet()
                                 .stream()
-                                .map(entry -> {
+                                .map(
+                                                entry -> {
 
-                                        ClientCurrencyKey key = entry.getKey();
+                                                        ClientCurrencyKey key = entry.getKey();
 
-                                        MutableClientMetrics value = entry.getValue();
+                                                        MutableClientMetrics value = entry.getValue();
 
-                                        return new ClientMetrics(
-                                                        key.clientId(),
-                                                        key.currency(),
-                                                        value.orderCount,
-                                                        value.fillCount,
-                                                        value.executedQuantity,
-                                                        value.tradedValue);
-                                })
+                                                        return new ClientMetrics(
+                                                                        key.clientId(),
+
+                                                                        clientNames
+                                                                                        .getOrDefault(
+                                                                                                        key.clientId(),
+                                                                                                        "Client "
+                                                                                                                        + key.clientId()),
+
+                                                                        key.currency(),
+
+                                                                        value.orderCount,
+
+                                                                        value.fillCount,
+
+                                                                        value.executedQuantity,
+
+                                                                        value.tradedValue);
+                                                })
                                 .sorted(
                                                 Comparator
                                                                 .comparingLong(
@@ -116,17 +195,21 @@ public class ClientMetricsService {
                                 .toList();
         }
 
-        private BigDecimal decimal(Object value) {
+        private BigDecimal decimal(
+                        Object value) {
 
                 if (value == null) {
+
                         return BigDecimal.ZERO;
                 }
 
                 if (value instanceof BigDecimal bigDecimal) {
+
                         return bigDecimal;
                 }
 
-                return new BigDecimal(value.toString());
+                return new BigDecimal(
+                                value.toString());
         }
 
         private record ClientCurrencyKey(
@@ -137,6 +220,7 @@ public class ClientMetricsService {
         private static class MutableClientMetrics {
 
                 private long orderCount;
+
                 private long fillCount;
 
                 private BigDecimal executedQuantity = BigDecimal.ZERO;

@@ -4,9 +4,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CashTransactionRepository
         extends JpaRepository<CashTransaction, Long> {
+
+    Optional<CashTransaction> findByAccountIdAndFundingKey(Long accountId, UUID fundingKey);
 
     List<CashTransaction> findByAccountIdOrderByCreatedAtDesc(Long accountId);
 

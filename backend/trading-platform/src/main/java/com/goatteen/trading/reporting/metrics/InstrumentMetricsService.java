@@ -1,4 +1,3 @@
-
 package com.goatteen.trading.reporting.metrics;
 
 import com.goatteen.trading.reporting.data.TradeFactRepository;
@@ -16,6 +15,7 @@ public class InstrumentMetricsService {
 
     public InstrumentMetricsService(
             TradeFactRepository tradeFactRepository) {
+
         this.tradeFactRepository = tradeFactRepository;
     }
 
@@ -24,23 +24,36 @@ public class InstrumentMetricsService {
             LocalDateTime startDate,
             LocalDateTime endDate) {
 
-        if (startDate == null || endDate == null ||
-                !startDate.isBefore(endDate)) {
-            throw new IllegalArgumentException(
-                    "Start date must be before end date");
-        }
+        return calculate(
+                ReportingFilters.forPeriod(
+                        startDate,
+                        endDate));
+    }
+
+    @Transactional(readOnly = true)
+    public List<InstrumentMetrics> calculate(
+            ReportingFilters filters) {
 
         return tradeFactRepository
-                .summarizeByInstrument(startDate, endDate)
+                .summarizeByInstrument(
+                        filters.fromDate(),
+                        filters.toDate(),
+                        filters.instrumentId(),
+                        filters.side(),
+                        filters.status(),
+                        filters.clientId(),
+                        filters.accountId(),
+                        filters.currency())
                 .stream()
-                .map(row -> new InstrumentMetrics(
-                        (Long) row[0],
-                        (String) row[1],
-                        (String) row[2],
-                        ((Number) row[3]).longValue(),
-                        (BigDecimal) row[4],
-                        (BigDecimal) row[5]
-                ))
+                .map(
+                        row -> new InstrumentMetrics(
+                                (Long) row[0],
+                                (String) row[1],
+                                (String) row[2],
+                                ((Number) row[3])
+                                        .longValue(),
+                                (BigDecimal) row[4],
+                                (BigDecimal) row[5]))
                 .toList();
     }
 }

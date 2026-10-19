@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 
 @Entity
@@ -46,6 +47,17 @@ public class CashTransaction {
 
     @Column
     private String description;
+
+    @Column(name = "funding_key")
+    private UUID fundingKey;
+
+    public UUID getFundingKey() {
+        return fundingKey;
+    }
+
+    public void setFundingKey(UUID fundingKey) {
+        this.fundingKey = fundingKey;
+    }
 
 
     public Long getId() {

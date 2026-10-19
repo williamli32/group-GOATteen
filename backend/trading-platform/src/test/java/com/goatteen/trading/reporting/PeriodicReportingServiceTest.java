@@ -220,6 +220,18 @@ class PeriodicReportingServiceTest {
                                 clientMetricsService);
         }
 
+        @Test
+        void reportsUndefinedChangeWhenThePriorPeriodHasNoActivity() {
+                stubZeroResults();
+                LocalDate date = LocalDate.of(2026, 10, 12);
+                when(tradingActivityService.calculate(date.atStartOfDay(), date.plusDays(1).atStartOfDay()))
+                                .thenReturn(metrics(1, 1, new BigDecimal("10.00")));
+                PeriodicReport report = reportingService.generate(ReportingPeriod.DAILY, date);
+                assertNull(report.comparison().orderChangePercent());
+                assertNull(report.comparison().filledOrderChangePercent());
+                assertNull(report.comparison().tradedValueChangePercent());
+        }
+
         private void stubZeroResults() {
 
                 TradingActivityMetrics zero = metrics(

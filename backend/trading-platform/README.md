@@ -17,6 +17,8 @@ A high-performance REST API for order execution, portfolio management, and marke
 - [Configuration](#configuration)
 - [Database](#database)
 - [API Documentation](#api-documentation)
+- [Internal Reporting API](#internal-reporting-api)
+- [Operations Audit API](#operations-audit-api)
 - [Development](#development)
 - [Testing](#testing)
 - [Deployment](#deployment)
@@ -183,7 +185,15 @@ app:
   
   auth:
     refreshTokenExpirationDays: 7     # Refresh token valid for 7 days
+
+  reporting:
+    backfill-enabled: true             # Synchronize historical orders and fills on startup
 ```
+
+When reporting backfill is enabled, existing orders and fills are synchronized
+idempotently into the reporting schema. This keeps the Analyst dashboard's
+historical date filters aligned with the operational order history after a
+restart or deployment.
 
 > **Security Note**: Sensitive configuration (database credentials, JWT secrets, API keys) should be provided at runtime via your deployment platform's secret management system (Kubernetes Secrets, AWS Secrets Manager, HashiCorp Vault, etc.). Never commit secrets to version control.
 
@@ -266,6 +276,94 @@ GET    /api/market/quotes?symbol=AAPL  # Get latest quotes
 GET    /api/market/history?symbol=AAPL # Get quote history
 ```
 
+## Internal Reporting API
+
+The internal reporting API is read-only and uses the reporting schema through
+dedicated analytical endpoints. It is separate from normal client endpoints
+and requires an authenticated `ADMIN` or `ANALYST` role.
+
+```text
+GET /api/internal/reporting/summary
+GET /api/internal/reporting/activity
+GET /api/internal/reporting/instruments
+GET /api/internal/reporting/clients
+GET /api/internal/reporting/trends
+```
+
+All endpoints accept the following filters:
+
+```text
+fromDate=2026-09-01
+toDate=2026-09-30
+instrumentId=1       (optional)
+side=BUY              (optional)
+status=FILLED         (optional)
+clientId=10           (optional)
+accountId=20          (optional)
+```
+
+Example:
+
+```text
+GET /api/internal/reporting/instruments?fromDate=2026-09-01&toDate=2026-09-30
+```
+
+## Operations Audit API
+
+Read-only operations endpoints are protected for authenticated `ADMIN` and
+`ANALYST` users. They support cross-client order investigation without direct
+frontend access to reporting tables.
+
+```text
+GET /api/internal/operations/orders
+GET /api/internal/operations/orders/{orderId}/audit
+```
+
+Order search accepts `orderId`, `clientId`, `accountId`, `instrumentId`,
+`side`, `status`, `fromDate`, and `toDate`. The audit response includes the
+persisted lifecycle, quote, execution, cash, holdings, pending state, and
+integrity result.
+
+## SQL Commands for Development/Testing Purposes
+
+### SQL Command to Add Cash into Account
+```SQL
+UPDATE accounts
+SET cash_balance = cash_balance + [amount]
+WHERE client_id = (
+  SELECT c.id
+  FROM clients c
+  JOIN users u ON c.user_id = u.id
+  WHERE u.email = '[replace with email]'
+);
+```
+
+### Grant Analyst Access
+
+New registrations receive the `CLIENT` role by default. To grant an existing
+user analyst access in the local development database, replace the email below
+and run:
+
+```powershell
+docker exec -i leap-postgres psql -U postgres -d leap_trading -c "INSERT INTO user_roles (user_id, role_id) SELECT u.id, r.id FROM users u JOIN roles r ON r.name = 'ANALYST' WHERE u.email = 'your-email@example.com' AND NOT EXISTS (SELECT 1 FROM user_roles existing WHERE existing.user_id = u.id AND existing.role_id = r.id);"
+```
+
+After assigning the role, sign out and sign in again so the new access token is
+issued with the analyst role. Then open `/analyst` in the frontend.
+
+### Grant Admin Access
+
+To grant an existing user administrator access in the local development
+database, replace the email below and run:
+
+```powershell
+docker exec -i leap-postgres psql -U postgres -d leap_trading -c "INSERT INTO user_roles (user_id, role_id) SELECT u.id, r.id FROM users u JOIN roles r ON r.name = 'ADMIN' WHERE u.email = 'your-email@example.com' AND NOT EXISTS (SELECT 1 FROM user_roles existing WHERE existing.user_id = u.id AND existing.role_id = r.id);"
+```
+
+After assigning the role, sign out and sign in again so the new access token is
+issued with the admin role. Admin users can access `/dashboard`, `/analyst`,
+and `/operations`.
+
 ### Order State Machine
 
 ```
@@ -325,7 +423,58 @@ GET    /api/market/history?symbol=AAPL # Get quote history
 
 ### Test Structure
 
-STUB - update later
+Tests are grouped by domain under `src/test/java`. Unit tests cover services and
+controllers with mocks; integration tests use the PostgreSQL database configured
+by `application-test.yaml` and verify the transactional and reporting schemas
+together.
+
+### Run Tests
+
+From `backend/trading-platform`:
+
+```powershell
+# Compile production and test sources without executing tests
+mvn -DskipTests test-compile
+
+# Run the full backend suite
+mvn test
+
+# Run reporting unit tests
+mvn -Dtest="*Reporting*Test" test
+
+# Run the end-to-end reporting reconciliation suite
+mvn -Dtest=ReportingDataSyncIntegrationTest test
+```
+
+Integration tests require the test profile database variables used by
+`src/test/resources/application-test.yaml`:
+
+Create the test database once before the first integration run:
+
+```powershell
+docker exec -it leap-postgres psql -U postgres -d postgres -c "CREATE DATABASE leap_trading_test;"
+```
+
+Use a clean test database or a separate test schema. Flyway will apply the
+project migrations when the Spring test context starts.
+
+```powershell
+$env:TEST_DB_URL = "jdbc:postgresql://localhost:5433/leap_trading"
+$env:TEST_DB_USERNAME = "postgres"
+$env:TEST_DB_PASSWORD = "<password>"
+$env:JWT_SECRET = "<test-secret-at-least-32-characters>"
+```
+
+`ReportingDataSyncIntegrationTest` covers:
+
+- Empty reporting periods
+- Single trades and multiple instruments
+- BUY and SELL executions
+- Filled and rejected orders
+- Inclusive start and exclusive end date boundaries
+- Aggregate reporting reconciliation with transactional fills
+- Duplicate prevention and reporting refresh/update behavior
+- Reporting queries leaving transactional orders and fills unchanged
 
 ### Health Checks
 

@@ -1,4 +1,3 @@
-
 package com.goatteen.trading.reporting.data;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,82 +11,330 @@ import java.util.Optional;
 
 @Repository
 public interface OrderFactRepository
-                extends JpaRepository<OrderFact, Long> {
+        extends JpaRepository<OrderFact, Long> {
 
-        Optional<OrderFact> findByOrderId(Long orderId);
+    Optional<OrderFact> findByOrderId(Long orderId);
 
-        // Find submitted orders within a date range.
-        List<OrderFact> findBySubmittedAtGreaterThanEqualAndSubmittedAtLessThan(
-                        LocalDateTime startDate,
-                        LocalDateTime endDate);
 
-        // Count orders by status during a reporting period.
-        @Query("""
-                            SELECT COUNT(o)
-                            FROM OrderFact o
-                            WHERE o.finalStatus = :status
-                              AND o.submittedAt >= :startDate
-                              AND o.submittedAt < :endDate
-                        """)
-        long countByStatusAndDateRange(
-                        @Param("status") String status,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
+    // ----------------------------------------------------------------
+    // Legacy/simple reporting methods
+    // ----------------------------------------------------------------
 
-        // Count all submitted orders during a reporting period.
-        @Query("""
-                            SELECT COUNT(o)
-                            FROM OrderFact o
-                            WHERE o.submittedAt >= :startDate
-                              AND o.submittedAt < :endDate
-                        """)
-        long countOrdersInDateRange(
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
+    List<OrderFact> findBySubmittedAtGreaterThanEqualAndSubmittedAtLessThan(
+            LocalDateTime startDate,
+            LocalDateTime endDate);
 
-        // Count distinct clients submitting orders.
-        @Query("""
-                            SELECT COUNT(DISTINCT o.clientId)
-                            FROM OrderFact o
-                            WHERE o.submittedAt >= :startDate
-                              AND o.submittedAt < :endDate
-                        """)
-        long countActiveClients(
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
 
-        @Query("""
-                            SELECT
-                                o.clientId,
-                                o.currency,
-                                COUNT(o)
-                            FROM OrderFact o
-                            WHERE o.submittedAt >= :startDate
-                              AND o.submittedAt < :endDate
-                            GROUP BY o.clientId, o.currency
-                            ORDER BY COUNT(o) DESC
-                        """)
-        List<Object[]> summarizeOrdersByClient(
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
+    @Query("""
+            SELECT COUNT(o)
+            FROM OrderFact o
+            WHERE o.finalStatus = :status
+              AND o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+            """)
+    long countByStatusAndDateRange(
+            @Param("status") String status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
-        @Query(value = """
-                        SELECT
-                            DATE(submitted_at),
-                            COUNT(*),
-                            COUNT(*) FILTER (WHERE final_status = 'FILLED'),
-                            COUNT(*) FILTER (WHERE final_status = 'REJECTED'),
-                            COUNT(DISTINCT client_id)
 
-                        FROM reporting.order_facts
+    @Query("""
+            SELECT COUNT(o)
+            FROM OrderFact o
+            WHERE o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+            """)
+    long countOrdersInDateRange(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
-                        WHERE submitted_at >= :startDate
-                          AND submitted_at < :endDate
 
-                        GROUP BY DATE(submitted_at)
-                        ORDER BY DATE(submitted_at)
-                        """, nativeQuery = true)
-        List<Object[]> summarizeDailyActivity(
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate);
+    @Query("""
+            SELECT COUNT(DISTINCT o.clientId)
+            FROM OrderFact o
+            WHERE o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+            """)
+    long countActiveClients(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+
+    // ----------------------------------------------------------------
+    // Filtered reporting methods
+    // ----------------------------------------------------------------
+
+    @Query("""
+            SELECT COUNT(o)
+            FROM OrderFact o
+            WHERE o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+              AND (:instrumentId IS NULL OR o.instrumentId = :instrumentId)
+              AND (:side IS NULL OR o.side = :side)
+              AND (:status IS NULL OR o.finalStatus = :status)
+              AND (:clientId IS NULL OR o.clientId = :clientId)
+              AND (:accountId IS NULL OR o.accountId = :accountId)
+              AND (:currency IS NULL OR o.currency = :currency)
+            """)
+    long countOrdersInDateRange(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId,
+            @Param("currency") String currency);
+
+
+    @Query("""
+            SELECT COUNT(o)
+            FROM OrderFact o
+            WHERE o.finalStatus = :status
+              AND o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+              AND (:instrumentId IS NULL OR o.instrumentId = :instrumentId)
+              AND (:side IS NULL OR o.side = :side)
+              AND (:clientId IS NULL OR o.clientId = :clientId)
+              AND (:accountId IS NULL OR o.accountId = :accountId)
+              AND (:currency IS NULL OR o.currency = :currency)
+            """)
+    long countByStatusAndDateRange(
+            @Param("status") String status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId,
+            @Param("currency") String currency);
+
+
+    @Query("""
+            SELECT COUNT(DISTINCT o.clientId)
+            FROM OrderFact o
+            WHERE o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+              AND (:instrumentId IS NULL OR o.instrumentId = :instrumentId)
+              AND (:side IS NULL OR o.side = :side)
+              AND (:status IS NULL OR o.finalStatus = :status)
+              AND (:clientId IS NULL OR o.clientId = :clientId)
+              AND (:accountId IS NULL OR o.accountId = :accountId)
+              AND (:currency IS NULL OR o.currency = :currency)
+            """)
+    long countActiveClients(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId,
+            @Param("currency") String currency);
+
+
+    @Query("""
+            SELECT
+                o.clientId,
+                o.currency,
+                COUNT(o)
+            FROM OrderFact o
+            WHERE o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+              AND (:instrumentId IS NULL OR o.instrumentId = :instrumentId)
+              AND (:side IS NULL OR o.side = :side)
+              AND (:status IS NULL OR o.finalStatus = :status)
+              AND (:clientId IS NULL OR o.clientId = :clientId)
+              AND (:accountId IS NULL OR o.accountId = :accountId)
+              AND (:currency IS NULL OR o.currency = :currency)
+            GROUP BY o.clientId, o.currency
+            ORDER BY COUNT(o) DESC
+            """)
+    List<Object[]> summarizeOrdersByClient(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId,
+            @Param("currency") String currency);
+
+
+    @Query(value = """
+            SELECT
+                DATE(submitted_at),
+                COUNT(*),
+                COUNT(*) FILTER (
+                    WHERE final_status = 'FILLED'
+                ),
+                COUNT(*) FILTER (
+                    WHERE final_status = 'REJECTED'
+                ),
+                COUNT(DISTINCT client_id)
+
+            FROM reporting.order_facts
+
+            WHERE submitted_at >= :startDate
+              AND submitted_at < :endDate
+              AND (
+                    :instrumentId IS NULL
+                    OR instrument_id = :instrumentId
+              )
+              AND (
+                    :side IS NULL
+                    OR side = :side
+              )
+              AND (
+                    :status IS NULL
+                    OR final_status = :status
+              )
+              AND (
+                    :clientId IS NULL
+                    OR client_id = :clientId
+              )
+              AND (
+                    :accountId IS NULL
+                    OR account_id = :accountId
+              )
+              AND (
+                    :currency IS NULL
+                    OR currency = :currency
+              )
+
+            GROUP BY DATE(submitted_at)
+            ORDER BY DATE(submitted_at)
+            """,
+            nativeQuery = true)
+    List<Object[]> summarizeDailyActivity(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId,
+            @Param("currency") String currency);
+
+
+    // ----------------------------------------------------------------
+    // Legacy aggregate methods
+    // ----------------------------------------------------------------
+
+    @Query("""
+            SELECT
+                o.clientId,
+                o.currency,
+                COUNT(o)
+            FROM OrderFact o
+            WHERE o.submittedAt >= :startDate
+              AND o.submittedAt < :endDate
+            GROUP BY o.clientId, o.currency
+            ORDER BY COUNT(o) DESC
+            """)
+    List<Object[]> summarizeOrdersByClient(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+
+    @Query(value = """
+            SELECT
+                DATE(submitted_at),
+                COUNT(*),
+                COUNT(*) FILTER (
+                    WHERE final_status = 'FILLED'
+                ),
+                COUNT(*) FILTER (
+                    WHERE final_status = 'REJECTED'
+                ),
+                COUNT(DISTINCT client_id)
+
+            FROM reporting.order_facts
+
+            WHERE submitted_at >= :startDate
+              AND submitted_at < :endDate
+
+            GROUP BY DATE(submitted_at)
+            ORDER BY DATE(submitted_at)
+            """,
+            nativeQuery = true)
+    List<Object[]> summarizeDailyActivity(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+
+    // ----------------------------------------------------------------
+    // Recent reporting activity
+    // ----------------------------------------------------------------
+
+    @Query(value = """
+            SELECT
+                o.order_id,
+                tf.fill_id,
+                o.account_id,
+                o.client_id,
+                o.instrument_id,
+                o.instrument_symbol,
+                o.side,
+                o.final_status,
+                o.order_quantity,
+                tf.execution_quantity,
+                tf.execution_price,
+                tf.trade_value,
+                COALESCE(
+                    tf.order_filled_at,
+                    o.completed_at,
+                    o.submitted_at
+                ) AS occurred_at
+
+            FROM reporting.order_facts o
+
+            LEFT JOIN reporting.trade_facts tf
+                ON tf.order_id = o.order_id
+
+            WHERE o.submitted_at >= :startDate
+              AND o.submitted_at < :endDate
+
+              AND (
+                    :instrumentId IS NULL
+                    OR o.instrument_id = :instrumentId
+              )
+
+              AND (
+                    :side IS NULL
+                    OR o.side = :side
+              )
+
+              AND (
+                    :status IS NULL
+                    OR o.final_status = :status
+              )
+
+              AND (
+                    :clientId IS NULL
+                    OR o.client_id = :clientId
+              )
+
+              AND (
+                    :accountId IS NULL
+                    OR o.account_id = :accountId
+              )
+
+              AND (
+                    :currency IS NULL
+                    OR o.currency = :currency
+              )
+
+            ORDER BY occurred_at DESC
+            """,
+            nativeQuery = true)
+    List<Object[]> findReportingActivity(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("instrumentId") Long instrumentId,
+            @Param("side") String side,
+            @Param("status") String status,
+            @Param("clientId") Long clientId,
+            @Param("accountId") Long accountId,
+            @Param("currency") String currency);
 }

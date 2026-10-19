@@ -3,6 +3,7 @@ package com.goatteen.trading.auth.controller;
 import com.goatteen.trading.auth.dto.RegisterRequest;
 import com.goatteen.trading.auth.dto.RegisterResponse;
 import com.goatteen.trading.auth.service.AuthService;
+import com.goatteen.trading.account.AccountCurrency;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.Duration;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -43,6 +45,17 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @GetMapping("/account-currencies")
+    public List<AccountCurrencyOption> accountCurrencies() {
+        return AccountCurrency.registrationCurrencies().stream()
+                .map(currency -> new AccountCurrencyOption(
+                        currency.name(), currency.displayName(), currency.minorUnits()))
+                .toList();
+    }
+
+    public record AccountCurrencyOption(String code, String name, int minorUnits) {
     }
 
     @PostMapping("/login")

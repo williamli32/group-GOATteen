@@ -13,6 +13,8 @@ pipeline {
          * Ephemeral PostgreSQL container used only by CI.
          */
         CI_DB_CONTAINER = 'leap-postgres-ci'
+        CI_TEST_DB = 'leap_trading_test'
+        TEST_DB_USERNAME = 'leap_test'
 
         /*
          * All backend integration tests now share one
@@ -29,17 +31,9 @@ pipeline {
         TEST_DB_USERNAME = 'leap_test'
 
         /*
-         * Stored in:
-         *
-         * Jenkins
-         *   -> Manage Jenkins
-         *   -> Credentials
-         *
-         * Credential type:
-         *   Secret text
-         *
-         * Credential ID:
-         *   leap-ci-db-password
+         * Keep the Maven repository and wrapper distributions beside the
+         * workspace so Maven clean and checkout cleanup do not remove them.
+         * Builds on another Jenkins agent will populate that agent's cache.
          */
         TEST_DB_PASSWORD = credentials('leap-ci-db-password')
 
@@ -50,23 +44,22 @@ pipeline {
     stages {
 
         stage('Checkout') {
-
             steps {
-
                 checkout scm
             }
         }
 
         stage('Frontend Test & Build') {
-
             steps {
-
                 dir('frontend') {
-
                     sh '''
+                        set -eu
+
                         docker run --rm \
                             -u "$(id -u):$(id -g)" \
                             -e HOME=/tmp \
+                            -e CI=true \
+                            -e NG_CLI_ANALYTICS=false \
                             -v "$PWD:/app" \
                             -w /app \
                             node:24-bookworm \
@@ -77,16 +70,21 @@ pipeline {
         }
 
         stage('Start CI Database') {
+            options {
+                /* Backstop for a stalled image pull or Docker command. */
+                timeout(time: 5, unit: 'MINUTES')
+            }
 
             steps {
-
                 sh '''
+                    set +x
+                    set -eu
+
                     echo "Removing any previous CI database container..."
-
-                    docker rm -f ${CI_DB_CONTAINER} || true
-
+                    docker rm -f "$CI_DB_CONTAINER" >/dev/null 2>&1 || true
 
                     echo "Starting PostgreSQL CI database..."
+                    export POSTGRES_PASSWORD="$TEST_DB_PASSWORD"
 
                     docker run -d \
                         --name ${CI_DB_CONTAINER} \
@@ -95,18 +93,23 @@ pipeline {
                         -e POSTGRES_PASSWORD="${TEST_DB_PASSWORD}" \
                         postgres:17
 
+                    echo "Waiting for PostgreSQL (up to 60 readiness attempts)..."
 
-                    echo "Waiting for PostgreSQL..."
-
-                    until docker exec \
-                        ${CI_DB_CONTAINER} \
+                    attempt=1
+                    until docker exec "$CI_DB_CONTAINER" \
                         pg_isready \
                         -U ${TEST_DB_USERNAME} \
                         -d ${CI_TEST_DB}
                     do
+                        if [ "$attempt" -ge 60 ]; then
+                            echo "ERROR: PostgreSQL did not become ready."
+                            docker logs --tail 100 "$CI_DB_CONTAINER" || true
+                            exit 1
+                        fi
+
+                        attempt=$((attempt + 1))
                         sleep 1
                     done
-
 
                     echo "PostgreSQL is ready."
 
@@ -117,10 +120,12 @@ pipeline {
         }
 
         stage('Backend Build & Test') {
-
             steps {
-
                 dir('backend/trading-platform') {
+                    /* Do not publish reports left over from a previous build. */
+                    dir('target/surefire-reports') {
+                        deleteDir()
+                    }
 
                     /*
                      * The Maven container shares the PostgreSQL
@@ -149,7 +154,7 @@ pipeline {
                         fi
 
                         docker run --rm \
-                            --network container:${CI_DB_CONTAINER} \
+                            --network "container:$CI_DB_CONTAINER" \
                             -u "$(id -u):$(id -g)" \
                             -e HOME=/tmp \
                             -e TEST_DB_URL="jdbc:postgresql://localhost:5432/${CI_TEST_DB}" \
@@ -159,26 +164,40 @@ pipeline {
                             -v "$PWD:/app" \
                             -w /app \
                             maven:3.9.9-eclipse-temurin-21 \
-                            ./mvnw clean verify
+                            ./mvnw -B -ntp \
+                            -Duser.home=/var/maven \
+                            -Dmaven.repo.local=/var/maven/.m2/repository \
+                            clean verify
                     '''
+                }
+            }
+
+            post {
+                always {
+                    archiveArtifacts(
+                        artifacts: 'backend/trading-platform/target/surefire-reports/*.txt',
+                        allowEmptyArchive: true
+                    )
+
+                    /* Missing reports must not turn a no-tests run green. */
+                    junit(
+                        testResults: 'backend/trading-platform/target/surefire-reports/TEST-*.xml',
+                        allowEmptyResults: false
+                    )
                 }
             }
         }
     }
 
     post {
-
         always {
-
             sh '''
                 echo "Cleaning up CI PostgreSQL container..."
-
-                docker rm -f ${CI_DB_CONTAINER} || true
+                docker rm -f "$CI_DB_CONTAINER" || true
             '''
         }
 
         success {
-
             echo '''
             ==========================================
                      LEAP CI PASSED
@@ -199,14 +218,13 @@ pipeline {
         }
 
         failure {
-
             echo '''
             ==========================================
                      LEAP CI FAILED
             ==========================================
 
-            Check the failed pipeline stage and
-            console output for details.
+            Check the failed stage, console output,
+            published test results and report artifacts.
 
             ==========================================
             '''

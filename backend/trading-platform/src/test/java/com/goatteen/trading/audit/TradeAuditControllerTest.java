@@ -85,10 +85,10 @@ class TradeAuditControllerTest {
                                 0)),
 
                 new TradeAuditResponse.AccountDetails(
-                        10L),
+                        10L, "GBP"),
 
                 new TradeAuditResponse.InstrumentDetails(
-                        1L),
+                        1L, "AAPL", "USD"),
 
                 "FILLED",
 

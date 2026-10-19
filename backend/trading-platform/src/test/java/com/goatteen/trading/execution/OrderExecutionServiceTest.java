@@ -6,6 +6,12 @@ import com.goatteen.trading.account.Account;
 
 import com.goatteen.trading.account.AccountRepository;
 
+import com.goatteen.trading.client.Client;
+
+import com.goatteen.trading.user.User;
+
+import com.goatteen.trading.reporting.event.OrderFilledEvent;
+
 import com.goatteen.trading.audit.OrderStatusHistory;
 
 import com.goatteen.trading.audit.OrderStatusHistoryRepository;
@@ -28,8 +34,6 @@ import com.goatteen.trading.order.OrderStatus;
 
 import com.goatteen.trading.portfolio.CashTransaction;
 
-import com.goatteen.trading.audit.PositionHistoryRepository;
-
 import com.goatteen.trading.portfolio.CashTransactionRepository;
 
 import com.goatteen.trading.portfolio.Position;
@@ -39,8 +43,6 @@ import com.goatteen.trading.portfolio.PositionRepository;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.junit.jupiter.api.Test;
-
-import org.junit.jupiter.api.Disabled;
 
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -53,6 +55,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+
+import java.time.LocalDateTime;
 
 import java.util.Optional;
 
@@ -128,9 +132,13 @@ class OrderExecutionServiceTest {
                                 positionHistoryRepository,
                                 applicationEventPublisher);
 
+                Client client = new Client(new User("execution-unit@example.test", "test-hash"),
+                                "Execution", "Test");
+                ReflectionTestUtils.setField(client, "id", 20L);
+
                 account = new Account(
 
-                                null,
+                                client,
 
                                 "LEAP-TEST123",
 
@@ -159,6 +167,9 @@ class OrderExecutionServiceTest {
                 order.setQuantity(new BigDecimal("2"));
 
                 order.setStatus(OrderStatus.ACCEPTED);
+
+                order.setSubmittedAt(LocalDateTime.now().minusSeconds(2));
+                order.setAcceptedAt(order.getSubmittedAt().plusSeconds(1));
 
         }
 
@@ -190,6 +201,9 @@ class OrderExecutionServiceTest {
 
                                 .thenReturn(new BigDecimal("75.10"));
 
+                when(quote.getBidPrice()).thenReturn(new BigDecimal("74.90"));
+                when(quote.getQuotedAt()).thenReturn(order.getAcceptedAt());
+
                 when(accountRepository.findById(10L))
 
                                 .thenReturn(Optional.of(account));
@@ -203,7 +217,11 @@ class OrderExecutionServiceTest {
                                 .thenReturn(Optional.empty());
 
                 when(fillRepository.saveAndFlush(any(Fill.class)))
-                                .thenAnswer(invocation -> invocation.getArgument(0));
+                                .thenAnswer(invocation -> {
+                                        Fill fill = invocation.getArgument(0);
+                                        ReflectionTestUtils.setField(fill, "id", 99L);
+                                        return fill;
+                                });
 
                 // Act
 
@@ -330,6 +348,8 @@ class OrderExecutionServiceTest {
 
                                 historyCaptor.getValue().getStatus());
 
+                assertPublishedFillEvent(savedFill, "BUY", new BigDecimal("75.10"), new BigDecimal("150.20"));
+
         }
 
         @Test
@@ -370,6 +390,9 @@ class OrderExecutionServiceTest {
 
                                 .thenReturn(new BigDecimal("74.90"));
 
+                when(quote.getAskPrice()).thenReturn(new BigDecimal("75.10"));
+                when(quote.getQuotedAt()).thenReturn(order.getAcceptedAt());
+
                 when(accountRepository.findById(10L))
 
                                 .thenReturn(Optional.of(account));
@@ -381,7 +404,11 @@ class OrderExecutionServiceTest {
                                 .thenReturn(Optional.of(existingPosition));
 
                 when(fillRepository.saveAndFlush(any(Fill.class)))
-                                .thenAnswer(invocation -> invocation.getArgument(0));
+                                .thenAnswer(invocation -> {
+                                        Fill fill = invocation.getArgument(0);
+                                        ReflectionTestUtils.setField(fill, "id", 99L);
+                                        return fill;
+                                });
                 // Act
 
                 service.executeOrder(55L);
@@ -411,12 +438,6 @@ class OrderExecutionServiceTest {
                                 .save(same(existingPosition));
 
                 assertNotNull(existingPosition.getUpdatedAt());
-
-                // SELL must use BID, not ASK.
-
-                verify(quote, times(1)).getBidPrice();
-
-                verify(quote, never()).getAskPrice();
 
                 // Exactly one Fill must reference the executed order
 
@@ -503,6 +524,34 @@ class OrderExecutionServiceTest {
 
                                 historyCaptor.getValue().getStatus());
 
+                assertPublishedFillEvent(savedFill, "SELL", new BigDecimal("74.90"), new BigDecimal("149.80"));
+
+        }
+
+        private void assertPublishedFillEvent(Fill fill, String side, BigDecimal price, BigDecimal value) {
+                ArgumentCaptor<OrderFilledEvent> captor = ArgumentCaptor.forClass(OrderFilledEvent.class);
+                verify(applicationEventPublisher, times(1)).publishEvent(captor.capture());
+                OrderFilledEvent event = captor.getValue();
+                assertAll("Published fill event",
+                                () -> assertSame(service, event.getSource()),
+                                () -> assertEquals(99L, event.getFillId()),
+                                () -> assertEquals(fill.getId(), event.getFillId()),
+                                () -> assertEquals(55L, event.getOrderId()),
+                                () -> assertEquals(10L, event.getAccountId()),
+                                () -> assertEquals(20L, event.getClientId()),
+                                () -> assertEquals(1L, event.getInstrumentId()),
+                                () -> assertEquals(side, event.getOrderSide()),
+                                () -> assertEquals(0, new BigDecimal("2").compareTo(event.getOrderQuantity())),
+                                () -> assertEquals(0, new BigDecimal("2").compareTo(event.getExecutionQuantity())),
+                                () -> assertEquals(0, price.compareTo(event.getExecutionPrice())),
+                                () -> assertEquals(0, value.compareTo(event.calculateTradeValue())),
+                                () -> assertEquals(order.getSubmittedAt(), event.getOrderSubmittedAt()),
+                                () -> assertEquals(order.getAcceptedAt(), event.getOrderAcceptedAt()),
+                                () -> assertEquals(order.getCompletedAt(), event.getOrderFilledAt()),
+                                () -> assertEquals("FILLED", event.getOrderStatus()),
+                                () -> assertEquals(0, new BigDecimal("74.90").compareTo(event.getBidPrice())),
+                                () -> assertEquals(0, new BigDecimal("75.10").compareTo(event.getAskPrice())),
+                                () -> assertEquals(order.getAcceptedAt(), event.getQuoteTimestamp()));
         }
 
         @Test

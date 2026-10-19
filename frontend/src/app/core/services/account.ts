@@ -14,6 +14,16 @@ export interface AccountResponse {
   lastName: string;
 }
 
+export interface AddFundsResponse {
+  accountId: number;
+  transactionId: number;
+  amount: number;
+  currency: string;
+  cashBalance: number;
+  createdAt: string;
+  replayed: boolean;
+}
+
 
 export interface PositionResponse {
   instrumentId: number;
@@ -63,6 +73,10 @@ export class AccountService {
       `${this.apiUrl}/me`
     );
 
+  }
+
+  addFunds(amount: string, idempotencyKey: string): Observable<AddFundsResponse> {
+    return this.http.post<AddFundsResponse>(`${this.apiUrl}/me/funds`, { amount, idempotencyKey });
   }
 
 

@@ -25,6 +25,8 @@ The application provides:
   - [Root Level](#root-level)
   - [/core - Shared Infrastructure](#core---shared-infrastructure)
   - [/dashboard - Main Trading Interface](#dashboard---main-trading-interface)
+  - [/analyst - Internal Reporting Dashboard](#analyst---internal-reporting-dashboard)
+  - [/operations - Trade Investigation Dashboard](#operations---trade-investigation-dashboard)
   - [/features/auth - Auth Pages](#featuresauth---auth-pages)
   - [/environments - Environment Configuration](#environments---environment-configuration)
   - [Root Files](#root-files)
@@ -68,14 +70,18 @@ frontend/
 │   │   │   │   └── auth-guard.spec.ts       # Guard tests
 │   │   │   └── interceptors/
 │   │   │       ├── jwt-interceptor.ts       # Attaches auth tokens
-│   │   │       ├── idempotency-interceptor.ts  # Adds idempotency headers
-│   │   │       └── jwt-interceptor.spec.ts  # Interceptor tests
+│   │   │       └── idempotency-interceptor.ts  # Adds idempotency headers
 │   │   ├── dashboard/
 │   │   │   ├── dashboard.component.ts       # Main trading interface
 │   │   │   ├── dashboard.component.html     # Dashboard template
 │   │   │   ├── dashboard.component.scss     # Dashboard styles
 │   │   │   ├── dashboard.component.spec.ts  # Dashboard tests
 │   │   │   └── resizable.directive.ts       # Drag-to-resize panels
+│   │   ├── analyst/
+│   │   │   ├── analyst-dashboard.component.ts       # Internal reporting dashboard
+│   │   │   ├── analyst-dashboard.component.html     # Reporting dashboard template
+│   │   │   ├── analyst-dashboard.component.scss     # Reporting dashboard styles
+│   │   │   └── analyst-dashboard.component.spec.ts  # Dashboard behavior tests
 │   │   └── features/
 │   │       └── auth/
 │   │           ├── login/
@@ -118,6 +124,7 @@ frontend/
   - `/login` - Login page (public)
   - `/register` - Registration page (public)
   - `/dashboard` - Main trading interface (protected by authGuard)
+  - `/analyst` - Internal reporting dashboard (protected by authGuard and backend reporting roles)
   - `` (default) - Redirects to login
   - `**` (wildcard) - Redirects to login
 
@@ -270,6 +277,42 @@ The core folder contains singleton services and utilities used throughout the ap
 - Emits `resizeEnd` event with new dimensions
 - Applied to panel dividers in template
 
+### `/analyst` - Internal Reporting Dashboard
+
+The analyst dashboard is a read-only operations view backed by the dedicated
+`/api/internal/reporting` endpoints. It is intended for analyst and operations
+personas who need historical activity without querying reporting tables.
+
+**analyst-dashboard.component.ts**
+- Loads summary, activity, instrument, client, and trend data together
+- Applies one shared filter set to every reporting request
+- Handles loading, empty, retry, and forbidden-access states
+- Distinguishes expired sessions (`401`), missing analyst permissions (`403`), and backend failures (`5xx`)
+- Loads instrument choices from the existing market-data service
+
+**analyst-dashboard.component.html**
+- Overview cards for trade volume, order outcomes, trading value, clients, and instruments
+- Daily order and trading-value charts
+- BUY versus SELL and FILLED versus REJECTED comparisons
+- Instrument, client, and recent activity tables
+- Date range, instrument, side, status, and client filters
+
+**analyst-dashboard.component.spec.ts**
+- Verifies shared filter fan-out across all reporting requests
+- Verifies reset behavior and instrument option loading
+- Verifies empty-result rendering and `403` access handling
+
+### `/operations` - Trade Investigation Dashboard
+
+The Operations dashboard is a read-only workspace for analysts and
+administrators investigating disputed orders through persisted records.
+
+- Search across authorized clients by order, client, account, instrument, date, side, and status
+- Review lifecycle timestamps, notes, and rejection reasons
+- Inspect quote, execution price, quantity, and fill details
+- Review cash movement, resulting balance, and holdings before/after execution
+- Distinguish pending orders from incomplete audit records with integrity status
+
 ### `/features/auth` - Auth Pages
 
 **features/auth/login/ - Login Page**
@@ -420,6 +463,34 @@ Dashboard displays:
   └─ Current positions
 ```
 
+### 4. Analyst Reporting Dashboard
+
+```
+User navigates to /analyst
+  ↓
+authGuard checks for an authenticated session
+  ↓
+Analyst dashboard loads instrument choices and reporting datasets in parallel
+  ↓
+User selects date, instrument, side, status, or client filters
+  ↓
+Apply filters sends the same filter set to all five internal reporting endpoints
+  ↓
+Dashboard refreshes overview cards, charts, rankings, and recent activity together
+```
+
+### 5. Operations Trade Investigation
+
+```
+Authorized analyst or administrator navigates to /operations
+  ↓
+Search filters query the internal operations order endpoint
+  ↓
+User selects an order from the blotter
+  ↓
+Investigation panel loads persisted lifecycle, pricing, settlement, holdings, and integrity evidence
+```
+
 ### 4. Placing & Executing Order
 
 ```
@@ -544,14 +615,23 @@ npm run build
 
 ### Running Tests
 
-```bash
-# Run unit tests with Vitest
-ng test
-# or
-npm test
+Run these commands from the `frontend` directory:
 
-# Watch mode
-ng test --watch
+```bash
+# Run the complete suite once and exit
+npx ng test --watch=false
+
+# Equivalent npm script
+npm test -- --watch=false
+
+# Run tests interactively and rerun when files change
+npx ng test
+
+# Collect coverage while running once
+npx ng test --watch=false --code-coverage
+
+# Run only the analyst dashboard tests
+npx ng test --watch=false --include=src/app/analyst/analyst-dashboard.component.spec.ts
 ```
 
 ### Code Quality
@@ -777,14 +857,20 @@ ng serve --port 4300
 
 - **Unit Tests** - Services, components, guards with mocked HTTP
 - **Component Tests** - Template rendering, user interactions
+- **Reporting Dashboard Tests** - Shared-filter fan-out, reset behavior, instrument choices, empty data, and forbidden access
+- **Operations Dashboard Tests** - Filter serialization, order search, and investigation panel behavior
 - **Integration Tests** - Multiple components working together
 - **E2E Tests** - Full user workflows (future)
 
 Run tests:
 ```bash
-npm test                    # Run once
-ng test --watch            # Watch mode
-ng test --code-coverage    # With coverage report
+npx ng test --watch=false  # Full suite once
+npx ng test                # Watch mode
+npx ng test --watch=false --code-coverage  # Coverage report
+
+# Run only the analyst dashboard tests
+npx ng test --watch=false --include=src/app/analyst/analyst-dashboard.component.spec.ts
+npx ng test --watch=false --include=src/app/operations/operations.component.spec.ts
 ```
 
 ## Project Standards

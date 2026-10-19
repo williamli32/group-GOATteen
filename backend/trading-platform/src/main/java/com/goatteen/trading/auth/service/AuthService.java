@@ -1,6 +1,7 @@
 package com.goatteen.trading.auth.service;
 
 import com.goatteen.trading.account.Account;
+import com.goatteen.trading.account.AccountCurrency;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.auth.dto.RegisterRequest;
 import com.goatteen.trading.auth.dto.RegisterResponse;
@@ -29,7 +30,9 @@ import java.util.UUID;
 public class AuthService {
 
         private static final String CLIENT_ROLE = "CLIENT";
-        private static final String DEFAULT_ACCOUNT_CURRENCY = "GBP";
+        private static final String ANALYST_ROLE = "ANALYST";
+        private static final String OPERATIONS_ROLE = "OPERATIONS";
+        private static final String ANALYST_ACCESS_CODE = "goatteen14";
 
         private final UserRepository userRepository;
         private final ClientRepository clientRepository;
@@ -65,9 +68,25 @@ public class AuthService {
                         throw new DuplicateEmailException();
                 }
 
-                Role clientRole = roleRepository.findByName(CLIENT_ROLE)
+                String requestedRole = request.getRole() == null
+                                ? CLIENT_ROLE
+                                : request.getRole().trim().toUpperCase(Locale.ROOT);
+
+                if (!Set.of(CLIENT_ROLE, ANALYST_ROLE, OPERATIONS_ROLE).contains(requestedRole)) {
+                        throw new IllegalArgumentException("Select customer, analyst or operations");
+                }
+
+                if ((ANALYST_ROLE.equals(requestedRole) || OPERATIONS_ROLE.equals(requestedRole))
+                                && !ANALYST_ACCESS_CODE.equals(request.getAccessCode())) {
+                        throw new IllegalArgumentException(
+                                        "A valid analyst/operations access code is required");
+                }
+
+                AccountCurrency currency = AccountCurrency.forRegistration(request.getCurrency());
+
+                Role clientRole = roleRepository.findByName(requestedRole)
                                 .orElseThrow(() -> new IllegalStateException(
-                                                "Required CLIENT role is not configured"));
+                                                "Required registration role is not configured"));
 
                 String passwordHash = passwordEncoder.encode(request.getPassword());
 
@@ -90,7 +109,7 @@ public class AuthService {
                 Account account = new Account(
                                 client,
                                 accountNumber,
-                                DEFAULT_ACCOUNT_CURRENCY);
+                                currency.name());
 
                 account = accountRepository.save(account);
 

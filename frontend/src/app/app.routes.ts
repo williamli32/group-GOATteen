@@ -18,6 +18,22 @@ import {
   authGuard
 } from './core/guards/auth-guard';
 
+import {
+  analystGuard
+} from './core/guards/analyst-guard';
+
+import {
+  operationsGuard
+} from './core/guards/operations-guard';
+
+import {
+  AnalystDashboardComponent
+} from './analyst/analyst-dashboard.component';
+
+import {
+  OperationsComponent
+} from './operations/operations.component';
+
 
 export const routes: Routes = [
 
@@ -36,6 +52,24 @@ export const routes: Routes = [
     component: DashboardComponent,
     canActivate: [
       authGuard
+    ]
+  },
+
+  {
+    path: 'analyst',
+    component: AnalystDashboardComponent,
+    canActivate: [
+      authGuard,
+      analystGuard
+    ]
+  },
+
+  {
+    path: 'operations',
+    component: OperationsComponent,
+    canActivate: [
+      authGuard,
+      operationsGuard
     ]
   },
 
