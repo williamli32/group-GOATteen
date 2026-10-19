@@ -144,20 +144,31 @@ pipeline {
                      * leap_trading_test.
                      */
                     sh '''
+                        set +x
+                        set -eu
+
                         if [ -z "${JWT_SECRET}" ]; then
                             echo "ERROR: JWT_SECRET is empty"
                             exit 1
                         fi
 
+                        # Create the cache as Jenkins, before Docker starts.
+                        # Its contents survive container removal and Maven clean.
+                        maven_cache_dir="${WORKSPACE}@maven-cache"
+                        mkdir -p "$maven_cache_dir/.m2/repository" "$maven_cache_dir/.m2/wrapper"
+
                         docker run --rm \
                             --network "container:$CI_DB_CONTAINER" \
                             -u "$(id -u):$(id -g)" \
-                            -e HOME=/tmp \
+                            -e HOME=/var/maven \
+                            -e MAVEN_CONFIG=/var/maven/.m2 \
+                            -e MAVEN_USER_HOME=/var/maven/.m2 \
                             -e TEST_DB_URL="jdbc:postgresql://localhost:5432/${CI_TEST_DB}" \
                             -e TEST_DB_USERNAME="${TEST_DB_USERNAME}" \
                             -e TEST_DB_PASSWORD="${TEST_DB_PASSWORD}" \
                             -e JWT_SECRET="${JWT_SECRET}" \
                             -v "$PWD:/app" \
+                            -v "$maven_cache_dir:/var/maven" \
                             -w /app \
                             maven:3.9.9-eclipse-temurin-21 \
                             ./mvnw -B -ntp \
@@ -175,10 +186,13 @@ pipeline {
                         allowEmptyArchive: true
                     )
 
-                    /* Missing reports must not turn a no-tests run green. */
+                    /*
+                     * Preserve the original failure if Maven stopped before
+                     * producing reports. Successful builds still require XML.
+                     */
                     junit(
                         testResults: 'backend/trading-platform/target/surefire-reports/TEST-*.xml',
-                        allowEmptyResults: false
+                        allowEmptyResults: currentBuild.currentResult != 'SUCCESS'
                     )
                 }
             }
