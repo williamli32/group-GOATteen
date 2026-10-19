@@ -47,7 +47,9 @@ class OrderValidationServiceTest {
 
                 service = new OrderValidationService(
                                 positionRepository,
-                                quoteRepository);
+                                quoteRepository,
+                                new com.goatteen.trading.fx.FxRateService(
+                                                org.springframework.web.client.RestClient.builder()));
 
                 when(instrument.getId())
                                 .thenReturn(1L);
@@ -77,29 +79,23 @@ class OrderValidationServiceTest {
         }
 
         @Test
-        void shouldRejectBuyWhenCurrencyDoesNotMatch() {
-
-                when(quoteRepository
-                                .findTopByInstrumentIdOrderByQuotedAtDesc(1L))
+        void shouldAcceptCrossCurrencyBuyWhenConvertedCostIsAffordable() {
+                var fx = org.mockito.Mockito.mock(com.goatteen.trading.fx.FxRateService.class);
+                var snapshot = new com.goatteen.trading.fx.FxRateService.FxQuote(
+                                "USD", "GBP", new BigDecimal("0.7502"),
+                                java.time.LocalDate.of(2026, 10, 19), "TEST");
+                service = new OrderValidationService(positionRepository, quoteRepository, fx);
+                when(quoteRepository.findTopByInstrumentIdOrderByQuotedAtDesc(1L))
                                 .thenReturn(Optional.of(quote));
-
-                when(account.getCurrency())
-                                .thenReturn("GBP");
-
-                when(instrument.getCurrency())
-                                .thenReturn("USD");
-
-                OrderValidationService.ValidationResult result = service.validate(
-                                account,
-                                instrument,
-                                OrderSide.BUY,
-                                BigDecimal.ONE);
-
-                assertFalse(result.isAccepted());
-
-                assertEquals(
-                                "Currency conversion is not supported yet",
-                                result.getRejectionReason());
+                when(account.getCurrency()).thenReturn("GBP");
+                when(instrument.getCurrency()).thenReturn("USD");
+                when(quote.getAskPrice()).thenReturn(new BigDecimal("100.00"));
+                when(account.getCashBalance()).thenReturn(new BigDecimal("100.00"));
+                when(fx.quote("USD", "GBP")).thenReturn(snapshot);
+                when(fx.settlementAmount(new BigDecimal("100.00"), snapshot, OrderSide.BUY))
+                                .thenReturn(new BigDecimal("75.02"));
+                var result = service.validate(account, instrument, OrderSide.BUY, BigDecimal.ONE);
+                assertTrue(result.isAccepted());
         }
 
         @Test

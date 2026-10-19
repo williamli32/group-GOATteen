@@ -157,7 +157,10 @@ class TradeAuditControllerTest {
                                 9,
                                 15,
                                 14,
-                                0)),
+                                0),
+                        "GBP", "GBP", BigDecimal.ONE,
+                        java.time.LocalDate.of(2026, 9, 15),
+                        "TEST_SAME_CURRENCY", new BigDecimal("150.20")),
 
                 new TradeAuditResponse.CashImpact(
                         List.of(

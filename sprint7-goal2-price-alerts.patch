@@ -1,0 +1,597 @@
+diff --git a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
+new file mode 100644
+--- /dev/null
++++ b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
+@@ -0,0 +1,39 @@
++package com.goatteen.trading.alerts;
++
++import com.goatteen.trading.auth.service.CurrentUserService;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.web.server.ResponseStatusException;
++import java.math.BigDecimal;
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.Mockito.*;
++
++@ExtendWith(MockitoExtension.class)
++class PriceAlertServiceTest {
++    @Mock JdbcTemplate jdbc;
++    @Mock CurrentUserService currentUser;
++
++    @Test void rejectsZeroThresholdWithoutWriting() {
++        var service = new PriceAlertService(jdbc,currentUser);
++        assertThrows(ResponseStatusException.class, () -> service.create(
++            new PriceAlertService.Change(1,"ABOVE",BigDecimal.ZERO,true)));
++        verifyNoInteractions(jdbc);
++    }
++
++    @Test void rejectsUnknownDirectionWithoutWriting() {
++        var service = new PriceAlertService(jdbc,currentUser);
++        assertThrows(ResponseStatusException.class, () -> service.create(
++            new PriceAlertService.Change(1,"CROSS",new BigDecimal("15"),true)));
++        verifyNoInteractions(jdbc);
++    }
++
++    @Test void rejectsExcessivePrecision() {
++        var service = new PriceAlertService(jdbc,currentUser);
++        assertThrows(ResponseStatusException.class, () -> service.create(
++            new PriceAlertService.Change(1,"BELOW",new BigDecimal("0.000000001"),true)));
++        verifyNoInteractions(jdbc);
++    }
++}
+diff --git a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertEvaluatorTest.java b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertEvaluatorTest.java
+new file mode 100644
+--- /dev/null
++++ b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertEvaluatorTest.java
+@@ -0,0 +1,25 @@
++package com.goatteen.trading.alerts;
++
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.jdbc.core.RowMapper;
++import java.time.LocalDateTime;
++import java.util.List;
++import static org.mockito.ArgumentMatchers.*;
++import static org.mockito.Mockito.*;
++
++@ExtendWith(MockitoExtension.class)
++class PriceAlertEvaluatorTest {
++    @Mock JdbcTemplate jdbc;
++
++    @Test void noFreshThresholdCrossingsMeansNoWrites() {
++        when(jdbc.query(anyString(), any(RowMapper.class), any(LocalDateTime.class)))
++            .thenReturn(List.of());
++        new PriceAlertEvaluator(jdbc,30).evaluate();
++        verify(jdbc).query(anyString(),any(RowMapper.class),any(LocalDateTime.class));
++        verifyNoMoreInteractions(jdbc);
++    }
++}
+diff --git a/frontend/src/app/dashboard/price-alerts.component.scss b/frontend/src/app/dashboard/price-alerts.component.scss
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/app/dashboard/price-alerts.component.scss
+@@ -0,0 +1,8 @@
++.price-alerts {padding:1rem;margin-top:1.25rem;border:1px solid #aab3c3;border-radius:0.75rem}
++.alert-form {display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
++.alert-form label {font-weight:600}
++.alert-form input,.alert-form select {min-height:2.4rem;max-width:14rem}
++button {cursor:pointer;margin:.15rem;padding:.4rem .65rem}
++li {padding:.5rem 0;border-bottom:1px solid #9da7b366}
++.unread {font-weight:600}
++.error {color:#b32323}
+diff --git a/frontend/src/app/dashboard/price-alerts.component.ts b/frontend/src/app/dashboard/price-alerts.component.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/app/dashboard/price-alerts.component.ts
+@@ -0,0 +1,77 @@
++import { CommonModule } from '@angular/common';
++import { Component, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
++import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
++import { FormsModule } from '@angular/forms';
++import { forkJoin, interval, switchMap, catchError, of } from 'rxjs';
++import { MarketInstrumentResponse } from '../core/services/market-data';
++import { AlertDirection, PriceAlert, PriceAlertChange, PriceAlertsService, PriceNotice } from '../core/services/price-alerts';
++
++@Component({
++  selector:'app-price-alerts',standalone:true,
++  imports:[CommonModule,FormsModule],
++  templateUrl:'./price-alerts.component.html',styleUrl:'./price-alerts.component.scss'
++})
++export class PriceAlertsComponent implements OnInit {
++  readonly instruments=input<MarketInstrumentResponse[]>([]);
++  readonly alerts=signal<PriceAlert[]>([]);
++  readonly notices=signal<PriceNotice[]>([]);
++  readonly loading=signal(false);
++  readonly busy=signal(false);
++  readonly error=signal('');
++  readonly info=signal('');
++  instrumentId:number|null=null;
++  direction:AlertDirection='ABOVE';
++  threshold:number|null=null;
++  editId:number|null=null;
++  private readonly api=inject(PriceAlertsService);
++  private readonly destroyRef=inject(DestroyRef);
++
++  ngOnInit():void {
++    this.reload();
++    interval(5000).pipe(takeUntilDestroyed(this.destroyRef),
++      switchMap(()=>this.api.notifications().pipe(catchError(()=>of(null))))
++    ).subscribe(notes=>{if(notes!==null)this.notices.set(notes);});
++  }
++  reload():void {
++    this.loading.set(true);this.error.set('');
++    forkJoin({alerts:this.api.list(),notices:this.api.notifications()})
++      .pipe(takeUntilDestroyed(this.destroyRef))
++      .subscribe({next:r=>{this.alerts.set(r.alerts);this.notices.set(r.notices);this.loading.set(false);},
++        error:()=>{this.error.set('Could not load saved alerts. Please retry.');this.loading.set(false);}});
++  }
++  edit(a:PriceAlert):void {
++    this.editId=a.id;this.instrumentId=a.instrumentId;this.direction=a.direction;
++    this.threshold=a.threshold;this.error.set('');this.info.set('Editing alert #'+a.id);
++  }
++  reset():void {this.editId=null;this.instrumentId=null;this.direction='ABOVE';this.threshold=null;}
++  save():void {
++    const id=Number(this.instrumentId),v=Number(this.threshold);
++    if(!Number.isInteger(id)||id<1||!Number.isFinite(v)||v<=0||
++       !this.instruments().some(i=>i.instrumentId===id)) {
++      this.error.set('Choose an instrument and a positive threshold.');return;
++    }
++    const body:PriceAlertChange={instrumentId:id,direction:this.direction,threshold:v,enabled:true};
++    this.busy.set(true);this.error.set('');this.info.set('');
++    const req=this.editId===null?this.api.create(body):this.api.update(this.editId,body);
++    req.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({next:()=>{
++      this.busy.set(false);this.info.set('Alert saved. It will trigger once until reactivated.');
++      this.reset();this.reload();},error:()=>{this.busy.set(false);this.error.set('Could not save alert.');}});
++  }
++  toggle(a:PriceAlert):void {
++    this.busy.set(true);this.error.set('');
++    this.api.enabled(a.id,!a.enabled).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++      next:()=>{this.busy.set(false);this.reload();},
++      error:()=>{this.busy.set(false);this.error.set('Could not update alert.');}});
++  }
++  remove(a:PriceAlert):void {
++    this.busy.set(true);this.error.set('');
++    this.api.delete(a.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++      next:()=>{this.busy.set(false);if(this.editId===a.id)this.reset();this.reload();},
++      error:()=>{this.busy.set(false);this.error.set('Could not delete alert.');}});
++  }
++  markRead(n:PriceNotice):void {
++    this.api.read(n.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++      next:()=>this.notices.update(items=>items.map(i=>i.id===n.id?{...i,readAt:new Date().toISOString()}:i)),
++      error:()=>this.error.set('Could not mark notification as read.')});
++  }
++}
+diff --git a/frontend/src/app/dashboard/price-alerts.component.html b/frontend/src/app/dashboard/price-alerts.component.html
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/app/dashboard/price-alerts.component.html
+@@ -0,0 +1,47 @@
++<section class="price-alerts" aria-labelledby="alerts-heading">
++<h2 id="alerts-heading">Persistent price alerts</h2>
++<p>Alerts use each instrument's quote currency and last price. They are checked on the server even when you are signed out. Each alert fires once until you reactivate it.</p>
++<form (ngSubmit)="save()" class="alert-form">
++ <label for="alert-instrument">Instrument</label>
++ <select id="alert-instrument" name="instrument" [(ngModel)]="instrumentId" required>
++  <option [ngValue]="null">Choose instrument</option>
++  @for (i of instruments();track i.instrumentId) {
++   <option [ngValue]="i.instrumentId">{{i.symbol}} · {{i.exchange}} ({{i.currency}})</option>
++  }
++ </select>
++ <label for="alert-direction">Condition</label>
++ <select id="alert-direction" name="direction" [(ngModel)]="direction">
++  <option value="ABOVE">Price at or above</option><option value="BELOW">Price at or below</option>
++ </select>
++ <label for="alert-threshold">Threshold (instrument quote currency)</label>
++ <input id="alert-threshold" name="threshold" type="number" min="0.00000001" step="any" required [(ngModel)]="threshold" />
++ <button type="submit" [disabled]="busy() || instrumentId===null || threshold===null">{{editId===null?'Create alert':'Save and reactivate alert'}}</button>
++ @if(editId!==null){<button type="button" (click)="reset()">Cancel edit</button>}
++</form>
++@if(error()){<p role="alert" class="error">{{error()}}</p>}
++@if(info()){<p role="status">{{info()}}</p>}
++<h3>Your alerts</h3>
++<button type="button" (click)="reload()" [disabled]="busy() || loading()">Refresh alerts</button>
++<ul>
++@for(a of alerts();track a.id){
++<li>
++ <strong>{{a.symbol}} ({{a.currency}})</strong> {{a.direction==='ABOVE'?'≥':'≤'}} {{a.threshold | number:'1.2-8'}} ·
++ {{a.triggeredAt?'Triggered':a.enabled?'Active':'Disabled'}}
++ <button type="button" (click)="edit(a)" [disabled]="busy()">Edit</button>
++ <button type="button" (click)="toggle(a)" [disabled]="busy()">{{a.enabled?'Disable':'Reactivate'}}</button>
++ <button type="button" (click)="remove(a)" [disabled]="busy()">Delete</button>
++</li>
++} @empty {<li>No alerts created yet.</li>}
++</ul>
++<h3>Triggered notifications</h3>
++<p>Saved notifications remain available after you close your browser. Recent notifications update automatically.</p>
++<ul>
++@for(n of notices();track n.id){
++<li [class.unread]="!n.readAt">
++ {{n.symbol}} {{n.direction==='ABOVE'?'reached or exceeded':'fell to or below'}} {{n.threshold | number:'1.2-8'}} {{n.currency}}.
++ Last price {{n.observedPrice | number:'1.2-8'}} {{n.currency}} at {{n.quoteAt | date:'medium'}}.
++ @if(!n.readAt){<button type="button" (click)="markRead(n)">Mark read</button>}
++</li>
++} @empty {<li>No alerts have triggered.</li>}
++</ul>
++</section>
+diff --git a/frontend/src/app/core/services/price-alerts.ts b/frontend/src/app/core/services/price-alerts.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/app/core/services/price-alerts.ts
+@@ -0,0 +1,30 @@
++import { Injectable, inject } from '@angular/core';
++import { HttpClient } from '@angular/common/http';
++import { environment } from '../../../environments/environment';
++
++export type AlertDirection = 'ABOVE' | 'BELOW';
++export interface PriceAlert {
++  id:number; instrumentId:number; symbol:string; currency:string;
++  direction:AlertDirection; threshold:number; enabled:boolean;
++  triggeredAt:string|null; generation:number;
++}
++export interface PriceNotice {
++  id:number; alertId:number; instrumentId:number; symbol:string;
++  direction:AlertDirection; threshold:number; observedPrice:number;
++  currency:string; quoteAt:string; createdAt:string; readAt:string|null;
++}
++export interface PriceAlertChange {
++  instrumentId:number; direction:AlertDirection; threshold:number; enabled:boolean;
++}
++@Injectable({providedIn:'root'})
++export class PriceAlertsService {
++  private readonly http=inject(HttpClient);
++  private readonly url=environment.apiUrl+'/price-alerts';
++  list(){return this.http.get<PriceAlert[]>(this.url);}
++  create(body:PriceAlertChange){return this.http.post<PriceAlert>(this.url,body);}
++  update(id:number,body:PriceAlertChange){return this.http.put<PriceAlert>(`${this.url}/${id}`,body);}
++  enabled(id:number,enabled:boolean){return this.http.patch<PriceAlert>(`${this.url}/${id}/enabled`,{enabled});}
++  delete(id:number){return this.http.delete<void>(`${this.url}/${id}`);}
++  notifications(){return this.http.get<PriceNotice[]>(`${this.url}/notifications`);}
++  read(id:number){return this.http.patch<void>(`${this.url}/notifications/${id}/read`,{});}
++}
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertController.java b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertController.java
+new file mode 100644
+--- /dev/null
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertController.java
+@@ -0,0 +1,31 @@
++package com.goatteen.trading.alerts;
++
++import org.springframework.http.HttpStatus;
++import org.springframework.web.bind.annotation.*;
++import java.util.List;
++
++@RestController
++@RequestMapping("/api/price-alerts")
++public class PriceAlertController {
++    private final PriceAlertService service;
++    public PriceAlertController(PriceAlertService service) { this.service=service; }
++
++    @GetMapping public List<PriceAlertService.Alert> list() { return service.alerts(); }
++    @PostMapping @ResponseStatus(HttpStatus.CREATED)
++    public PriceAlertService.Alert create(@RequestBody PriceAlertService.Change body) {return service.create(body);}
++    @PutMapping("/{id}")
++    public PriceAlertService.Alert update(@PathVariable long id,@RequestBody PriceAlertService.Change body) {
++        return service.update(id,body);
++    }
++    public record Enabled(boolean enabled) {}
++    @PatchMapping("/{id}/enabled")
++    public PriceAlertService.Alert enable(@PathVariable long id,@RequestBody Enabled body) {
++        return service.setEnabled(id,body.enabled());
++    }
++    @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
++    public void delete(@PathVariable long id) {service.delete(id);}
++    @GetMapping("/notifications")
++    public List<PriceAlertService.Notice> notifications() {return service.notifications();}
++    @PatchMapping("/notifications/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT)
++    public void read(@PathVariable long id) {service.markRead(id);}
++}
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertEvaluator.java b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertEvaluator.java
+new file mode 100644
+--- /dev/null
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertEvaluator.java
+@@ -0,0 +1,71 @@
++package com.goatteen.trading.alerts;
++
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.scheduling.annotation.Scheduled;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++import org.springframework.jdbc.core.JdbcTemplate;
++import java.time.LocalDateTime;
++
++@Service
++public class PriceAlertEvaluator {
++    private static final Logger log=LoggerFactory.getLogger(PriceAlertEvaluator.class);
++    private final JdbcTemplate jdbc;
++    private final int maxQuoteAgeSeconds;
++    public PriceAlertEvaluator(JdbcTemplate jdbc,
++          @Value("${app.price-alerts.max-quote-age-seconds:30}") int maxQuoteAgeSeconds) {
++        this.jdbc=jdbc; this.maxQuoteAgeSeconds=maxQuoteAgeSeconds;
++    }
++
++    /** Called independently of any browser session. Each successful row update and
++      * the durable notification occur in a single database transaction. */
++    @Scheduled(fixedDelayString="${app.price-alerts.check-ms:3000}",
++               initialDelayString="${app.price-alerts.initial-delay-ms:5000}")
++    @Transactional
++    public void evaluate() {
++        // With multiple application instances, SKIP LOCKED prevents duplicate
++        // processing. We only inspect the latest quote per instrument.
++        var rows=jdbc.query("""
++            SELECT a.id,a.user_id,a.generation,a.instrument_id,a.direction,a.threshold,
++                   i.symbol,i.currency,q.id AS quote_id,q.last_price,q.quoted_at
++            FROM price_alerts a JOIN instruments i ON i.id=a.instrument_id
++            JOIN LATERAL (
++                SELECT id,last_price,quoted_at FROM market_quotes
++                WHERE instrument_id=a.instrument_id
++                ORDER BY quoted_at DESC,id DESC LIMIT 1
++            ) q ON TRUE
++            WHERE a.enabled=TRUE AND a.triggered_at IS NULL
++              AND q.quoted_at >= ?
++              AND ((a.direction='ABOVE' AND q.last_price >= a.threshold)
++                OR (a.direction='BELOW' AND q.last_price <= a.threshold))
++            ORDER BY a.id
++            FOR UPDATE OF a SKIP LOCKED
++            """,(r,n)->new Hit(r.getLong(1),r.getLong(2),r.getInt(3),r.getLong(4),
++              r.getString(5),r.getBigDecimal(6),r.getString(7),r.getString(8),
++              r.getLong(9),r.getBigDecimal(10),r.getTimestamp(11).toLocalDateTime()),
++              LocalDateTime.now().minusSeconds(maxQuoteAgeSeconds));
++        for (Hit h:rows) {
++            int updated=jdbc.update("""
++                UPDATE price_alerts SET triggered_at=CURRENT_TIMESTAMP,enabled=FALSE,
++                    updated_at=CURRENT_TIMESTAMP
++                WHERE id=? AND generation=? AND enabled=TRUE AND triggered_at IS NULL
++                """,h.id,h.generation);
++            if(updated==1) {
++                jdbc.update("""
++                    INSERT INTO price_alert_notifications
++                      (alert_id,user_id,generation,instrument_id,symbol,direction,threshold,
++                       observed_price,quote_currency,quote_id,quote_at)
++                    VALUES(?,?,?,?,?,?,?,?,?,?,?)
++                    ON CONFLICT (alert_id,generation) DO NOTHING
++                    """,h.id,h.userId,h.generation,h.instrumentId,h.symbol,h.direction,
++                       h.threshold,h.price,h.currency,h.quoteId,h.quoteAt);
++            }
++        }
++        if(!rows.isEmpty()) log.debug("Evaluated {} triggered price alerts",rows.size());
++    }
++    private record Hit(long id,long userId,int generation,long instrumentId,
++                       String direction,java.math.BigDecimal threshold,String symbol,
++                       String currency,long quoteId,java.math.BigDecimal price,LocalDateTime quoteAt) {}
++}
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
+new file mode 100644
+--- /dev/null
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
+@@ -0,0 +1,144 @@
++package com.goatteen.trading.alerts;
++
++import com.goatteen.trading.auth.service.CurrentUserService;
++import org.springframework.http.HttpStatus;
++import org.springframework.jdbc.core.JdbcTemplate;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++import org.springframework.web.server.ResponseStatusException;
++
++import java.math.BigDecimal;
++import java.util.List;
++
++@Service
++public class PriceAlertService {
++    private final JdbcTemplate jdbc;
++    private final CurrentUserService currentUser;
++
++    public record Alert(long id, long instrumentId, String symbol, String currency,
++                        String direction, BigDecimal threshold, boolean enabled,
++                        java.time.LocalDateTime triggeredAt, int generation) {}
++
++    public record Notice(long id, long alertId, long instrumentId, String symbol,
++                         String direction, BigDecimal threshold, BigDecimal observedPrice,
++                         String currency, java.time.LocalDateTime quoteAt,
++                         java.time.LocalDateTime createdAt, java.time.LocalDateTime readAt) {}
++
++    public record Change(long instrumentId, String direction, BigDecimal threshold, boolean enabled) {}
++
++    public PriceAlertService(JdbcTemplate jdbc, CurrentUserService currentUser) {
++        this.jdbc = jdbc;
++        this.currentUser = currentUser;
++    }
++
++    private long userId() { return currentUser.getCurrentUserId(); }
++
++    @Transactional(readOnly = true)
++    public List<Alert> alerts() {
++        return jdbc.query("""
++            SELECT a.id,a.instrument_id,i.symbol,i.currency,a.direction,a.threshold,
++                   a.enabled,a.triggered_at,a.generation
++            FROM price_alerts a JOIN instruments i ON i.id=a.instrument_id
++            WHERE a.user_id=? ORDER BY a.id DESC
++            """, (r,n) -> new Alert(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),
++                r.getString(5),r.getBigDecimal(6),r.getBoolean(7),
++                r.getTimestamp(8)==null?null:r.getTimestamp(8).toLocalDateTime(),r.getInt(9)), userId());
++    }
++
++    @Transactional
++    public Alert create(Change change) {
++        validate(change);
++        long user = userId();
++        requireTradable(change.instrumentId());
++        Long id = jdbc.queryForObject("""
++            INSERT INTO price_alerts(user_id,instrument_id,direction,threshold,enabled)
++            VALUES (?,?,?,?,?) RETURNING id
++            """, Long.class, user,change.instrumentId(),change.direction(),change.threshold(),change.enabled());
++        return one(user, id);
++    }
++
++    @Transactional
++    public Alert update(long id, Change change) {
++        validate(change);
++        long user=userId();
++        requireTradable(change.instrumentId());
++        // A genuine edit explicitly rearms a one-shot alert with a new generation.
++        int count=jdbc.update("""
++            UPDATE price_alerts SET instrument_id=?, direction=?, threshold=?, enabled=?,
++                triggered_at=NULL, generation=generation+1, updated_at=CURRENT_TIMESTAMP
++            WHERE id=? AND user_id=?
++            """,change.instrumentId(),change.direction(),change.threshold(),change.enabled(),id,user);
++        if (count==0) throw notFound();
++        return one(user,id);
++    }
++
++    @Transactional
++    public Alert setEnabled(long id, boolean enabled) {
++        long user=userId();
++        // Disabling does not rearm. Explicit re-enablement rearms once.
++        int count=jdbc.update("""
++            UPDATE price_alerts SET enabled=?,
++              triggered_at=CASE WHEN ? AND NOT enabled THEN NULL ELSE triggered_at END,
++              generation=CASE WHEN ? AND NOT enabled THEN generation+1 ELSE generation END,
++              updated_at=CURRENT_TIMESTAMP
++            WHERE id=? AND user_id=?
++            """,enabled,enabled,enabled,id,user);
++        if(count==0) throw notFound();
++        return one(user,id);
++    }
++
++    @Transactional
++    public void delete(long id) {
++        if(jdbc.update("DELETE FROM price_alerts WHERE id=? AND user_id=?",id,userId())==0)
++            throw notFound();
++    }
++
++    @Transactional(readOnly = true)
++    public List<Notice> notifications() {
++        return jdbc.query("""
++            SELECT id,alert_id,instrument_id,symbol,direction,threshold,observed_price,
++                   quote_currency,quote_at,created_at,read_at
++            FROM price_alert_notifications WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 100
++            """,(r,n)-> new Notice(r.getLong(1),r.getLong(2),r.getLong(3),r.getString(4),
++                r.getString(5),r.getBigDecimal(6),r.getBigDecimal(7),r.getString(8),
++                r.getTimestamp(9).toLocalDateTime(),r.getTimestamp(10).toLocalDateTime(),
++                r.getTimestamp(11)==null?null:r.getTimestamp(11).toLocalDateTime()),userId());
++    }
++
++    @Transactional
++    public void markRead(long notificationId) {
++        if(jdbc.update("""
++            UPDATE price_alert_notifications SET read_at=COALESCE(read_at,CURRENT_TIMESTAMP)
++            WHERE id=? AND user_id=?
++            """,notificationId,userId())==0) throw notFound();
++    }
++
++    private Alert one(long user,long id) {
++        return jdbc.queryForObject("""
++            SELECT a.id,a.instrument_id,i.symbol,i.currency,a.direction,a.threshold,
++                   a.enabled,a.triggered_at,a.generation
++            FROM price_alerts a JOIN instruments i ON i.id=a.instrument_id
++            WHERE a.id=? AND a.user_id=?
++            """,(r,n)->new Alert(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),
++                r.getString(5),r.getBigDecimal(6),r.getBoolean(7),
++                r.getTimestamp(8)==null?null:r.getTimestamp(8).toLocalDateTime(),r.getInt(9)),id,user);
++    }
++
++    private void requireTradable(long instrumentId) {
++        Boolean tradable=jdbc.query("SELECT tradable FROM instruments WHERE id=?",
++             r -> r.next()?r.getBoolean(1):null,instrumentId);
++        if (tradable==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Instrument not found");
++        if (!tradable) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Instrument not tradable");
++    }
++
++    private void validate(Change c) {
++        if(c==null || c.instrumentId()<=0 || c.threshold()==null ||
++           c.threshold().signum()<=0 || c.threshold().scale()>8 ||
++           c.threshold().precision()>20 ||
++           !("ABOVE".equals(c.direction()) || "BELOW".equals(c.direction())))
++            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid alert threshold, instrument or direction");
++    }
++    private ResponseStatusException notFound() {
++        return new ResponseStatusException(HttpStatus.NOT_FOUND,"Alert or notification not found");
++    }
++}
+diff --git a/backend/trading-platform/src/main/resources/db/migration/V25__persistent_price_alerts.sql b/backend/trading-platform/src/main/resources/db/migration/V25__persistent_price_alerts.sql
+new file mode 100644
+--- /dev/null
++++ b/backend/trading-platform/src/main/resources/db/migration/V25__persistent_price_alerts.sql
+@@ -0,0 +1,33 @@
++CREATE TABLE price_alerts (
++    id BIGSERIAL PRIMARY KEY,
++    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    instrument_id BIGINT NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
++    direction VARCHAR(5) NOT NULL CHECK (direction IN ('ABOVE', 'BELOW')),
++    threshold NUMERIC(20,8) NOT NULL CHECK (threshold > 0),
++    enabled BOOLEAN NOT NULL DEFAULT TRUE,
++    generation INTEGER NOT NULL DEFAULT 1 CHECK (generation > 0),
++    triggered_at TIMESTAMP NULL,
++    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
++);
++CREATE INDEX idx_price_alerts_active ON price_alerts (instrument_id, id) WHERE enabled AND triggered_at IS NULL;
++CREATE INDEX idx_price_alerts_user ON price_alerts (user_id, id DESC);
++CREATE TABLE price_alert_notifications (
++    id BIGSERIAL PRIMARY KEY,
++    alert_id BIGINT REFERENCES price_alerts(id) ON DELETE SET NULL,
++    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    generation INTEGER NOT NULL,
++    instrument_id BIGINT NOT NULL REFERENCES instruments(id),
++    symbol VARCHAR(40) NOT NULL,
++    direction VARCHAR(5) NOT NULL,
++    threshold NUMERIC(20,8) NOT NULL,
++    observed_price NUMERIC(20,8) NOT NULL,
++    quote_currency VARCHAR(10) NOT NULL,
++    quote_id BIGINT NOT NULL REFERENCES market_quotes(id),
++    quote_at TIMESTAMP NOT NULL,
++    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++    read_at TIMESTAMP NULL,
++    CONSTRAINT uq_price_alert_delivery UNIQUE (alert_id, generation)
++);
++CREATE INDEX idx_price_alert_notifications_user ON price_alert_notifications (user_id, created_at DESC, id DESC);
++-- Keep quotes referenced by notifications forever, like fills.
+diff --git a/frontend/src/app/dashboard/watchlist.component.html b/frontend/src/app/dashboard/watchlist.component.html
+--- a/frontend/src/app/dashboard/watchlist.component.html
++++ b/frontend/src/app/dashboard/watchlist.component.html
+@@ -1,1 +1,2 @@
++<app-price-alerts [instruments]="instruments()" />
+ <section class="watchlist" aria-labelledby="watchlist-title" [attr.aria-busy]="loading()">
+diff --git a/frontend/src/app/dashboard/watchlist.component.ts b/frontend/src/app/dashboard/watchlist.component.ts
+--- a/frontend/src/app/dashboard/watchlist.component.ts
++++ b/frontend/src/app/dashboard/watchlist.component.ts
+@@ -5,6 +5,7 @@
+ import { FormsModule } from '@angular/forms';
+ import { finalize } from 'rxjs';
+ import { MarketInstrumentResponse } from '../core/services/market-data';
++import { PriceAlertsComponent } from './price-alerts.component';
+ import { WatchlistService } from '../core/services/watchlist';
+ import { DailyPriceChangeComponent } from './daily-price-change.component';
+ 
+@@ -12,7 +13,7 @@
+ @Component({
+   selector: 'app-watchlist',
+   standalone: true,
+-  imports: [CommonModule, FormsModule, DailyPriceChangeComponent],
++  imports: [CommonModule, FormsModule, DailyPriceChangeComponent, PriceAlertsComponent],
+   templateUrl: './watchlist.component.html',
+   styleUrl: './watchlist.component.scss'
+ })
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/marketdata/QuoteRepository.java b/backend/trading-platform/src/main/java/com/goatteen/trading/marketdata/QuoteRepository.java
+--- a/backend/trading-platform/src/main/java/com/goatteen/trading/marketdata/QuoteRepository.java
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/marketdata/QuoteRepository.java
+@@ -33,6 +33,12 @@
+                   WHERE f.quote_id = q.id
+               )
+ 
++              AND NOT EXISTS (
++                  SELECT 1
++                  FROM price_alert_notifications n
++                  WHERE n.quote_id = q.id
++              )
++
+               AND EXISTS (
+                   SELECT 1
+                   FROM market_quotes newer

@@ -1,3 +1,5 @@
+import { PriceAlertPopupListenerComponent } from './price-alert-popup-listener.component';
+import { FxRateService, type FxQuote } from '../core/services/fx-rate';
 import {
 
   Component,
@@ -142,6 +144,7 @@ type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
     CommonModule,
 
     FormsModule,
+    PriceAlertPopupListenerComponent,
 
     AccountFundingComponent,
     WatchlistComponent,
@@ -251,6 +254,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
+  readonly fxQuote = signal<FxQuote | null>(null);
+  private fxRequest?: Subscription;
+  private fxPair = '';
+
   orderSide: OrderSide =
 
     'BUY';
@@ -326,6 +333,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
 
     private accountService: AccountService,
+
+    private fxRateService: FxRateService,
 
     private marketDataService: MarketDataService,
 
@@ -576,6 +585,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             result.account
 
           );
+          this.refreshFxQuote();
 
 
 
@@ -936,6 +946,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 refreshedSelected
 
               );
+              this.refreshFxQuote();
 
 
 
@@ -948,6 +959,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 instruments[0] ?? null
 
               );
+              this.refreshFxQuote();
 
 
 
@@ -964,6 +976,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
               instruments[0] ?? null
 
             );
+            this.refreshFxQuote();
 
 
 
@@ -1122,6 +1135,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       instrument
 
     );
+    this.refreshFxQuote();
 
 
 
@@ -1204,6 +1218,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
+
+  // Pre-trade estimate only. The server re-fetches FX at execution time.
+  private refreshFxQuote(): void {
+    const from = this.selectedInstrument()?.currency;
+    const to = this.account()?.currency;
+    if (!from || !to) return;
+    const pair = `${from}/${to}`;
+    if (pair === this.fxPair) return;
+    this.fxPair = pair;
+    this.fxQuote.set(null);
+    this.fxRequest?.unsubscribe();
+    this.fxRequest = this.fxRateService.quote(from, to).subscribe({
+      next: quote => { if (this.fxPair === pair) this.fxQuote.set(quote); },
+      error: () => { if (this.fxPair === pair) this.fxQuote.set(null); }
+    });
+  }
+
+  estimatedAccountSettlement(): number | null {
+    const notional = this.estimatedNotional();
+    const rate = this.fxQuote()?.rate;
+    return notional === null || rate === undefined ? null : notional * rate;
+  }
 
   estimatedNotional():
 
@@ -1710,6 +1746,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
 
+    this.fxRequest?.unsubscribe();
     this.dashboardRequestVersion++;
     this.dashboardRequest?.unsubscribe();
 

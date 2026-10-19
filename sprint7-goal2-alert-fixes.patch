@@ -1,0 +1,488 @@
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertEvaluator.java b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertEvaluator.java
+index 43cbf01..9c7b0d6 100644
+--- a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertEvaluator.java
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertEvaluator.java
+@@ -8,27 +8,35 @@ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ import org.springframework.jdbc.core.JdbcTemplate;
++
++import java.math.BigDecimal;
+ import java.time.LocalDateTime;
+ 
+ @Service
+ public class PriceAlertEvaluator {
+-    private static final Logger log=LoggerFactory.getLogger(PriceAlertEvaluator.class);
++    private static final Logger log = LoggerFactory.getLogger(PriceAlertEvaluator.class);
+     private final JdbcTemplate jdbc;
+     private final int maxQuoteAgeSeconds;
++
+     public PriceAlertEvaluator(JdbcTemplate jdbc,
+           @Value("${app.price-alerts.max-quote-age-seconds:30}") int maxQuoteAgeSeconds) {
+-        this.jdbc=jdbc; this.maxQuoteAgeSeconds=maxQuoteAgeSeconds;
++        this.jdbc = jdbc;
++        this.maxQuoteAgeSeconds = maxQuoteAgeSeconds;
+     }
+ 
+-    /** Called independently of any browser session. Each successful row update and
+-      * the durable notification occur in a single database transaction. */
++    /**
++     * An enabled alert has two phases:
++     *   armed=true:  fire on a qualifying quote and disarm;
++     *   armed=false: rearm ONLY after a fresh quote crosses back to the
++     *                nonqualifying side of the threshold.
++     * The next crossing can then produce a new notification (new generation).
++     * Updating the alert and writing its notice occur in one transaction.
++     */
+     @Scheduled(fixedDelayString="${app.price-alerts.check-ms:3000}",
+                initialDelayString="${app.price-alerts.initial-delay-ms:5000}")
+     @Transactional
+     public void evaluate() {
+-        // With multiple application instances, SKIP LOCKED prevents duplicate
+-        // processing. We only inspect the latest quote per instrument.
+-        var rows=jdbc.query("""
++        var transitions = jdbc.query("""
+             SELECT a.id,a.user_id,a.generation,a.instrument_id,a.direction,a.threshold,
+-                   i.symbol,i.currency,q.id AS quote_id,q.last_price,q.quoted_at
++                   a.armed,i.symbol,i.currency,q.id AS quote_id,q.last_price,q.quoted_at
+             FROM price_alerts a JOIN instruments i ON i.id=a.instrument_id
+             JOIN LATERAL (
+@@ -37,21 +45,43 @@ public class PriceAlertEvaluator {
+                 ORDER BY quoted_at DESC,id DESC LIMIT 1
+             ) q ON TRUE
+-            WHERE a.enabled=TRUE AND a.triggered_at IS NULL
+-              AND q.quoted_at >= ?
+-              AND ((a.direction='ABOVE' AND q.last_price >= a.threshold)
+-                OR (a.direction='BELOW' AND q.last_price <= a.threshold))
++            WHERE a.enabled=TRUE AND q.quoted_at >= ?
++              AND (
++                (a.armed AND (
++                    (a.direction='ABOVE' AND q.last_price >= a.threshold) OR
++                    (a.direction='BELOW' AND q.last_price <= a.threshold)
++                )) OR
++                (NOT a.armed AND (
++                    (a.direction='ABOVE' AND q.last_price < a.threshold) OR
++                    (a.direction='BELOW' AND q.last_price > a.threshold)
++                ))
++              )
+             ORDER BY a.id
+             FOR UPDATE OF a SKIP LOCKED
+-            """,(r,n)->new Hit(r.getLong(1),r.getLong(2),r.getInt(3),r.getLong(4),
+-              r.getString(5),r.getBigDecimal(6),r.getString(7),r.getString(8),
+-              r.getLong(9),r.getBigDecimal(10),r.getTimestamp(11).toLocalDateTime()),
++            """,(r,n)->new Transition(
++              r.getLong(1),r.getLong(2),r.getInt(3),r.getLong(4),
++              r.getString(5),r.getBigDecimal(6),r.getBoolean(7),
++              r.getString(8),r.getString(9),r.getLong(10),
++              r.getBigDecimal(11),r.getTimestamp(12).toLocalDateTime()),
+               LocalDateTime.now().minusSeconds(maxQuoteAgeSeconds));
+-        for (Hit h:rows) {
+-            int updated=jdbc.update("""
+-                UPDATE price_alerts SET triggered_at=CURRENT_TIMESTAMP,enabled=FALSE,
++
++        for (Transition transition : transitions) {
++            if (!transition.armed) {
++                // A fresh quote has crossed back OUTSIDE the alert condition.
++                // Increment generation here so the following trigger is unique.
++                jdbc.update("""
++                    UPDATE price_alerts SET armed=TRUE, generation=generation+1,
++                        updated_at=CURRENT_TIMESTAMP
++                    WHERE id=? AND generation=? AND enabled=TRUE AND armed=FALSE
++                    """, transition.id, transition.generation);
++                continue;
++            }
++
++            // A fresh quote has crossed INTO the alert condition.
++            int updated = jdbc.update("""
++                UPDATE price_alerts SET armed=FALSE, triggered_at=CURRENT_TIMESTAMP,
+                     updated_at=CURRENT_TIMESTAMP
+-                WHERE id=? AND generation=? AND enabled=TRUE AND triggered_at IS NULL
+-                """,h.id,h.generation);
+-            if(updated==1) {
++                WHERE id=? AND generation=? AND enabled=TRUE AND armed=TRUE
++                """, transition.id, transition.generation);
++            if (updated == 1) {
+                 jdbc.update("""
+                     INSERT INTO price_alert_notifications
+@@ -60,12 +90,16 @@ public class PriceAlertEvaluator {
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                     ON CONFLICT (alert_id,generation) DO NOTHING
+-                    """,h.id,h.userId,h.generation,h.instrumentId,h.symbol,h.direction,
+-                       h.threshold,h.price,h.currency,h.quoteId,h.quoteAt);
++                    """, transition.id, transition.userId, transition.generation,
++                    transition.instrumentId, transition.symbol, transition.direction,
++                    transition.threshold, transition.price, transition.currency,
++                    transition.quoteId, transition.quoteAt);
+             }
+         }
+-        if(!rows.isEmpty()) log.debug("Evaluated {} triggered price alerts",rows.size());
++        if (!transitions.isEmpty())
++            log.debug("Processed {} price alert state transitions", transitions.size());
+     }
+-    private record Hit(long id,long userId,int generation,long instrumentId,
+-                       String direction,java.math.BigDecimal threshold,String symbol,
+-                       String currency,long quoteId,java.math.BigDecimal price,LocalDateTime quoteAt) {}
++
++    private record Transition(long id, long userId, int generation, long instrumentId,
++            String direction, BigDecimal threshold, boolean armed, String symbol,
++            String currency, long quoteId, BigDecimal price, LocalDateTime quoteAt) {}
+ }
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
+index e9598f0..2d3f88b 100644
+--- a/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/alerts/PriceAlertService.java
+@@ -17,5 +17,5 @@ public class PriceAlertService {
+ 
+     public record Alert(long id, long instrumentId, String symbol, String currency,
+-                        String direction, BigDecimal threshold, boolean enabled,
++                        String direction, BigDecimal threshold, boolean enabled, boolean armed,
+                         java.time.LocalDateTime triggeredAt, int generation) {}
+ 
+@@ -38,10 +38,10 @@ public class PriceAlertService {
+         return jdbc.query("""
+             SELECT a.id,a.instrument_id,i.symbol,i.currency,a.direction,a.threshold,
+-                   a.enabled,a.triggered_at,a.generation
++                   a.enabled,a.armed,a.triggered_at,a.generation
+             FROM price_alerts a JOIN instruments i ON i.id=a.instrument_id
+             WHERE a.user_id=? ORDER BY a.id DESC
+             """, (r,n) -> new Alert(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),
+-                r.getString(5),r.getBigDecimal(6),r.getBoolean(7),
+-                r.getTimestamp(8)==null?null:r.getTimestamp(8).toLocalDateTime(),r.getInt(9)), userId());
++                r.getString(5),r.getBigDecimal(6),r.getBoolean(7),r.getBoolean(8),
++                r.getTimestamp(9)==null?null:r.getTimestamp(9).toLocalDateTime(),r.getInt(10)), userId());
+     }
+ 
+@@ -63,8 +63,8 @@ public class PriceAlertService {
+         long user=userId();
+         requireTradable(change.instrumentId());
+-        // A genuine edit explicitly rearms a one-shot alert with a new generation.
++        // A genuine edit applies the updated condition immediately and starts a fresh cycle.
+         int count=jdbc.update("""
+             UPDATE price_alerts SET instrument_id=?, direction=?, threshold=?, enabled=?,
+-                triggered_at=NULL, generation=generation+1, updated_at=CURRENT_TIMESTAMP
++                armed=TRUE, triggered_at=NULL, generation=generation+1, updated_at=CURRENT_TIMESTAMP
+             WHERE id=? AND user_id=?
+             """,change.instrumentId(),change.direction(),change.threshold(),change.enabled(),id,user);
+@@ -76,12 +76,14 @@ public class PriceAlertService {
+     public Alert setEnabled(long id, boolean enabled) {
+         long user=userId();
+-        // Disabling does not rearm. Explicit re-enablement rearms once.
++        // Pausing preserves the cycle. Resuming starts fresh only on a real
++        // disabled -> enabled transition; repeated PATCHes are idempotent.
+         int count=jdbc.update("""
+             UPDATE price_alerts SET enabled=?,
++              armed=CASE WHEN ? AND NOT enabled THEN TRUE ELSE armed END,
+               triggered_at=CASE WHEN ? AND NOT enabled THEN NULL ELSE triggered_at END,
+               generation=CASE WHEN ? AND NOT enabled THEN generation+1 ELSE generation END,
+               updated_at=CURRENT_TIMESTAMP
+             WHERE id=? AND user_id=?
+-            """,enabled,enabled,enabled,id,user);
++            """,enabled,enabled,enabled,enabled,id,user);
+         if(count==0) throw notFound();
+         return one(user,id);
+@@ -117,10 +119,10 @@ public class PriceAlertService {
+         return jdbc.queryForObject("""
+             SELECT a.id,a.instrument_id,i.symbol,i.currency,a.direction,a.threshold,
+-                   a.enabled,a.triggered_at,a.generation
++                   a.enabled,a.armed,a.triggered_at,a.generation
+             FROM price_alerts a JOIN instruments i ON i.id=a.instrument_id
+             WHERE a.id=? AND a.user_id=?
+             """,(r,n)->new Alert(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),
+-                r.getString(5),r.getBigDecimal(6),r.getBoolean(7),
+-                r.getTimestamp(8)==null?null:r.getTimestamp(8).toLocalDateTime(),r.getInt(9)),id,user);
++                r.getString(5),r.getBigDecimal(6),r.getBoolean(7),r.getBoolean(8),
++                r.getTimestamp(9)==null?null:r.getTimestamp(9).toLocalDateTime(),r.getInt(10)),id,user);
+     }
+ 
+diff --git a/backend/trading-platform/src/main/java/com/goatteen/trading/config/SecurityConfig.java b/backend/trading-platform/src/main/java/com/goatteen/trading/config/SecurityConfig.java
+index a87ad72..b60ea6d 100644
+--- a/backend/trading-platform/src/main/java/com/goatteen/trading/config/SecurityConfig.java
++++ b/backend/trading-platform/src/main/java/com/goatteen/trading/config/SecurityConfig.java
+@@ -8,4 +8,5 @@ public class SecurityConfig {
+                                                 "POST",
+                                                 "PUT",
++                                                "PATCH",
+                                                 "DELETE",
+                                                 "OPTIONS"));
+diff --git a/backend/trading-platform/src/main/resources/db/migration/V26__auto_rearm_price_alerts.sql b/backend/trading-platform/src/main/resources/db/migration/V26__auto_rearm_price_alerts.sql
+new file mode 100644
+index 0000000..9d4722c
+--- /dev/null
++++ b/backend/trading-platform/src/main/resources/db/migration/V26__auto_rearm_price_alerts.sql
+@@ -0,0 +1,19 @@
++-- V25 alerts were one-shot. Remember whether a threshold is ready to fire
++-- independently from whether the user has paused monitoring.
++ALTER TABLE price_alerts
++    ADD COLUMN armed BOOLEAN NOT NULL DEFAULT TRUE;
++
++-- Old alerts that fired were disabled automatically by the former evaluator.
++-- Migrate them into the waiting-for-reset state. (Old schema cannot distinguish
++-- these from alerts explicitly paused *after* an earlier trigger; review this
++-- transition with your users if that distinction matters.)
++UPDATE price_alerts
++SET enabled = TRUE,
++    armed = FALSE,
++    updated_at = CURRENT_TIMESTAMP
++WHERE triggered_at IS NOT NULL AND enabled = FALSE;
++
++-- Active alerts are no longer constrained to triggered_at IS NULL.
++DROP INDEX IF EXISTS idx_price_alerts_active;
++CREATE INDEX idx_price_alerts_active
++    ON price_alerts (instrument_id, id) WHERE enabled;
+diff --git a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertEvaluatorTest.java b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertEvaluatorTest.java
+index b3b4f04..7e84c6f 100644
+--- a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertEvaluatorTest.java
++++ b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertEvaluatorTest.java
+@@ -7,6 +7,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
+ import org.springframework.jdbc.core.JdbcTemplate;
+ import org.springframework.jdbc.core.RowMapper;
++
++import java.math.BigDecimal;
++import java.sql.ResultSet;
++import java.sql.Timestamp;
+ import java.time.LocalDateTime;
+ import java.util.List;
++import java.util.concurrent.atomic.AtomicInteger;
++
++import static org.junit.jupiter.api.Assertions.*;
+ import static org.mockito.ArgumentMatchers.*;
+ import static org.mockito.Mockito.*;
+@@ -16,10 +23,62 @@ class PriceAlertEvaluatorTest {
+     @Mock JdbcTemplate jdbc;
+ 
+-    @Test void noFreshThresholdCrossingsMeansNoWrites() {
++    @Test
++    void noQualifyingQuoteDoesNotWrite() {
+         when(jdbc.query(anyString(), any(RowMapper.class), any(LocalDateTime.class)))
+             .thenReturn(List.of());
+-        new PriceAlertEvaluator(jdbc,30).evaluate();
+-        verify(jdbc).query(anyString(),any(RowMapper.class),any(LocalDateTime.class));
++        new PriceAlertEvaluator(jdbc, 30).evaluate();
++        verify(jdbc).query(anyString(), any(RowMapper.class), any(LocalDateTime.class));
+         verifyNoMoreInteractions(jdbc);
+     }
++
++    @Test
++    @SuppressWarnings("unchecked")
++    void triggerThenResetThenTriggerAgainGeneratesTwoDifferentNotifications() throws Exception {
++        // Simulate the database's eligible transition rows. Each scheduled poll
++        // only selects an alert when its latest quote changes its state.
++        AtomicInteger poll = new AtomicInteger();
++        when(jdbc.query(anyString(), any(RowMapper.class), any(LocalDateTime.class)))
++            .thenAnswer(invocation -> {
++                String query = invocation.getArgument(0);
++                assertTrue(query.contains("a.enabled=TRUE"));
++                assertTrue(query.contains("FOR UPDATE OF a SKIP LOCKED"));
++                assertTrue(query.contains("a.armed"));
++                assertTrue(query.contains("q.last_price < a.threshold"));
++                assertTrue(query.contains("q.last_price > a.threshold"));
++                int step = poll.getAndIncrement();
++                if (step == 1) return List.of(); // same price above threshold: no duplicate
++                return List.of(row((RowMapper<Object>) invocation.getArgument(1),
++                    step != 2, step == 3 ? 2 : 1, step == 2 ? "190" : "210"));
++            });
++        when(jdbc.update(anyString(), (Object[]) any())).thenAnswer(invocation -> 1);
++
++        PriceAlertEvaluator evaluator = new PriceAlertEvaluator(jdbc, 30);
++        evaluator.evaluate(); // 210 > 200 -> notification #1, armed=false
++        evaluator.evaluate(); // still 210 -> no notification
++        evaluator.evaluate(); // 190 < 200 -> armed=true, generation=2
++        evaluator.evaluate(); // 210 > 200 -> notification #2
++
++        // Two notifications, one rearm and two disarms = 5 updates.
++        // The SQL explicitly ensures a separate generation per trigger.
++        verify(jdbc, times(5)).update(anyString(), (Object[]) any());
++        assertEquals(4, poll.get());
++    }
++
++    private Object row(RowMapper<Object> mapper, boolean armed, int generation,
++                       String observedPrice) throws Exception {
++        ResultSet rs = mock(ResultSet.class);
++        when(rs.getLong(1)).thenReturn(10L);
++        when(rs.getLong(2)).thenReturn(21L);
++        when(rs.getInt(3)).thenReturn(generation);
++        when(rs.getLong(4)).thenReturn(30L);
++        when(rs.getString(5)).thenReturn("ABOVE");
++        when(rs.getBigDecimal(6)).thenReturn(new BigDecimal("200.00"));
++        when(rs.getBoolean(7)).thenReturn(armed);
++        when(rs.getString(8)).thenReturn("AAPL");
++        when(rs.getString(9)).thenReturn("USD");
++        when(rs.getLong(10)).thenReturn(50L);
++        when(rs.getBigDecimal(11)).thenReturn(new BigDecimal(observedPrice));
++        when(rs.getTimestamp(12)).thenReturn(Timestamp.valueOf(LocalDateTime.now()));
++        return mapper.mapRow(rs, 0);
++    }
+ }
+diff --git a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
+index 445d0f8..9c4b67d 100644
+--- a/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
++++ b/backend/trading-platform/src/test/java/com/goatteen/trading/alerts/PriceAlertServiceTest.java
+@@ -11,4 +11,5 @@ import java.math.BigDecimal;
+ import static org.junit.jupiter.api.Assertions.*;
+ import static org.mockito.Mockito.*;
++import static org.mockito.ArgumentMatchers.*;
+ 
+ @ExtendWith(MockitoExtension.class)
+@@ -37,3 +38,19 @@ class PriceAlertServiceTest {
+         verifyNoInteractions(jdbc);
+     }
++    @Test void markingReadIsScopedToAuthenticatedUserAndIdempotent() {
++        when(currentUser.getCurrentUserId()).thenReturn(7L);
++        when(jdbc.update(anyString(), eq(24L), eq(7L))).thenReturn(1);
++        var service = new PriceAlertService(jdbc, currentUser);
++        service.markRead(24L);
++        service.markRead(24L);
++        verify(jdbc, times(2)).update(argThat(sql ->
++            sql.contains("COALESCE(read_at,CURRENT_TIMESTAMP)") &&
++            sql.contains("id=? AND user_id=?")), eq(24L), eq(7L));
++    }
++
++    @Test void markingAnotherUsersNotificationFailsSafely() {
++        when(currentUser.getCurrentUserId()).thenReturn(7L);
++        var service = new PriceAlertService(jdbc, currentUser);
++        assertThrows(ResponseStatusException.class, () -> service.markRead(99L));
++    }
+ }
+diff --git a/frontend/src/app/core/services/price-alerts.ts b/frontend/src/app/core/services/price-alerts.ts
+index e424d76..fabdd08 100644
+--- a/frontend/src/app/core/services/price-alerts.ts
++++ b/frontend/src/app/core/services/price-alerts.ts
+@@ -6,5 +6,5 @@ export type AlertDirection = 'ABOVE' | 'BELOW';
+ export interface PriceAlert {
+   id:number; instrumentId:number; symbol:string; currency:string;
+-  direction:AlertDirection; threshold:number; enabled:boolean;
++  direction:AlertDirection; threshold:number; enabled:boolean; armed:boolean;
+   triggeredAt:string|null; generation:number;
+ }
+diff --git a/frontend/src/app/dashboard/price-alerts.component.html b/frontend/src/app/dashboard/price-alerts.component.html
+index 300dc31..44db4f1 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.html
++++ b/frontend/src/app/dashboard/price-alerts.component.html
+@@ -12,5 +12,5 @@
+     <div class="form-title">
+       <strong>{{ editId === null ? 'Create a price alert' : 'Edit price alert' }}</strong>
+-      <span>One notification per activation</span>
++      <span>Repeat notifications after each new threshold crossing</span>
+     </div>
+     <div class="alert-fields">
+@@ -53,5 +53,5 @@
+       <button type="submit" class="primary-button"
+         [disabled]="busy() || instrumentId === null || (threshold ?? 0) <= 0">
+-        {{ busy() ? 'Saving...' : editId === null ? 'Create alert' : 'Save and reactivate' }}
++        {{ busy() ? 'Saving...' : editId === null ? 'Create alert' : 'Save changes' }}
+       </button>
+       @if (editId !== null) {
+@@ -79,7 +79,7 @@
+           <div class="alert-card-top">
+             <strong>{{ alert.symbol }}</strong>
+-            <span class="status" [class.status-active]="alert.enabled"
+-              [class.status-triggered]="alert.triggeredAt !== null">
+-              {{ alert.triggeredAt ? 'Triggered' : alert.enabled ? 'Active' : 'Paused' }}
++            <span class="status" [class.status-active]="alert.enabled && alert.armed"
++              [class.status-triggered]="alert.enabled && !alert.armed">
++              {{ !alert.enabled ? 'Paused' : alert.armed ? 'Monitoring' : 'Waiting for reset' }}
+             </span>
+           </div>
+@@ -88,8 +88,11 @@
+             <strong>{{ alert.threshold | number:'1.2-8' }} {{ alert.currency }}</strong>
+           </p>
+-          @if (alert.triggeredAt) {
+-            <span class="alert-meta">Triggered {{ alert.triggeredAt | date:'medium' }} · Reactivate to monitor again</span>
++          @if (alert.enabled && !alert.armed) {
++            <span class="alert-meta">Waiting for the price to return {{ alert.direction === 'ABOVE' ? 'below' : 'above' }} the threshold before another alert</span>
+           } @else {
+-            <span class="alert-meta">{{ alert.enabled ? 'Monitoring the market' : 'Monitoring paused' }}</span>
++            <span class="alert-meta">{{ alert.enabled ? 'Ready for the next crossing' : 'Monitoring paused' }}</span>
++          }
++          @if (alert.triggeredAt) {
++            <span class="alert-meta">Last triggered {{ alert.triggeredAt | date:'medium' }}</span>
+           }
+         </div>
+@@ -97,5 +100,5 @@
+           <button type="button" class="secondary-button" (click)="edit(alert)" [disabled]="busy()">Edit</button>
+           <button type="button" class="secondary-button" (click)="toggle(alert)" [disabled]="busy()">
+-            {{ alert.enabled ? 'Pause' : 'Reactivate' }}
++            {{ alert.enabled ? 'Pause' : 'Resume' }}
+           </button>
+           <button type="button" class="danger-button" (click)="remove(alert)" [disabled]="busy()"
+@@ -127,5 +130,6 @@
+         @if (!notice.readAt) {
+           <button type="button" class="secondary-button" (click)="markRead(notice)"
+-            [attr.aria-label]="'Mark ' + notice.symbol + ' price alert as read'">Mark read</button>
++            [disabled]="readingIds().includes(notice.id)"
++            [attr.aria-label]="'Mark ' + notice.symbol + ' price alert as read'">{{ readingIds().includes(notice.id) ? 'Saving...' : 'Mark read' }}</button>
+         } @else {
+           <span class="read-label">Read</span>
+diff --git a/frontend/src/app/dashboard/price-alerts.component.ts b/frontend/src/app/dashboard/price-alerts.component.ts
+index 590d042..e08f847 100644
+--- a/frontend/src/app/dashboard/price-alerts.component.ts
++++ b/frontend/src/app/dashboard/price-alerts.component.ts
+@@ -3,5 +3,5 @@ import { Component, computed, DestroyRef, inject, input, OnInit, signal } from '
+ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ import { FormsModule } from '@angular/forms';
+-import { catchError, finalize, forkJoin, interval, of, switchMap } from 'rxjs';
++import { catchError, exhaustMap, finalize, forkJoin, interval, of } from 'rxjs';
+ import { MarketInstrumentResponse } from '../core/services/market-data';
+ import {
+@@ -26,4 +26,5 @@ export class PriceAlertsComponent implements OnInit {
+   readonly activeCount = computed(() => this.alerts().filter(alert => alert.enabled).length);
+   readonly unreadCount = computed(() => this.notices().filter(notice => !notice.readAt).length);
++  readonly readingIds = signal<number[]>([]);
+ 
+   instrumentId: number | null = null;
+@@ -41,10 +42,18 @@ export class PriceAlertsComponent implements OnInit {
+   ngOnInit(): void {
+     this.reload();
+-    // Notifications are persisted by the backend; this merely refreshes the visible history.
++    // Keep the alert state (Monitoring / Waiting for reset) and history current,
++    // including transitions made by the backend while this tab is open.
+     interval(5000).pipe(
+       takeUntilDestroyed(this.destroyRef),
+-      switchMap(() => this.api.notifications().pipe(catchError(() => of(null))))
+-    ).subscribe(notices => {
+-      if (notices !== null) this.notices.set(notices);
++      exhaustMap(() => {
++        if (this.busy() || this.loading() || this.readingIds().length > 0) return of(null);
++        return forkJoin({ alerts: this.api.list(), notices: this.api.notifications() })
++          .pipe(catchError(() => of(null)));
++      })
++    ).subscribe(result => {
++      if (result !== null) {
++        this.alerts.set(result.alerts);
++        this.notices.set(result.notices);
++      }
+     });
+   }
+@@ -72,5 +81,5 @@ export class PriceAlertsComponent implements OnInit {
+     this.threshold = alert.threshold;
+     this.error.set('');
+-    this.info.set('Editing ' + alert.symbol + '. Saving will reactivate this one-shot alert.');
++    this.info.set('Editing ' + alert.symbol + '. Saving will start a fresh monitoring cycle.');
+   }
+ 
+@@ -105,5 +114,5 @@ export class PriceAlertsComponent implements OnInit {
+         next: () => {
+           this.reset();
+-          this.info.set('Price alert saved. It will notify you once, until reactivated.');
++          this.info.set('Price alert saved. It will notify you again each time the price returns across your threshold.');
+           this.reload();
+         },
+@@ -120,5 +129,5 @@ export class PriceAlertsComponent implements OnInit {
+     ).subscribe({
+       next: () => {
+-        this.info.set(alert.enabled ? 'Alert paused.' : 'Alert reactivated.');
++        this.info.set(alert.enabled ? 'Alert paused.' : 'Alert resumed. It will monitor for the next threshold crossing.');
+         this.reload();
+       },
+@@ -144,5 +153,11 @@ export class PriceAlertsComponent implements OnInit {
+ 
+   markRead(notice: PriceNotice): void {
+-    this.api.read(notice.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++    if (this.readingIds().includes(notice.id)) return;
++    this.readingIds.update(ids => [...ids, notice.id]);
++    this.error.set('');
++    this.api.read(notice.id).pipe(
++      takeUntilDestroyed(this.destroyRef),
++      finalize(() => this.readingIds.update(ids => ids.filter(id => id !== notice.id)))
++    ).subscribe({
+       next: () => this.notices.update(items => items.map(item => item.id === notice.id
+         ? { ...item, readAt: new Date().toISOString() } : item)),
