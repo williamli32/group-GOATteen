@@ -2,6 +2,7 @@ package com.goatteen.trading.alerts;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -50,7 +51,7 @@ class PriceAlertEvaluatorTest {
                 return List.of(row((RowMapper<Object>) invocation.getArgument(1),
                     step != 2, step == 3 ? 2 : 1, step == 2 ? "190" : "210"));
             });
-        when(jdbc.update(anyString(), (Object[]) any())).thenAnswer(invocation -> 1);
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
 
         PriceAlertEvaluator evaluator = new PriceAlertEvaluator(jdbc, 30);
         evaluator.evaluate(); // 210 > 200 -> notification #1, armed=false
@@ -60,7 +61,13 @@ class PriceAlertEvaluatorTest {
 
         // Two notifications, one rearm and two disarms = 5 updates.
         // The SQL explicitly ensures a separate generation per trigger.
-        verify(jdbc, times(5)).update(anyString(), (Object[]) any());
+        verify(jdbc, times(5)).update(anyString(), any(Object[].class));
+        ArgumentCaptor<Object[]> notificationArguments = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc, times(2)).update(
+            contains("INSERT INTO price_alert_notifications"), notificationArguments.capture());
+        List<Object[]> notifications = notificationArguments.getAllValues();
+        assertEquals(List.of(1, 2), notifications.stream().map(arguments -> arguments[2]).toList());
+        assertTrue(notifications.stream().allMatch(arguments -> Long.valueOf(10L).equals(arguments[0])));
         assertEquals(4, poll.get());
     }
 

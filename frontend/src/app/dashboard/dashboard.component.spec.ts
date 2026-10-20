@@ -10,6 +10,8 @@ import { AccountFundingComponent } from './account-funding.component';
 import { WatchlistComponent } from './watchlist.component';
 import { WatchlistService } from '../core/services/watchlist';
 import { DailyPriceChange } from '../core/services/market-data';
+import { FxRateService } from '../core/services/fx-rate';
+import { PriceAlertsService } from '../core/services/price-alerts';
 
 import {
     HttpErrorResponse
@@ -21,6 +23,7 @@ import {
 
 import {
     Observable,
+    NEVER,
     Subject,
     of,
     throwError
@@ -232,6 +235,11 @@ describe('DashboardComponent', () => {
 
             fillPrice: 75.1,
 
+            fillCurrency: 'GBP',
+            accountCurrency: 'GBP',
+            fxRate: 1,
+            settlementAmount: -150.2,
+
             submittedAt:
                 '2026-09-15T14:00:00',
 
@@ -266,6 +274,23 @@ describe('DashboardComponent', () => {
                     {
                         provide: WatchlistService,
                         useValue: { getWatchlist: () => of([]) }
+                    },
+                    {
+                        provide: FxRateService,
+                        useValue: {
+                            quote: (from: string, to: string) => of({
+                                from, to, rate: 1,
+                                asOf: '2026-09-15T14:00:00', provider: 'TEST'
+                            })
+                        }
+                    },
+                    {
+                        provide: PriceAlertsService,
+                        useValue: {
+                            list: () => of([]),
+                            notifications: () => of([]),
+                            noticeCleared$: NEVER
+                        }
                     },
 
                     {
@@ -867,9 +892,14 @@ describe('DashboardComponent', () => {
                 status: 'REJECTED',
 
                 rejectionReason:
-                    'Currency conversion is not supported yet',
+                    'Insufficient cash balance',
 
                 fillPrice: null,
+
+                fillCurrency: 'GBP',
+                accountCurrency: 'GBP',
+                fxRate: null,
+                settlementAmount: null,
 
                 submittedAt:
                     '2026-09-15T14:00:00',
@@ -904,7 +934,7 @@ describe('DashboardComponent', () => {
             expect(
                 component.orderErrorMessage()
             ).toBe(
-                'Currency conversion is not supported yet'
+                'Insufficient cash balance'
             );
 
         }

@@ -113,6 +113,7 @@ class OrderControllerTest {
 
                 // The controller retrieves the order after execution is complete.
                 Order filledOrder = mock(Order.class);
+                stubOrderCurrencies(filledOrder);
 
                 when(filledOrder.getId())
                                 .thenReturn(55L);
@@ -131,6 +132,12 @@ class OrderControllerTest {
                 Fill fill = mock(Fill.class);
                 when(fill.getFillPrice())
                                 .thenReturn(fillPrice);
+                when(fill.getFxRate())
+                                .thenReturn(new BigDecimal("0.80"));
+                when(fill.getCashSettlementAmount())
+                                .thenReturn(new BigDecimal("-120.16"));
+                when(fill.getExecutedAt())
+                                .thenReturn(LocalDateTime.of(2026, 9, 15, 14, 0, 1));
 
                 when(fillRepository.findByOrderId(55L))
                                 .thenReturn(Optional.of(fill));
@@ -146,6 +153,11 @@ class OrderControllerTest {
                 assertEquals(55L, body.getId());
                 assertEquals(OrderStatus.FILLED, body.getStatus());
                 assertEquals(0, fillPrice.compareTo(body.getFillPrice()));
+                assertEquals("USD", body.getFillCurrency());
+                assertEquals("GBP", body.getAccountCurrency());
+                assertEquals(0, new BigDecimal("0.80").compareTo(body.getFxRate()));
+                assertEquals(0, new BigDecimal("-120.16").compareTo(body.getSettlementAmount()));
+                assertEquals(LocalDateTime.of(2026, 9, 15, 14, 0, 1), body.getFilledAt());
 
                 verify(executionService)
                                 .submitOrder(any(Order.class));
@@ -163,7 +175,7 @@ class OrderControllerTest {
         void shouldPersistRejectedOrderWithoutExecutingIt() {
 
                 BigDecimal quantity = BigDecimal.ONE;
-                String rejectionReason = "Currency conversion is not supported yet";
+                String rejectionReason = "Insufficient cash balance";
 
                 PlaceOrderRequest request = new PlaceOrderRequest(
                                 1L,
@@ -195,6 +207,7 @@ class OrderControllerTest {
                 }).when(executionService).submitOrder(any(Order.class));
 
                 Order rejectedOrder = mock(Order.class);
+                stubOrderCurrencies(rejectedOrder);
 
                 when(rejectedOrder.getId())
                                 .thenReturn(56L);
@@ -223,6 +236,13 @@ class OrderControllerTest {
                 assertEquals(56L, body.getId());
                 assertEquals(OrderStatus.REJECTED, body.getStatus());
                 assertEquals(rejectionReason, body.getRejectionReason());
+                assertEquals("USD", body.getFillCurrency());
+                assertEquals("GBP", body.getAccountCurrency());
+                assertNull(body.getFillPrice());
+                assertNull(body.getFxRate());
+                assertNull(body.getSettlementAmount());
+                assertNull(body.getFilledAt());
+                verifyNoInteractions(fillRepository);
 
                 verify(executionService)
                                 .submitOrder(any(Order.class));
@@ -247,6 +267,7 @@ class OrderControllerTest {
                                 .thenReturn(10L);
 
                 Order order = mock(Order.class);
+                stubOrderCurrencies(order);
 
                 when(order.getId())
                                 .thenReturn(99L);
@@ -264,6 +285,11 @@ class OrderControllerTest {
 
                 assertEquals(200, response.getStatusCode().value());
                 assertNotNull(response.getBody());
+                assertEquals("USD", response.getBody().getFillCurrency());
+                assertEquals("GBP", response.getBody().getAccountCurrency());
+                assertNull(response.getBody().getFxRate());
+                assertNull(response.getBody().getSettlementAmount());
+                verifyNoInteractions(fillRepository);
 
                 verify(orderRepository)
                                 .findByIdAndAccountId(99L, 10L);
@@ -320,15 +346,10 @@ class OrderControllerTest {
                                 .thenReturn(1L);
 
                 Order existingOrder = mock(Order.class);
+                stubOrderCurrencies(existingOrder);
 
                 when(existingOrder.getId())
                                 .thenReturn(55L);
-
-                when(existingOrder.getAccount())
-                                .thenReturn(account);
-
-                when(existingOrder.getInstrument())
-                                .thenReturn(instrument);
 
                 when(existingOrder.getSide())
                                 .thenReturn(OrderSide.BUY);
@@ -358,6 +379,10 @@ class OrderControllerTest {
                 when(existingFill.getFillPrice())
                                 .thenReturn(
                                                 new BigDecimal("75.10"));
+                when(existingFill.getFxRate())
+                                .thenReturn(new BigDecimal("0.80"));
+                when(existingFill.getCashSettlementAmount())
+                                .thenReturn(new BigDecimal("-120.16"));
 
                 when(fillRepository.findByOrderId(55L))
                                 .thenReturn(
@@ -384,6 +409,10 @@ class OrderControllerTest {
                 assertEquals(
                                 OrderStatus.FILLED,
                                 body.getStatus());
+                assertEquals("USD", body.getFillCurrency());
+                assertEquals("GBP", body.getAccountCurrency());
+                assertEquals(0, new BigDecimal("0.80").compareTo(body.getFxRate()));
+                assertEquals(0, new BigDecimal("-120.16").compareTo(body.getSettlementAmount()));
 
                 verify(orderRepository)
                                 .findByIdempotencyKey(
@@ -525,5 +554,12 @@ class OrderControllerTest {
                                 instrumentRepository,
                                 validationService,
                                 executionService);
+        }
+
+        private void stubOrderCurrencies(Order order) {
+                when(order.getInstrument()).thenReturn(instrument);
+                when(order.getAccount()).thenReturn(account);
+                when(instrument.getCurrency()).thenReturn("USD");
+                when(account.getCurrency()).thenReturn("GBP");
         }
 }
