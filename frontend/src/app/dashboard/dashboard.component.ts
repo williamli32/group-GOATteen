@@ -1521,63 +1521,51 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
-        next: order => {
+      next: order => {
+        this.addOrderToBlotter(order);
+        this.loadDashboard(false);
 
+        switch (order.status) {
+          case 'FILLED':
+            this.orderMessage.set(`Order #${order.id} filled.`);
 
+            this.notificationService.show(
+              `Order #${order.id} filled: ${order.side} ${order.quantity} units`,
+              'success',
+              5000
+            );
 
-          this.addOrderToBlotter(
+            this.orderQuantity = null;
+            this.idempotencyService.clearKey();
+            break;
 
-            order
+          case 'ACCEPTED':
+          case 'SUBMITTED':
+            this.orderMessage.set(
+              `Order #${order.id} was received and is still processing.`
+            );
 
-          );
+            this.notificationService.show(
+              `Order #${order.id} is still processing.`,
+              'success',
+              5000
+            );
+            break;
 
+          case 'REJECTED':
+            this.orderErrorMessage.set(
+              order.rejectionReason ?? 'The order was rejected.'
+            );
 
+            this.idempotencyService.clearKey();
+            break;
 
-          /*
-
- * Refresh cash, positions and orders immediately
-
- * after execution without displaying the main
-
- * loading state.
-
- */
-
-          this.loadDashboard(false);
-
-
-
-          this.orderMessage.set(
-
-            `Order #${order.id} filled.`
-
-          );
-
-
-
-          this.notificationService.show(
-
-            `✓ Order #${order.id} filled - ${this.orderSide} ${this.orderQuantity} units`,
-
-            'success',
-
-            5000
-
-          );
-
-
-
-          this.orderQuantity =
-
-            null;
-
-
-
-          this.idempotencyService.clearKey();
-
-
-
-        },
+          default:
+            this.orderMessage.set(
+              `Order #${order.id} received status: ${order.status}.`
+            );
+        }
+      },
 
 
 
