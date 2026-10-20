@@ -123,6 +123,11 @@
                 }
               </select>
             </div>
+            @if (filteredMarketInstruments().length === 0) {
+            <div class="market-state">
+              No instruments match your search and filter.
+            </div>
+          } @else {
             <div class="market-table-wrapper">
               <table class="market-table" aria-label="Live market prices">
                 <thead><tr><th scope="col">Symbol</th><th scope="col">Instrument</th><th scope="col">Market</th><th scope="col">Bid</th><th scope="col">Ask</th><th scope="col">Last</th><th scope="col">Currency</th><th scope="col">Day % (UTC)</th></tr></thead>
@@ -148,7 +153,7 @@
                   }
                 </tbody>
               </table>
-            </div>
+            </div>}
             <p class="market-day-note">Day % compares the latest price with today's first recorded price (UTC).</p>
           }
         </div>
