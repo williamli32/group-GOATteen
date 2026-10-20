@@ -158,6 +158,32 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
     readonly clients = signal<ClientMetrics[]>([]);
     readonly activity = signal<ReportingActivity[]>([]);
     readonly marketInstruments = signal<MarketInstrumentResponse[]>([]);
+    readonly marketSearch = signal('');
+    readonly marketClassFilter = signal('ALL');
+    readonly marketClasses = [
+        'ALL',
+        'EQUITY',
+        'FOREX',
+        'CRYPTO',
+        'COMMODITY'
+    ] as const;
+    readonly filteredMarketInstrumnets = computed(() => {
+        const search = this.marketSearch().trim().toLocaleLowerCase();
+        const selectedClass = this.marketClassFilter();
+
+        return this.marketInstruments().filter(instrument => {
+            const matchesSearch =
+                search === ''
+                || instrument.symbol.toLowerCase().includes(search)
+                || instrument.name.toLowerCase().includes(search);
+
+            const matchesClass = 
+                selectedClass === 'ALL'
+                || instrument.instrumentClass === selectedClass;
+
+            return  matchesSearch && matchesClass ;
+        });
+    });
     readonly clientId = signal<number | undefined>(undefined);
     readonly clientOptions = signal<ClientMetrics[]>([]);
     readonly graphDialog = signal<GraphDialog | null>(null);
