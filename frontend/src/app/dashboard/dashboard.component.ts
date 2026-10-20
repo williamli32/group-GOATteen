@@ -4,6 +4,8 @@ import {
 
   Component,
 
+  computed,
+
   ElementRef,
 
   OnInit,
