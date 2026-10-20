@@ -123,6 +123,12 @@
                 }
               </select>
             </div>
+
+            @if (marketRefreshFailed()) {
+              <p class="market-state market-warning" role="status">
+                Market refresh failed. Prices below may be stale.
+              </p>
+            }
             @if (filteredMarketInstruments().length === 0) {
             <div class="market-state">
               No instruments match your search and filter.
@@ -130,7 +136,7 @@
           } @else {
             <div class="market-table-wrapper">
               <table class="market-table" aria-label="Live market prices">
-                <thead><tr><th scope="col">Symbol</th><th scope="col">Instrument</th><th scope="col">Market</th><th scope="col">Bid</th><th scope="col">Ask</th><th scope="col">Last</th><th scope="col">Currency</th><th scope="col">Day % (UTC)</th></tr></thead>
+                <thead><tr><th scope="col">Symbol</th><th scope="col">Instrument</th><th scope="col">Market</th><th scope="col">Bid</th><th scope="col">Ask</th><th scope="col">Last</th><th scope="col">Quote age</th><th scope="col">Currency</th><th scope="col">Day % (UTC)</th></tr></thead>
                 <tbody>
                     @for (instrument of filteredMarketInstruments(); track instrument.instrumentId) {                    <tr class="market-row" [class.selected]="selectedInstrument()?.instrumentId === instrument.instrumentId">
                       <td class="market-symbol">
@@ -143,11 +149,37 @@
                       @if (instrument.latestQuote) {
                         <td>{{ instrument.latestQuote.bidPrice | number:'1.2-6' }}</td>
                         <td>{{ instrument.latestQuote.askPrice | number:'1.2-6' }}</td>
-                        <td class="market-last">{{ instrument.latestQuote.lastPrice | number:'1.2-6' }}</td>
+                        <td class="market-last">
+                          {{ instrument.latestQuote.lastPrice | number:'1.2-6' }}
+                        </td>
+                        <td class="quote-age">
+                          @if (isQuoteStale(instrument.latestQuote.quotedAt)) {
+                            <span class="stale-quote">Stale</span>
+                          } @else if (quoteAgeSeconds(instrument.latestQuote.quotedAt) !== null) {
+                            <span>
+                              {{ quoteAgeSeconds(instrument.latestQuote.quotedAt) }}s ago
+                            </span>
+                          } @else {
+                            <span>Unavailable</span>
+                          }
+                        </td>
                       } @else {
-                        <td>—</td><td>—</td><td>—</td>
+                        <td>—</td><td>—</td><td>Quote unavailable</td>
                       }
                       <td>{{ instrument.currency }}</td>
+                      <td class="quote-age">
+                        @if (instrument.latestQuote; as quote) {
+                          @if (isQuoteStale(quote.quotedAt)) {
+                            <span class="stale-quote">Stale</span>
+                          } @else if (quoteAgeSeconds(quote.quotedAt) !== null) {
+                            <span>{{ quoteAgeSeconds(quote.quotedAt) }}s ago</span>
+                          } @else {
+                            <span>Unavailable</span>
+                          }
+                        } @else {
+                          <span>Unavailable</span>
+                        }
+                      </td>
                       <td><app-daily-price-change [change]="instrument.dayChange ?? null" [currency]="instrument.currency" /></td>
                     </tr>
                   }
