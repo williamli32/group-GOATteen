@@ -167,19 +167,7 @@
                         <td>—</td><td>—</td><td>Quote unavailable</td>
                       }
                       <td>{{ instrument.currency }}</td>
-                      <td class="quote-age">
-                        @if (instrument.latestQuote; as quote) {
-                          @if (isQuoteStale(quote.quotedAt)) {
-                            <span class="stale-quote">Stale</span>
-                          } @else if (quoteAgeSeconds(quote.quotedAt) !== null) {
-                            <span>{{ quoteAgeSeconds(quote.quotedAt) }}s ago</span>
-                          } @else {
-                            <span>Unavailable</span>
-                          }
-                        } @else {
-                          <span>Unavailable</span>
-                        }
-                      </td>
+                      
                       <td><app-daily-price-change [change]="instrument.dayChange ?? null" [currency]="instrument.currency" /></td>
                     </tr>
                   }
