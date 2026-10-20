@@ -1342,7 +1342,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
 
+  private customerOrderRejectionMessage(reason: string | null): string {
+    switch (reason) {
+      case 'Insufficient cash balance':
+        return 'You do not have enough available cash for this BUY order.';
 
+      case 'Insufficient holding of this instrument':
+        return 'You do not hold enough of this instrument to complete this SELL order.';
+
+      case 'No market quote available for instrument':
+        return 'This instrument cannot be traded because a market quote is unavailable.';
+
+      default:
+        return reason ?? 'The order was rejected. Please review the order details.';
+    }
+  }
 
 
   submitOrder(): void {
@@ -1554,7 +1568,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           case 'REJECTED':
             this.orderErrorMessage.set(
-              order.rejectionReason ?? 'The order was rejected.'
+              this.customerOrderRejectionMessage(order.rejectionReason)
             );
 
             this.idempotencyService.clearKey();
@@ -1645,7 +1659,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
-            const rejectionMsg = rejectedOrder.rejectionReason ?? 'Order rejected.';
+            const rejectionMsg = this.customerOrderRejectionMessage(
+              rejectedOrder.rejectionReason
+            );
 
 
 
