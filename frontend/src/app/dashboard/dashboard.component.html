@@ -125,7 +125,7 @@
             </div>
             <div class="market-table-wrapper">
               <table class="market-table" aria-label="Live market prices">
-                <thead><tr><th scope="col">Symbol</th><th scope="col">Market</th><th scope="col">Bid</th><th scope="col">Ask</th><th scope="col">Last</th><th scope="col">Currency</th><th scope="col">Day % (UTC)</th></tr></thead>
+                <thead><tr><th scope="col">Symbol</th><th scope="col">Instrument</th><th scope="col">Market</th><th scope="col">Bid</th><th scope="col">Ask</th><th scope="col">Last</th><th scope="col">Currency</th><th scope="col">Day % (UTC)</th></tr></thead>
                 <tbody>
                     @for (instrument of filteredMarketInstruments(); track instrument.instrumentId) {                    <tr class="market-row" [class.selected]="selectedInstrument()?.instrumentId === instrument.instrumentId">
                       <td class="market-symbol">
@@ -133,6 +133,7 @@
                           [attr.aria-label]="'Trade ' + instrument.symbol + ' on ' + instrument.exchange"
                           (click)="selectInstrument(instrument)">{{ instrument.symbol }}</button>
                       </td>
+                      <td>{{ instrument.name }}</td>
                       <td>{{ instrument.exchange }}</td>
                       @if (instrument.latestQuote) {
                         <td>{{ instrument.latestQuote.bidPrice | number:'1.2-6' }}</td>
