@@ -161,7 +161,12 @@ type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
 })
 
 export class DashboardComponent implements OnInit, OnDestroy {
-
+  readonly marketClasses = [
+    'ALL',
+    'EQUITY',
+    'FOREX',
+    'CRYPTO'
+  ] as const;
 
 
   readonly dashboardTabs: ReadonlyArray<{ id: DashboardTab; label: string }> = [
@@ -201,7 +206,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     signal<MarketInstrumentResponse[]>([]);
 
 
+  readonly marketSearch = signal('');
+  readonly marketClassFilter = signal('ALL');
 
+  readonly filteredMarketInstruments = computed(() => {
+    const search = this.marketSearch().trim().toLowerCase();
+    const selectedClass = this.marketClassFilter();
+
+    return this.marketInstruments().filter(instrument => {
+      const matchesSearch =
+        search === '' ||
+        instrument.symbol.toLowerCase().includes(search) ||
+        instrument.name.toLowerCase().includes(search);
+
+      const matchesClass =
+        selectedClass === 'ALL' ||
+        instrument.instrumentClass === selectedClass;
+
+      return matchesSearch && matchesClass;
+    });
+  });
   selectedInstrument =
 
     signal<MarketInstrumentResponse | null>(null);

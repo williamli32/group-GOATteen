@@ -157,6 +157,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
     readonly instruments = signal<InstrumentMetrics[]>([]);
     readonly clients = signal<ClientMetrics[]>([]);
     readonly activity = signal<ReportingActivity[]>([]);
+    
     readonly marketInstruments = signal<MarketInstrumentResponse[]>([]);
     readonly marketSearch = signal('');
     readonly marketClassFilter = signal('ALL');

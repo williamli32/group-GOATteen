@@ -100,12 +100,34 @@
                 }
               </div>
             }
+
+            <div class="market-filters">
+              <label for="market-search">Search instruments</label>
+              <input
+                id="market-search"
+                type="search"
+                [value]="marketSearch()"
+                (input)="marketSearch.set($any($event.target).value)"
+                placeholder="Search by symbol or name"
+                autocomplete="off">
+
+              <label for="market-class-filter">Asset class</label>
+              <select
+                id="market-class-filter"
+                [value]="marketClassFilter()"
+                (change)="marketClassFilter.set($any($event.target).value)">
+                @for (assetClass of marketClasses; track assetClass) {
+                  <option [value]="assetClass">
+                    {{ assetClass === 'ALL' ? 'All asset classes' : assetClass }}
+                  </option>
+                }
+              </select>
+            </div>
             <div class="market-table-wrapper">
               <table class="market-table" aria-label="Live market prices">
                 <thead><tr><th scope="col">Symbol</th><th scope="col">Market</th><th scope="col">Bid</th><th scope="col">Ask</th><th scope="col">Last</th><th scope="col">Currency</th><th scope="col">Day % (UTC)</th></tr></thead>
                 <tbody>
-                  @for (instrument of marketInstruments(); track instrument.instrumentId) {
-                    <tr class="market-row" [class.selected]="selectedInstrument()?.instrumentId === instrument.instrumentId">
+                    @for (instrument of filteredMarketInstruments(); track instrument.instrumentId) {                    <tr class="market-row" [class.selected]="selectedInstrument()?.instrumentId === instrument.instrumentId">
                       <td class="market-symbol">
                         <button type="button" class="instrument-link" [disabled]="orderSubmitting()"
                           [attr.aria-label]="'Trade ' + instrument.symbol + ' on ' + instrument.exchange"
