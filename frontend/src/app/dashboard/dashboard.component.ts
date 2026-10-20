@@ -165,7 +165,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     'ALL',
     'EQUITY',
     'FOREX',
-    'CRYPTO'
+    'CRYPTO',
+    'COMMODITY'
   ] as const;
 
 
@@ -182,6 +183,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.activeTab.set(tab);
     // Also move focus when a shortcut leaves a panel that is about to be hidden.
     this.host.nativeElement.querySelector<HTMLButtonElement>(`#dashboard-tab-${tab}`)?.focus();
+  }
+
+  quoteAgeSeconds(quotedAt: string | null | undefined): number | null {
+    if (!quotedAt) {
+      return null;
+    }
+
+    const quotedTime = new Date(quotedAt).getTime();
+
+    if (!Number.isFinite(quotedTime)) {
+      return null;
+    }
+
+    const ageMs = Math.max(0, Date.now() - quotedTime);
+    return Math.floor(ageMs / 1000);
+  }
+
+  isQuoteStale(quotedAt: string | null | undefined): boolean {
+    const ageSeconds = this.quoteAgeSeconds(quotedAt);
+
+    return ageSeconds === null
+      || ageSeconds * 1000 > this.quoteStaleAfterMs;
   }
 
   onTabKeydown(event: KeyboardEvent, index: number): void {
@@ -237,7 +260,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     signal(true);
 
 
+  readonly marketRefreshFailed = signal(false);
 
+  private readonly quoteStaleAfterMs = 10_000;
   marketErrorMessage =
 
     signal('');
@@ -923,7 +948,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         next: instruments => {
 
-
+          this.marketRefreshFailed.set(false);
 
           this.marketInstruments.set(
 
@@ -1062,6 +1087,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
+          this.marketRefreshFailed.set(true);
 
 
           /*
