@@ -613,7 +613,7 @@ describe('AnalystDashboardComponent', () => {
                 component.errorMessage()
             )
                 .toContain(
-                    'reporting service returned an error (500)'
+                    'reporting service is temporarily unavailable'
                 );
 
         }
@@ -813,9 +813,10 @@ describe('AnalystDashboardComponent', () => {
 
 
     it(
-        'builds line-chart points from daily trend values',
+        'plots daily values on the applied calendar with whole-number count ticks',
         () => {
 
+            component.appliedFilters.set({ fromDate: '2026-10-01', toDate: '2026-10-02', currency: 'GBP' });
             component.trends.set([
 
                 {
@@ -881,19 +882,19 @@ describe('AnalystDashboardComponent', () => {
 
             expect(
                 component
-                    .trendPoints('orders')
+                    .dailyCharts().orders.path
             )
                 .toBe(
-                    '0,100.4 600,22'
+                    'M0,106 L600,32.5'
                 );
 
 
             expect(
                 component
-                    .trendAreaPoints('value')
+                    .dailyCharts().value.area
             )
                 .toBe(
-                    '0,190 0,122.8 600,22 600,190'
+                    'M0,190 L0,122.8 L600,22 L600,190 Z'
                 );
 
         }
@@ -1262,7 +1263,7 @@ describe('AnalystDashboardComponent', () => {
 
 
     it(
-        'counts active clients distinctly across currencies',
+        'keeps the active-client dialog aligned with its summary card rather than the union of order and fill activity rows',
         () => {
 
             component.clients.set([
@@ -1295,8 +1296,12 @@ describe('AnalystDashboardComponent', () => {
                 }
             ]);
 
-            expect(component.distinctClientCount()).toBe(2);
-            expect(component.metricStats('clients').current).toBe(2);
+            expect(component.mostActiveClients().length).toBe(2);
+            expect(component.metricStats('clients').current).toBe(3);
+            component.toggleMetric('clients');
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('.metric-modal-stats strong').textContent).toBe('3');
+            expect(component.metricStats('clients').previous).toBe(3);
         }
     );
 
@@ -1331,8 +1336,10 @@ describe('AnalystDashboardComponent', () => {
                 expect.objectContaining({ label: 'BUY fills', value: '3' }),
                 expect.objectContaining({ label: 'SELL fills', value: '1' })
             ]);
-            expect(dialog?.x).toBe(240);
-            expect(dialog?.y).toBe(180);
+            expect(dialog!.x).toBeGreaterThan(0);
+            expect(dialog!.x).toBeLessThan(window.innerWidth);
+            expect(dialog!.y).toBeGreaterThan(0);
+            expect(dialog!.y).toBeLessThan(window.innerHeight);
         }
     );
 
@@ -1411,6 +1418,7 @@ describe('AnalystDashboardComponent', () => {
     });
 
     it('limits every daily chart to five aligned ticks for a 366-day range', () => {
+        component.appliedFilters.set({ fromDate: '2024-01-01', toDate: '2024-12-31', currency: 'GBP' });
         component.trends.set(Array.from({ length: 366 }, (_, index) => ({
             date: new Date(Date.UTC(2024, 0, 1) + index * 86_400_000).toISOString().slice(0, 10),
             totalOrders: 1, filledOrders: 1, rejectedOrders: 0, activeClients: 1,
@@ -1431,7 +1439,8 @@ describe('AnalystDashboardComponent', () => {
         expect(component.trendTicks()[4].date).toBe('2024-12-31');
     });
 
-    it('centres the axis label for a single daily observation', () => {
+    it('centres the axis label for a single-day reporting window', () => {
+        component.appliedFilters.set({ fromDate: '2026-10-01', toDate: '2026-10-01', currency: 'GBP' });
         component.trends.set([{
             date: '2026-10-01', totalOrders: 1, filledOrders: 1, rejectedOrders: 0,
             activeClients: 1, executedQuantity: 1, tradedValue: 10, buyFills: 1, sellFills: 0
@@ -1456,4 +1465,145 @@ describe('AnalystDashboardComponent', () => {
         expect(component.expandedMetric()).toBeNull();
         expect(document.activeElement).toBe(card);
     });
+    it('distinguishes draft filters from applied results and refreshes the applied scope', () => {
+        const applied = { ...component.appliedFilters() };
+        component.currency.set('USD');
+        fixture.detectChanges();
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelector('.draft-notice')?.textContent).toContain('not been applied');
+        expect(host.querySelector('.applied-scope')?.textContent).toContain('GBP');
+        component.refreshApplied();
+        expect(reportingService.getInsights).toHaveBeenLastCalledWith(applied);
+        expect(component.currency()).toBe('USD');
+        component.discardDraft();
+        fixture.detectChanges();
+        expect(component.currency()).toBe('GBP');
+        expect(host.querySelector('.draft-notice')).toBeNull();
+    });
+
+    it('keeps successful data visible after a failed apply and retries that exact request despite later draft edits', () => {
+        reportingService.getInsights.mockReturnValueOnce(throwError(() => ({ status: 503 })));
+        component.currency.set('USD');
+        component.applyFilters();
+        component.currency.set('INR');
+        fixture.detectChanges();
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelector('.error-state')?.textContent).toContain('Retry');
+        expect(host.querySelectorAll('.metric-card').length).toBeGreaterThan(0);
+        expect(host.querySelector('.applied-scope')?.textContent).toContain('GBP');
+        expect(host.textContent).not.toContain('backend logs');
+        component.retryReporting();
+        expect(reportingService.getInsights).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'USD' }));
+        expect(component.reportedCurrency()).toBe('USD');
+        expect(component.currency()).toBe('INR');
+    });
+
+    it('validates a reversed date range before querying and retains the applied results', () => {
+        const calls = reportingService.getInsights.mock.calls.length;
+        component.fromDate.set('2026-10-20');
+        component.toDate.set('2026-10-01');
+        component.applyFilters();
+        fixture.detectChanges();
+        expect(reportingService.getInsights).toHaveBeenCalledTimes(calls);
+        expect(fixture.nativeElement.querySelector('.filter-error').textContent).toContain('start date');
+        expect(component.summary()?.filledOrders).toBe(7);
+    });
+
+    it('places sparse observations by calendar date, preserves explicit zeros, and exposes point details by keyboard', () => {
+        component.appliedFilters.set({ fromDate: '2026-10-01', toDate: '2026-10-06', currency: 'GBP' });
+        component.trends.set([1, 3, 6].map(day => ({
+            date: '2026-10-0' + day, totalOrders: 2, filledOrders: day === 3 ? 0 : 2,
+            rejectedOrders: 0, activeClients: 1, executedQuantity: 1, tradedValue: 10, buyFills: 1, sellFills: 1
+        })));
+        fixture.detectChanges();
+        expect(component.dailyCharts().orders.points.map(point => point.x)).toEqual([0, 240, 600]);
+        expect(component.dailyCharts().orders.path).toBe('M0,22 M240,190 M600,22');
+        component.trends.update(rows => [...rows, { ...rows[0], date: '2026-09-30', buyFills: 999 }]);
+        expect(component.buySellAxisLabels()).toEqual([2, 1, 0]);
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelector('.chart-note')?.textContent).toContain('Gaps');
+        const zero = host.querySelectorAll<SVGElement>('.orders-point')[1];
+        zero.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        fixture.detectChanges();
+        expect(component.graphDialog()?.series[0].value).toBe('0');
+        expect(host.querySelector('.chart-hover-dialog')?.textContent).toContain('2026');
+    });
+
+    it('shows one sparse observation at its date rather than implying a continuous trend', () => {
+        component.appliedFilters.set({ fromDate: '2026-10-01', toDate: '2026-10-05', currency: 'GBP' });
+        component.trends.set([{
+            date: '2026-10-02', totalOrders: 1, filledOrders: 1, rejectedOrders: 0,
+            activeClients: 1, executedQuantity: 1, tradedValue: 0.00001, buyFills: 1, sellFills: 0
+        }]);
+        fixture.detectChanges();
+        expect(component.dailyCharts().orders.points[0].x).toBe(150);
+        expect(component.dailyCharts().orders.path).not.toContain('L');
+        expect(component.chartNote('orders')).toContain('One daily observation');
+        expect(component.dailyCharts().orders.labels).toEqual([2, 1, 0]);
+        expect(component.formatMoney(0.00001, 'USD')).toContain('0.00001');
+    });
+
+    it('handles a fully zero-filled reporting period with explicit empty states', () => {
+        component.appliedFilters.set({ fromDate: '2026-10-01', toDate: '2026-10-03', currency: 'GBP' });
+        component.trends.set([1, 2, 3].map(day => ({
+            date: '2026-10-0' + day, totalOrders: 0, filledOrders: 0, rejectedOrders: 0,
+            activeClients: 0, executedQuantity: 0, tradedValue: 0, buyFills: 0, sellFills: 0
+        })));
+        fixture.detectChanges();
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelector('.line-chart svg')).toBeNull();
+        expect(host.querySelector('.buy-sell-history')?.textContent).toContain('No BUY or SELL fills');
+        expect(host.querySelector('.client-line-chart')?.textContent).toContain('No client activity');
+        expect(host.innerHTML).not.toContain('NaN');
+    });
+
+    it('makes every instrument, client and activity row reachable through the table pagers', () => {
+        component.instruments.set(Array.from({ length: 23 }, (_, i) => ({ instrumentId: i + 1, instrumentSymbol: 'Stock' + (i + 1), currency: 'GBP', fillCount: 23 - i, executedQuantity: 1, tradedValue: 100 - i })));
+        component.clients.set(Array.from({ length: 13 }, (_, i) => ({ clientId: i + 1, clientName: 'Client' + (i + 1), currency: 'GBP', orderCount: 13 - i, fillCount: 1, executedQuantity: 1, tradedValue: 10 })));
+        component.activity.set(Array.from({ length: 21 }, (_, i) => ({ orderId: i + 1, fillId: i + 1, accountId: 1, clientId: 1, instrumentId: 1, instrumentSymbol: 'Stock1', side: 'BUY', status: 'FILLED', orderQuantity: 1, executionQuantity: 1, executionPrice: 10, tradedValue: 10, occurredAt: '2026-10-01T12:00:00' })));
+        fixture.detectChanges();
+        const pagers = fixture.nativeElement.querySelectorAll('app-result-pagination') as NodeListOf<HTMLElement>;
+        expect(pagers.length).toBe(4);
+        for (const pager of pagers) {
+            const next = [...pager.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Next')!;
+            expect(next.disabled).toBe(false);
+            next.click();
+        }
+        fixture.detectChanges();
+        expect(component.instrumentRows('instruments')[0].instrumentId).toBe(11);
+        expect(component.instrumentRows('values')[0].instrumentId).toBe(11);
+        expect(component.clientRows().map(row => row.clientId)).toEqual([11, 12, 13]);
+        expect(component.activityRows()[0].orderId).toBe(11);
+        component.changePageSize(25);
+        expect(component.pages().activity).toBe(1);
+        expect(component.activityRows().length).toBe(21);
+    });
+
+    it('restores applied filters and table pages for the same user without saving draft edits or result rows', () => {
+        localStorage.setItem('accessToken', 'test.' + btoa(JSON.stringify({ sub: 'priya-goal4' })) + '.signature');
+        try {
+            const instruments = Array.from({ length: 21 }, (_, i) => ({ instrumentId: i + 1, instrumentSymbol: 'PrivateStock' + i, currency: 'INR', fillCount: 1, executedQuantity: 1, tradedValue: 10 }));
+            reportingService.getInstruments.mockReturnValue(of(instruments));
+            component.currency.set('INR');
+            component.applyFilters();
+            component.changePage('instruments', 2);
+            component.side.set('SELL');
+            fixture.destroy();
+            fixture = TestBed.createComponent(AnalystDashboardComponent);
+            component = fixture.componentInstance;
+            fixture.detectChanges();
+            expect(reportingService.getInsights).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'INR', side: undefined }));
+            expect(component.pages().instruments).toBe(2);
+            const key = Object.keys(sessionStorage).find(key => key.includes('priya-goal4'))!;
+            expect(sessionStorage.getItem(key)).not.toContain('PrivateStock');
+            localStorage.setItem('accessToken', 'test.' + btoa(JSON.stringify({ sub: 'different-user' })) + '.signature');
+            const other = TestBed.createComponent(AnalystDashboardComponent);
+            expect(other.componentInstance.currency()).toBe('GBP');
+            other.destroy();
+        } finally {
+            localStorage.removeItem('accessToken');
+            sessionStorage.clear();
+        }
+    });
+
 });

@@ -34,9 +34,16 @@ export interface TradeAuditResponse {
         bidPrice: number;
         askPrice: number;
         quotedAt: string;
+        fxSourceCurrency?: string | null;
+        fxTargetCurrency?: string | null;
+        fxRate?: number | null;
+        fxRateDate?: string | null;
+        fxProvider?: string | null;
+        cashSettlementAmount?: number | null;
     } | null;
     cashImpact: {
-        transactions: Array<{ transactionId: number; amount: number; balanceAfter: number; createdAt: string; description: string | null }>;
+        transactions: Array<{ transactionId: number; accountId?: number | null; fillId?: number | null;
+            amount: number; balanceAfter: number; createdAt: string; description: string | null }>;
         totalMovement: number;
         balanceAfter: number | null;
     };

@@ -20,7 +20,11 @@
     z-index: 20;
     pointer-events: none;
     display: grid;
-    min-width: 245px;
+    width: min(300px, calc(100vw - 16px));
+    min-width: 0;
+    box-sizing: border-box;
+    max-height: calc(100vh - 16px);
+    overflow: auto;
     gap: 5px;
     padding: 15px 38px 14px 16px;
     border: 1px solid #4b7d80;
@@ -29,7 +33,7 @@
     background: #101c29;
     box-shadow: 0 16px 38px rgba(0, 0, 0, .36);
     animation: chart-dialog-in .14s ease-out;
-    transform: translate(-50%, calc(-100% - 14px));
+    transform: none;
 }
 
 .chart-hover-dialog p,
@@ -896,4 +900,58 @@ td small { margin-top: 4px; font: 10px 'JetBrains Mono', monospace; }
         border-top: 1px solid #26394a;
         border-left: 0;
     }
+}
+
+.applied-scope,
+.draft-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin: 12px 0;
+  border: 1px solid #365464;
+  background: #101c29;
+  color: #b7c9d5;
+  font-size: 13px;
+}
+.applied-scope p {
+  margin: 6px 0;
+}
+.applied-scope small,
+.chart-note,
+.metric-definition {
+  color: #a9bac9;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.applied-scope div {
+  flex: 1;
+  min-width: 220px;
+}
+.draft-notice {
+  border-color: #ac8343;
+}
+.filter-error {
+  color: #f2a1a7;
+}
+.chart-note {
+  margin: 14px 0 0;
+}
+.metric-definition {
+  margin-bottom: 18px;
+}
+circle[tabindex] {
+  cursor: pointer;
+}
+circle[tabindex]:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+.chart-labels small {
+  font-size: 10px;
+}
+.history-label {
+  font-size: 10px;
 }

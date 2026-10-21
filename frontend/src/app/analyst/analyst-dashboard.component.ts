@@ -2,6 +2,9 @@ import { CommonModule } from '@angular/common';
 import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription, forkJoin } from 'rxjs';
+import { ResultPaginationComponent } from '../shared/result-pagination.component';
+import { boundedPage, dailyPlot, dateRangeError, pageRows, readWorkflowPreferences,
+    recordedTimestamp, sameFilters, saveWorkflowPreferences, validOptionalId } from '../core/utils/reporting-workflow';
 import {
     ActivityTrendPoint,
     BusinessInsights,
@@ -113,10 +116,13 @@ type MetricKey =
     | 'clients'
     | 'instruments';
 
+type ReportTable = 'instruments' | 'values' | 'clients' | 'activity';
+type DailyMetric = 'orders' | 'value' | 'clients' | 'BUY' | 'SELL';
+
 @Component({
     selector: 'app-analyst-dashboard',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, ResultPaginationComponent],
     templateUrl: './analyst-dashboard.component.html',
     styleUrls: ['./analyst-dashboard.component.scss', './business-insights.scss']
 })
@@ -136,24 +142,31 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         fromDate: this.defaultFromDate, toDate: this.today, currency: 'GBP'
     });
     readonly reportedCurrency = computed(() => this.appliedFilters().currency ?? 'GBP');
+    readonly draftChanged = computed(() => !sameFilters(this.currentFilters(), this.appliedFilters()));
+    readonly filterError = signal('');
+    readonly pageSize = signal(10);
+    readonly pages = signal<Record<ReportTable, number>>({ instruments: 1, values: 1, clients: 1, activity: 1 });
     readonly accessDenied = signal(false);
     readonly summary = signal<ReportingSummary | null>(null);
     readonly insights = signal<BusinessInsights | null>(null);
     readonly rejectionRateTicks = [100, 75, 50, 25, 0];
     readonly rejectionChart = computed(() => buildRejectionTrendChart(this.insights()));
     readonly trends = signal<ActivityTrendPoint[]>([]);
-    readonly trendTicks = computed(() => {
-        const points = this.trends();
-        const count = Math.min(points.length, 5);
-        return Array.from({ length: count }, (_, tick) => {
-            const index = count === 1 ? 0 : Math.round(tick * (points.length - 1) / (count - 1));
-            return {
-                date: points[index].date,
-                x: points.length === 1 ? 50 : index / (points.length - 1) * 100,
-                secondary: count === 5 && (tick === 1 || tick === 3)
-            };
-        });
+    readonly dailyCharts = computed(() => {
+        const rows = this.trends();
+        const { fromDate, toDate } = this.appliedFilters();
+        const buys = dailyPlot(rows, fromDate, toDate, row => row.buyFills);
+        const sells = dailyPlot(rows, fromDate, toDate, row => row.sellFills);
+        const maximum = Math.max(buys.labels[0] ?? 0, sells.labels[0] ?? 0);
+        return {
+            orders: dailyPlot(rows, fromDate, toDate, row => row.filledOrders),
+            value: dailyPlot(rows, fromDate, toDate, row => row.tradedValue, false),
+            clients: dailyPlot(rows, fromDate, toDate, row => row.activeClients),
+            BUY: dailyPlot(rows, fromDate, toDate, row => row.buyFills, true, maximum),
+            SELL: dailyPlot(rows, fromDate, toDate, row => row.sellFills, true, maximum)
+        };
     });
+    readonly trendTicks = computed(() => this.dailyCharts().orders.ticks);
     readonly instruments = signal<InstrumentMetrics[]>([]);
     readonly clients = signal<ClientMetrics[]>([]);
     readonly activity = signal<ReportingActivity[]>([]);
@@ -197,11 +210,12 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
     private marketRequest?: Subscription;
     private reportingVersion = 0;
     private clientOptionsVersion = 0;
+    private lastRequestedFilters: ReportingFilters | null = null;
 
     constructor(
         private readonly reportingService: ReportingService,
         private readonly marketDataService: MarketDataService
-    ) { }
+    ) { this.restorePreferences(); }
 
     ngOnInit(): void {
         this.loadMarketInstruments();
@@ -229,8 +243,23 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
     }
 
     applyFilters(): void {
-        this.loadClientOptions();
-        this.loadReporting();
+        const filters = this.currentFilters();
+        this.filterError.set(this.validateFilters(filters));
+        if (this.filterError()) return;
+        this.loadClientOptions(filters);
+        this.loadReporting(filters);
+    }
+
+    discardDraft(): void {
+        this.setDraft(this.appliedFilters());
+        this.filterError.set('');
+        this.loadClientOptions(this.appliedFilters());
+    }
+
+    refreshApplied(): void { this.loadReporting({ ...this.appliedFilters() }); }
+
+    retryReporting(): void {
+        this.loadReporting({ ...(this.lastRequestedFilters ?? this.appliedFilters()) });
     }
 
     currencyOptions(): string[] {
@@ -251,8 +280,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         this.clientId.set(undefined);
         this.currency.set('GBP');
 
-        this.loadClientOptions();
-        this.loadReporting();
+        this.applyFilters();
     }
 
     selectInstrument(value: string): void {
@@ -286,115 +314,25 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         this.status.set(value || undefined);
     }
 
-    trendPoints(field: 'orders' | 'value'): string {
-        const points = this.trendCoordinates(field);
-        return points.map(point => `${point.x},${point.y}`).join(' ');
+    chartNote(metric: DailyMetric): string {
+        const chart = this.dailyCharts()[metric];
+        if (!chart.activeDays) return 'No activity for this metric in the applied period.';
+        const detail = chart.points.length === 1 ? 'One daily observation; no trend can be inferred. '
+            : chart.activeDays === 1 ? 'Activity occurred on one day. ' : '';
+        return detail + (chart.points.length < chart.dayCount
+            ? 'Gaps indicate dates with no returned observation; they are not assumed to be zero.'
+            : 'Calendar days include zero-activity days.');
     }
 
-    trendAreaPoints(field: 'orders' | 'value'): string {
-        const points = this.trendCoordinates(field);
+    buySellAxisLabels(): number[] { return this.dailyCharts().BUY.labels; }
 
-        if (!points.length) {
-            return '';
-        }
-
-        return [
-            `${points[0].x},190`,
-            ...points.map(point => `${point.x},${point.y}`),
-            `${points[points.length - 1].x},190`
-        ].join(' ');
-    }
-
-    trendPointX(index: number): number {
-        return this.trendCoordinates('orders')[index]?.x ?? 0;
-    }
-
-    clientTrendPoints(): string {
-        return this.clientTrendCoordinates()
-            .map(point => `${point.x},${point.y}`)
-            .join(' ');
-    }
-
-    clientTrendAreaPoints(): string {
-        const points = this.clientTrendCoordinates();
-
-        if (!points.length) {
-            return '';
-        }
-
-        return [
-            `${points[0].x},190`,
-            ...points.map(point => `${point.x},${point.y}`),
-            `${points[points.length - 1].x},190`
-        ].join(' ');
-    }
-
-    clientTrendPointX(index: number): number {
-        return this.clientTrendCoordinates()[index]?.x ?? 0;
-    }
-
-    clientTrendPointY(index: number): number {
-        return this.clientTrendCoordinates()[index]?.y ?? 190;
-    }
-
-    buySellTrendPoints(side: 'BUY' | 'SELL'): string {
-        return this.buySellTrendCoordinates(side)
-            .map(point => `${point.x},${point.y}`)
-            .join(' ');
-    }
-
-    buySellTrendPointX(index: number): number {
-        return this.buySellTrendCoordinates('BUY')[index]?.x ?? 0;
-    }
-
-    buySellTrendPointY(index: number, side: 'BUY' | 'SELL'): number {
-        return this.buySellTrendCoordinates(side)[index]?.y ?? 190;
-    }
-
-    buySellAxisLabels(): number[] {
-        const maximum = Math.max(
-            ...this.trends().flatMap(point => [point.buyFills, point.sellFills]),
-            1
-        );
-
-        return [maximum, maximum / 2, 0];
-    }
-
-    private buySellTrendCoordinates(side: 'BUY' | 'SELL'): Array<{ x: number; y: number }> {
-        const values = this.trends().map(point => side === 'BUY' ? point.buyFills : point.sellFills);
-        const maximum = Math.max(
-            ...this.trends().flatMap(point => [point.buyFills, point.sellFills]),
-            1
-        );
-        const chartWidth = 600;
-        const chartBottom = 190;
-        const chartTop = 22;
-
-        return values.map((value, index) => ({
-            x: values.length === 1
-                ? chartWidth / 2
-                : (index / (values.length - 1)) * chartWidth,
-            y: chartBottom - ((value / maximum) * (chartBottom - chartTop))
-        }));
-    }
-
-    private clientTrendCoordinates(): Array<{ x: number; y: number }> {
-        const values = this.trends().map(point => point.activeClients);
-        const maximum = Math.max(...values, 1);
-        const chartWidth = 600;
-        const chartBottom = 190;
-        const chartTop = 22;
-
-        return values.map((value, index) => ({
-            x: values.length === 1
-                ? chartWidth / 2
-                : (index / (values.length - 1)) * chartWidth,
-            y: chartBottom - ((value / maximum) * (chartBottom - chartTop))
-        }));
-    }
-
-    trendPointY(index: number, field: 'orders' | 'value'): number {
-        return this.trendCoordinates(field)[index]?.y ?? 190;
+    private dialogPosition(event: Event): { x: number; y: number } {
+        const bounds = (event.currentTarget as Element | null)?.getBoundingClientRect();
+        const pointer = event as MouseEvent;
+        return {
+            x: Math.max(8, Math.min((pointer.clientX || bounds?.left || 0) + 12, window.innerWidth - 308)),
+            y: Math.max(8, Math.min((pointer.clientY || bounds?.bottom || 0) + 12, window.innerHeight - 208))
+        };
     }
 
     showTrendDialog(
@@ -402,18 +340,32 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         date: string,
         value: string,
         detail: string,
-        event: MouseEvent,
+        event: Event,
+        color = '#72d8c0',
     ): void {
         this.graphDialog.set({
             date,
             detail,
-            series: [{ label: title, value, color: '#72d8c0' }],
-            x: event.clientX,
-            y: event.clientY
+            series: [{ label: title, value, color }],
+            ...this.dialogPosition(event)
         });
     }
 
-    showBuySellDateDialog(index: number, event: MouseEvent): void {
+    showDailyPoint(metric: 'orders' | 'value' | 'clients', index: number, event: Event): void {
+        const point = this.dailyCharts()[metric].points[index];
+        if (!point) return;
+        const title = { orders: 'Filled orders', value: 'Trading value', clients: 'Active clients' }[metric];
+        const detail = {
+            orders: 'Distinct FILLED orders by submission day',
+            value: 'Execution price × fill quantity in ' + this.reportedCurrency(),
+            clients: 'Distinct clients with submitted orders on this day'
+        }[metric];
+        this.showTrendDialog(title, this.graphDateLabel(point.date), metric === 'value'
+            ? this.formatMoney(point.value, this.reportedCurrency()) : this.formatNumber(point.value),
+            detail, event, { orders: '#72d8c0', value: '#f0b75d', clients: '#b49aff' }[metric]);
+    }
+
+    showBuySellDateDialog(index: number, event: Event): void {
         const point = this.trends()[index];
 
         if (!point) {
@@ -436,8 +388,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
                 },
                 
             ],
-            x: event.clientX,
-            y: event.clientY
+            ...this.dialogPosition(event)
         });
     }
 
@@ -449,11 +400,12 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         return new Intl.DateTimeFormat('en-GB', {
             month: 'short',
             day: 'numeric',
+            year: 'numeric',
             timeZone: 'UTC'
         }).format(new Date(`${date}T00:00:00Z`));
     }
 
-    showBuySellDialog(side: 'BUY' | 'SELL', date: string, fills: number, event: MouseEvent): void {
+    showBuySellDialog(side: 'BUY' | 'SELL', date: string, fills: number, event: Event): void {
         this.showTrendDialog(
             `${side} fills`,
             date,
@@ -463,17 +415,18 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         );
     }
 
-    showOutcomeDialog(status: 'FILLED' | 'REJECTED', orders: number, event: MouseEvent): void {
+    showOutcomeDialog(status: 'FILLED' | 'REJECTED', orders: number, event: Event): void {
         this.showTrendDialog(
             `${status} orders`,
             'Current reporting period',
             `${orders} orders`,
             'Order outcome total',
             event,
+            status === 'FILLED' ? '#72d8c0' : '#ee7b83',
         );
     }
 
-    showPieDialog(event: MouseEvent): void {
+    showPieDialog(event: Event): void {
         this.showTrendDialog(
             'BUY vs SELL',
             'Current reporting period',
@@ -483,39 +436,6 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         );
     }
 
-    trendAxisLabels(field: 'orders' | 'value'): number[] {
-        const values = this.trends().map(point => field === 'orders'
-            ? point.filledOrders
-            : point.tradedValue);
-        const maximum = Math.max(...values, 1);
-        return [maximum, maximum / 2, 0];
-    }
-
-    clientAxisLabels(): number[] {
-        const maximum = Math.max(
-            ...this.trends().map(point => point.activeClients),
-            1
-        );
-        return [maximum, maximum / 2, 0];
-    }
-
-    private trendCoordinates(field: 'orders' | 'value'): Array<{ x: number; y: number }> {
-        const values = this.trends().map(point => field === 'orders'
-            ? point.filledOrders
-            : point.tradedValue);
-        const maximum = Math.max(...values, 1);
-        const chartWidth = 600;
-        const chartBottom = 190;
-        const chartTop = 22;
-
-        return values.map((value, index) => ({
-            x: values.length === 1
-                ? chartWidth / 2
-                : (index / (values.length - 1)) * chartWidth,
-            y: chartBottom - ((value / maximum) * (chartBottom - chartTop))
-        }));
-    }
-
     formatMoney(
         value: number | null | undefined,
         currency: string = 'GBP'
@@ -523,7 +443,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         return new Intl.NumberFormat('en-GB', {
             style: 'currency',
             currency,
-            maximumFractionDigits: 2
+            maximumFractionDigits: value && Math.abs(value) < 0.01 ? 8 : 2
         }).format(value ?? 0);
     }
 
@@ -592,6 +512,91 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
             ?? `Client ${clientId}`;
     }
 
+    readonly timestamp = recordedTimestamp;
+
+    appliedScope(): string {
+        const f = this.appliedFilters();
+        const instrument = this.marketInstruments().find(item => item.instrumentId === f.instrumentId);
+        return [f.fromDate + ' to ' + f.toDate + ' (inclusive)', f.currency + ' instrument currency',
+            f.instrumentId ? (instrument?.symbol ?? 'Instrument #' + f.instrumentId) : 'All instruments',
+            f.side ?? 'BUY and SELL', f.status ?? 'All statuses',
+            f.clientId ? 'Client #' + f.clientId : 'All clients'].join(' · ');
+    }
+
+    instrumentRows(table: 'instruments' | 'values'): InstrumentMetrics[] {
+        const rows = table === 'values' ? this.highestValueInstruments()
+            : [...this.instruments()].sort((a, b) => b.fillCount - a.fillCount || a.instrumentId - b.instrumentId);
+        return pageRows(rows, this.pages()[table], this.pageSize());
+    }
+
+    clientRows(): AggregatedClientMetrics[] { return pageRows(this.mostActiveClients(), this.pages().clients, this.pageSize()); }
+    activityRows(): ReportingActivity[] { return pageRows(this.activity(), this.pages().activity, this.pageSize()); }
+
+    tableTotal(table: ReportTable): number {
+        return table === 'clients' ? this.mostActiveClients().length
+            : table === 'activity' ? this.activity().length : this.instruments().length;
+    }
+
+    changePage(table: ReportTable, page: number): void {
+        this.pages.update(pages => ({ ...pages, [table]: boundedPage(page, this.tableTotal(table), this.pageSize()) }));
+        this.persistPreferences();
+    }
+
+    changePageSize(size: number): void {
+        if (![10, 25, 50].includes(size)) return;
+        this.pageSize.set(size);
+        this.pages.set({ instruments: 1, values: 1, clients: 1, activity: 1 });
+        this.persistPreferences();
+    }
+
+    private clampPages(): void {
+        for (const table of ['instruments', 'values', 'clients', 'activity'] as const) {
+            this.pages.update(pages => ({ ...pages, [table]: boundedPage(pages[table], this.tableTotal(table), this.pageSize()) }));
+        }
+    }
+
+    private setDraft(filters: ReportingFilters): void {
+        this.fromDate.set(filters.fromDate);
+        this.toDate.set(filters.toDate);
+        this.instrumentId.set(filters.instrumentId);
+        this.clientId.set(filters.clientId);
+        this.side.set(filters.side);
+        this.status.set(filters.status);
+        this.currency.set(filters.currency ?? 'GBP');
+    }
+
+    private validateFilters(filters: ReportingFilters): string {
+        const dates = dateRangeError(filters.fromDate, filters.toDate);
+        if (dates) return dates;
+        if (!this.currencyOptions().includes(filters.currency ?? '')) return 'Choose USD, GBP or INR as the instrument currency.';
+        if (!validOptionalId(filters.instrumentId) || !validOptionalId(filters.clientId)) return 'Choose a valid instrument and client.';
+        if (filters.side !== undefined && !['BUY', 'SELL'].includes(filters.side)) return 'Choose BUY, SELL or both sides.';
+        if (filters.status !== undefined && !['FILLED', 'REJECTED'].includes(filters.status)) return 'Choose All statuses, FILLED or REJECTED.';
+        return '';
+    }
+
+    private restorePreferences(): void {
+        const saved = readWorkflowPreferences<{ filters?: ReportingFilters; pageSize?: number; pages?: Partial<Record<ReportTable, number>> }>('reports');
+        if (!saved || typeof saved !== 'object' || !saved.filters || typeof saved.filters !== 'object'
+            || Array.isArray(saved.filters) || this.validateFilters(saved.filters)) return;
+        const f = saved.filters;
+        const filters: ReportingFilters = { fromDate: f.fromDate, toDate: f.toDate, currency: f.currency,
+            instrumentId: f.instrumentId, clientId: f.clientId, side: f.side, status: f.status };
+        this.setDraft(filters);
+        this.appliedFilters.set(filters);
+        if (saved.pageSize && [10, 25, 50].includes(saved.pageSize)) this.pageSize.set(saved.pageSize);
+        for (const table of ['instruments', 'values', 'clients', 'activity'] as const) {
+            const page = saved.pages?.[table];
+            if (typeof page === 'number' && Number.isSafeInteger(page) && page > 0) {
+                this.pages.update(pages => ({ ...pages, [table]: page }));
+            }
+        }
+    }
+
+    private persistPreferences(): void {
+        saveWorkflowPreferences('reports', { filters: this.appliedFilters(), pageSize: this.pageSize(), pages: this.pages() });
+    }
+
     private loadMarketInstruments(): void {
         this.marketRequest = this.marketDataService.getInstruments().subscribe({
             next: instruments => this.marketInstruments.set(instruments),
@@ -599,7 +604,10 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         });
     }
 
-    private loadReporting(): void {
+    private loadReporting(filters: ReportingFilters = this.currentFilters()): void {
+        this.filterError.set(this.validateFilters(filters));
+        if (this.filterError()) return;
+        this.lastRequestedFilters = { ...filters };
         const version = ++this.reportingVersion;
         this.reportingRequest?.unsubscribe();
         this.closeMetric();
@@ -608,7 +616,6 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         this.accessDenied.set(false);
         this.loading.set(true);
 
-        const filters = this.currentFilters();
         this.reportingRequest = forkJoin({
             insights: this.reportingService.getInsights(filters),
             trends: this.reportingService.getTrends(filters),
@@ -621,6 +628,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
                 this.insights.set(result.insights);
                 // Cards and their comparison dialogs must use the same server snapshot.
                 this.summary.set(result.insights.current);
+                const scopeChanged = !sameFilters(filters, this.appliedFilters());
                 this.appliedFilters.set({
                     ...filters, ...result.insights.currentWindow, currency: result.insights.currency
                 });
@@ -628,6 +636,9 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
                 this.instruments.set(result.instruments);
                 this.clients.set(result.clients);
                 this.activity.set(result.activity);
+                this.pages.set(scopeChanged ? { instruments: 1, values: 1, clients: 1, activity: 1 } : this.pages());
+                this.clampPages();
+                this.persistPreferences();
                 this.loading.set(false);
             },
             error: response => {
@@ -653,10 +664,12 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         }
 
         if (status && status >= 500) {
-            return `The reporting service returned an error (${status}). Check the backend logs and database connection.`;
+            return 'The reporting service is temporarily unavailable. Retry the request or try a shorter period. '
+                + (this.summary() ? 'Your last successful results remain below.' : 'Your filter selections have been kept.');
         }
 
-        return 'Reporting data could not be loaded. Check the reporting service and try again.';
+        return 'Reporting data could not be loaded. Check your connection and retry. '
+            + (this.summary() ? 'Your filters and last successful results have been kept.' : 'Your filter selections have been kept.');
     }
 
     private currentFilters(): ReportingFilters {
@@ -671,19 +684,10 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         };
     }
 
-    private loadClientOptions(): void {
-
+    private loadClientOptions(requested: ReportingFilters = this.currentFilters()): void {
         const version = ++this.clientOptionsVersion;
         this.clientOptionsRequest?.unsubscribe();
-
-        const filters: ReportingFilters = {
-            fromDate: this.fromDate(),
-            toDate: this.toDate(),
-            instrumentId: this.instrumentId(),
-            side: this.side(),
-            status: this.status(),
-            currency: this.currency()
-        };
+        const { clientId, ...filters } = requested;
 
         this.clientOptionsRequest = this.reportingService.getClients(filters).subscribe({
             next: clients => {
@@ -708,8 +712,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
                 (a, b) =>
                     Number(b.tradedValue) -
                     Number(a.tradedValue)
-            )
-            .slice(0, 6);
+            );
     }
 
     totalTrades(): number {
@@ -768,6 +771,18 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         }[metric];
     }
 
+    metricDefinition(metric: MetricKey): string {
+        return {
+            trades: 'Successful trades count persisted fills by execution day. Filled orders use submission dates, so totals can differ when an order executes in a different reporting period.',
+            quantity: 'Executed quantity sums fill quantities in instrument units. Units across different instruments are not equivalent.',
+            filled: 'Filled orders count distinct orders whose current status is FILLED, using the submission date.',
+            rejected: 'Rejected orders count distinct orders whose current status is REJECTED, using the submission date.',
+            value: 'Trading value is execution price × fill quantity in the selected instrument currency. It is not the converted account cash settlement.',
+            clients: 'Active clients are distinct clients with order activity in the period. A client active on several days is counted once for the period.',
+            instruments: 'Active instruments are distinct instruments with execution fills in the applied period and currency.'
+        }[metric];
+    }
+
     metricStats(metric: MetricKey): {
         current: number;
         previous: number;
@@ -785,16 +800,6 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
             };
         }
 
-        if (metric === 'clients') {
-            return {
-                current: this.distinctClientCount(),
-                previous: 0,
-                change: null,
-                currentLabel: 'Selected period',
-                previousLabel: 'Distinct count'
-            };
-        }
-
         const insights = this.insights();
         if (!insights) {
             return {
@@ -809,6 +814,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
                 case 'filled': return summary.filledOrders;
                 case 'rejected': return summary.rejectedOrders;
                 case 'value': return Number(summary.totalTradedValue);
+                case 'clients': return summary.activeClients;
                 default: return 0;
             }
         };
@@ -852,10 +858,6 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         return metric === 'quantity' ? this.formatQuantity(value) : this.formatNumber(value);
     }
 
-    distinctClientCount(): number {
-        return new Set(this.clients().map(client => client.clientId)).size;
-    }
-
     mostActiveClients(): AggregatedClientMetrics[] {
 
         const grouped = new Map<number, AggregatedClientMetrics>();
@@ -890,8 +892,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         }
 
         return [...grouped.values()]
-            .sort((a, b) => b.orderCount - a.orderCount)
-            .slice(0, 6);
+            .sort((a, b) => b.orderCount - a.orderCount || a.clientId - b.clientId);
     }
 
     uniqueClientOptions(): ClientMetrics[] {

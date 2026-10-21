@@ -401,3 +401,139 @@ td small {
     grid-template-columns: 1fr;
   }
 }
+
+.applied-scope {
+  max-width: 1440px;
+  margin: 0 auto 18px;
+  padding: 14px 18px;
+  border: 1px solid #365464;
+  background: #101c29;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #b7c9d5;
+  font-size: 13px;
+}
+.applied-scope p {
+  margin: 6px 0;
+  line-height: 1.6;
+}
+.search-help,
+.draft-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  color: #a9bac9;
+  font-size: 12px;
+}
+.draft-notice {
+  border: 1px solid #ac8343;
+  padding: 12px;
+}
+.filter-error {
+  color: #f2a1a7;
+}
+.search-help small {
+  width: 100%;
+}
+.error-banner button {
+  margin: 8px;
+}
+.detail-heading p {
+  margin: 10px 0;
+  color: #a9bac9;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.investigation-actions,
+.evidence-navigation {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.evidence-navigation button {
+  min-height: 38px;
+  padding: 6px 10px;
+  background: #0c1724;
+  border: 1px solid #365464;
+  border-radius: 4px;
+  color: #b7c9d5;
+  cursor: pointer;
+}
+.evidence-navigation button[aria-pressed='true'] {
+  border-color: #72d8c0;
+  color: #72d8c0;
+}
+.evidence-note,
+.fact-grid small {
+  font-size: 12px;
+  color: #a9bac9;
+  line-height: 1.6;
+}
+.fact-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.fact-grid strong,
+.cash-ledger p,
+.integrity-banner p {
+  overflow-wrap: anywhere;
+}
+.detail-fact {
+  margin-bottom: 16px;
+}
+.ledger-title {
+  margin-top: 24px;
+}
+.cash-ledger article {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #365464;
+  padding: 12px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.cash-ledger small {
+  color: #a9bac9;
+  font-size: 11px;
+}
+.cash-ledger p {
+  margin: 4px 0;
+}
+.integrity-banner summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.integrity-banner details {
+  font-size: 12px;
+}
+.detail-panel:focus-visible,
+button:focus-visible {
+  outline: 2px solid #72d8c0;
+  outline-offset: 3px;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (max-width: 1000px) {
+  .detail-panel {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    position: static;
+  }
+  .operations-layout {
+    gap: 18px;
+  }
+}
+@media (max-width: 650px) {
+  .fact-grid {
+    grid-template-columns: 1fr;
+  }
+}
