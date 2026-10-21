@@ -1749,22 +1749,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
 
 
-          this.orderErrorMessage.set(
+          const backendReason =
+            typeof error.error === 'string'
+              ? error.error
+              : error.error?.message ?? null;
 
-            'Unable to submit the order.'
+          const customerMessage =
+            this.customerOrderRejectionMessage(backendReason);
 
-          );
-
-
+          this.orderErrorMessage.set(customerMessage);
 
           this.notificationService.show(
-
-            '✗ Unable to submit the order. Please try again.',
-
+            `Order could not be completed: ${customerMessage}`,
             'error',
-
             5000
-
           );
 
 
