@@ -222,14 +222,14 @@
                 </div>
                 <div class="order-summary">
                   <div class="summary-row">
-                    <span>{{ orderSide === 'BUY' ? 'ASK' : 'BID' }}</span>
+                    <span>INDICATIVE {{ orderSide === 'BUY' ? 'ASK' : 'BID' }}</span>
                     <span class="mono">@if (currentOrderPrice() !== null) { {{ currentOrderPrice() | number:'1.2-6' }} {{ selected.currency }} } @else { — }</span>
                   </div>
                   <div class="summary-row">
-                    <span>EST. VALUE</span>
+                    <span>ESTIMATED VALUE · {{ selected.currency }}</span>
                     <span class="mono">@if (estimatedNotional() !== null) { {{ estimatedNotional() | number:'1.2-6' }} {{ selected.currency }} } @else { — }</span>
                   </div>
-                  <div class="summary-row"><span>EST. ACCOUNT CASH {{ orderSide === 'BUY' ? 'DEBIT' : 'CREDIT' }}</span>
+                  <div class="summary-row"><span>ESTIMATED ACCOUNT {{ orderSide === 'BUY' ? 'DEBIT' : 'CREDIT' }} · {{ account()?.currency }}</span>
                     <span class="mono">@if (estimatedAccountSettlement() !== null) { {{ estimatedAccountSettlement() | currency:(account()?.currency ?? 'GBP') }} } @else { — }</span>
                   </div>
                   @if (fxQuote(); as fx) {
