@@ -117,7 +117,9 @@ import {
 
   OrderService,
 
-  OrderSide
+  OrderSide,
+
+  PlaceOrderRequest
 
 } from '../core/services/order';
 
@@ -196,7 +198,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return null;
     }
 
-    const ageMs = Math.max(0, Date.now() - quotedTime);
+    const ageMs = Math.max(0, this.quoteClock() - quotedTime);
     return Math.floor(ageMs / 1000);
   }
 
@@ -261,6 +263,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   readonly marketRefreshFailed = signal(false);
+  private readonly quoteClock = signal(Date.now());
+  private quoteClockInterval: number | null = null;
 
   private readonly quoteStaleAfterMs = 10_000;
   marketErrorMessage =
@@ -306,8 +310,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   readonly fxQuote = signal<FxQuote | null>(null);
+  readonly fxLoading = signal(false);
+  readonly fxErrorMessage = signal('');
   private fxRequest?: Subscription;
   private fxPair = '';
+  private fxLoadedAt = 0;
+  private fxRequestVersion = 0;
+  private readonly fxRefreshAfterMs = 60_000;
+
+  readonly orderOutcomeUnconfirmed = signal(false);
+  private pendingOrderRequest: { request: PlaceOrderRequest; key: string } | null = null;
+
+  orderControlsLocked(): boolean {
+    return this.orderSubmitting() || this.orderOutcomeUnconfirmed();
+  }
 
   orderSide: OrderSide =
 
@@ -409,6 +425,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
 
+    this.quoteClock.set(Date.now());
+    this.quoteClockInterval = window.setInterval(() => this.quoteClock.set(Date.now()), 1000);
 
 
     /*
@@ -1007,7 +1025,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
               this.selectedInstrument.set(
 
-                instruments[0] ?? null
+                this.orderControlsLocked()
+                  ? { ...currentSelected, latestQuote: null, dayChange: null }
+                  : instruments[0] ?? null
 
               );
               this.refreshFxQuote();
@@ -1180,7 +1200,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ): void {
 
-    if (this.orderSubmitting()) return;
+    if (this.orderControlsLocked()) return;
 
     this.selectedInstrument.set(
 
@@ -1213,6 +1233,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ): void {
 
+    if (this.orderControlsLocked()) return;
 
 
     this.orderSide =
@@ -1272,19 +1293,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   // Pre-trade estimate only. The server re-fetches FX at execution time.
-  private refreshFxQuote(): void {
+  refreshFxQuote(force = false): void {
     const from = this.selectedInstrument()?.currency;
     const to = this.account()?.currency;
-    if (!from || !to) return;
+    if (!from || !to) {
+      this.fxRequestVersion++;
+      this.fxRequest?.unsubscribe();
+      this.fxPair = '';
+      this.fxQuote.set(null);
+      this.fxLoading.set(false);
+      this.fxErrorMessage.set('');
+      return;
+    }
     const pair = `${from}/${to}`;
-    if (pair === this.fxPair) return;
+    if (pair === this.fxPair) {
+      if (this.fxLoading()) return;
+      // Cache successful estimates only. A failed request may retry on the next poll.
+      if (!force && this.fxQuote() && Date.now() - this.fxLoadedAt < this.fxRefreshAfterMs) return;
+    }
+    const requestVersion = ++this.fxRequestVersion;
+    this.fxRequest?.unsubscribe();
     this.fxPair = pair;
     this.fxQuote.set(null);
-    this.fxRequest?.unsubscribe();
-    this.fxRequest = this.fxRateService.quote(from, to).subscribe({
-      next: quote => { if (this.fxPair === pair) this.fxQuote.set(quote); },
-      error: () => { if (this.fxPair === pair) this.fxQuote.set(null); }
-    });
+    this.fxLoading.set(true);
+    this.fxErrorMessage.set('');
+    this.fxRequest = this.fxRateService.quote(from, to)
+      .pipe(finalize(() => {
+        if (requestVersion === this.fxRequestVersion) this.fxLoading.set(false);
+      }))
+      .subscribe({
+        next: quote => {
+          if (requestVersion !== this.fxRequestVersion) return;
+          this.fxQuote.set(quote);
+          this.fxLoadedAt = Date.now();
+        },
+        error: () => {
+          if (requestVersion !== this.fxRequestVersion) return;
+          this.fxQuote.set(null);
+          this.fxErrorMessage.set('The currency conversion estimate is unavailable. Retry the estimate or wait for prices to refresh.');
+        }
+      });
   }
 
   estimatedAccountSettlement(): number | null {
@@ -1381,405 +1429,126 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   submitOrder(): void {
-
-
-
-    if (this.orderSubmitting()) {
-
-      return;
-
-    }
-
-
-
-
+    if (this.orderSubmitting()) return;
 
     this.orderMessage.set('');
-
-
-
     this.orderErrorMessage.set('');
-
-
-
     this.quantityError.set('');
 
-
-
-
-
-    const instrument =
-
-      this.selectedInstrument();
-
-
-
-
-
-    if (!instrument) {
-
-
-
-      this.orderErrorMessage.set(
-
-        'Select an instrument first.'
-
-      );
-
-
-
-      return;
-
-
-
+    // A confirmation must replay the original request, even if a quote disappears
+    // or market polling changes while its outcome is unknown.
+    let pending = this.pendingOrderRequest;
+    if (!pending) {
+      const instrument = this.selectedInstrument();
+      if (!instrument) {
+        this.orderErrorMessage.set('Select an instrument first.');
+        return;
+      }
+      if (!instrument.latestQuote) {
+        this.orderErrorMessage.set('No market quote is available for this instrument.');
+        return;
+      }
+      const quantity = Number(this.orderQuantity);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        this.quantityError.set('Enter a valid quantity greater than 0.');
+        return;
+      }
+      try {
+        pending = {
+          request: { instrumentId: instrument.instrumentId, side: this.orderSide, quantity },
+          key: this.idempotencyService.getOrCreateKey()
+        };
+      } catch {
+        this.orderErrorMessage.set('Your browser could not save this request. Enable session storage, then try again.');
+        return;
+      }
+      this.pendingOrderRequest = pending;
     }
-
-
-
-
-
-    if (!instrument.latestQuote) {
-
-
-
-      this.orderErrorMessage.set(
-
-        'No market quote is available for this instrument.'
-
-      );
-
-
-
-      return;
-
-
-
-    }
-
-
-
-
-
-    const quantity =
-
-      Number(this.orderQuantity);
-
-
-
-
-
-    if (
-
-      !Number.isFinite(quantity) ||
-
-      quantity <= 0
-
-    ) {
-
-
-
-      this.quantityError.set(
-
-        'Enter a valid quantity greater than 0.'
-
-      );
-
-
-
-      return;
-
-
-
-    }
-
-
-
-
 
     this.orderSubmitting.set(true);
+    this.orderMessage.set(this.orderOutcomeUnconfirmed()
+      ? 'Confirming your previous order...'
+      : 'Submitting your order...');
 
-
-
-    const idempotencyKey =
-
-      this.idempotencyService.getOrCreateKey();
-
-
-
-    this.orderService.placeOrder(
-
-      {
-
-        instrumentId:
-
-          instrument.instrumentId,
-
-
-
-        side:
-
-          this.orderSide,
-
-
-
-        quantity
-
-      },
-
-      idempotencyKey
-
-    )
-
-      .pipe(
-
-
-
-        finalize(() => {
-
-
-
-          this.orderSubmitting.set(
-
-            false
-
-          );
-
-
-
-        })
-
-
-
-      )
-
+    this.orderService.placeOrder({ ...pending.request }, pending.key)
+      .pipe(finalize(() => this.orderSubmitting.set(false)))
       .subscribe({
+        next: order => {
+          this.addOrderToBlotter(order);
+          this.loadDashboard(false);
+          this.orderMessage.set('');
 
-
-
-      next: order => {
-        this.addOrderToBlotter(order);
-        this.loadDashboard(false);
-
-        switch (order.status) {
-          case 'FILLED':
-            this.orderMessage.set(`Order #${order.id} filled.`);
-
-            this.notificationService.show(
-              `Order #${order.id} filled: ${order.side} ${order.quantity} units`,
-              'success',
-              5000
-            );
-
-            this.orderQuantity = null;
-            this.idempotencyService.clearKey();
-            break;
-
-          case 'ACCEPTED':
-          case 'SUBMITTED':
-            this.orderMessage.set(
-              `Order #${order.id} was received and is still processing.`
-            );
-
-            this.notificationService.show(
-              `Order #${order.id} is still processing.`,
-              'success',
-              5000
-            );
-            break;
-
-          case 'REJECTED':
-            this.orderErrorMessage.set(
-              this.customerOrderRejectionMessage(order.rejectionReason)
-            );
-
-            this.idempotencyService.clearKey();
-            break;
-
-          default:
-            this.orderMessage.set(
-              `Order #${order.id} received status: ${order.status}.`
-            );
-        }
-      },
-
-
-
-
-
-        error: (
-
-          error: HttpErrorResponse
-
-        ) => {
-
-
-
+          switch (order.status) {
+            case 'FILLED':
+              this.completeOrderRequest();
+              this.orderMessage.set(`Order #${order.id} filled.`);
+              this.notificationService.show(
+                `Order #${order.id} filled: ${order.side} ${order.quantity} units`, 'success', 5000);
+              this.orderQuantity = null;
+              break;
+            case 'REJECTED':
+              this.completeOrderRequest();
+              this.orderErrorMessage.set(this.customerOrderRejectionMessage(order.rejectionReason));
+              break;
+            case 'ACCEPTED':
+            case 'SUBMITTED':
+              this.orderOutcomeUnconfirmed.set(true);
+              this.orderMessage.set(`Order #${order.id} was received and is still processing. Confirm it again shortly.`);
+              this.notificationService.show(`Order #${order.id} is still processing.`, 'info', 5000);
+              break;
+            default:
+              this.orderOutcomeUnconfirmed.set(true);
+              this.orderMessage.set(`Order #${order.id} received status: ${order.status}. Review order history before trying again.`);
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          this.orderMessage.set('');
           if (error.status === 401) {
-
-
-
             this.auth.clearToken();
-
-
-
-            this.router.navigate([
-
-              '/login'
-
-            ]);
-
-
-
+            this.router.navigate(['/login']);
             return;
-
-
-
           }
 
-
-
-
-
-          /*
-
-           * Business-rule rejection from the
-
-           * order controller returns the stored
-
-           * OrderResponse in the 400 body.
-
-           */
-
-          const rejectedOrder =
-
-            error.error as OrderResponse;
-
-
-
-
-
-          if (
-
-            error.status === 400 &&
-
-            rejectedOrder &&
-
-            typeof rejectedOrder.id === 'number' &&
-
-            rejectedOrder.status === 'REJECTED'
-
-          ) {
-
-
-
-            this.addOrderToBlotter(
-
-              rejectedOrder
-
-            );
-
-
-
-            const rejectionMsg = this.customerOrderRejectionMessage(
-              rejectedOrder.rejectionReason
-            );
-
-
-
-            this.orderErrorMessage.set(
-
-              rejectionMsg
-
-            );
-
-
-
-            this.notificationService.show(
-
-              `✗ Order rejected: ${rejectionMsg}`,
-
-              'error',
-
-              5000
-
-            );
-
-
-
-            
-            /*
-             * The order was definitively rejected by the server.
-             * This idempotency key must not be reused for the
-             * user's next, potentially different order.
-             */
-            this.idempotencyService.clearKey();
-
+          const rejectedOrder = error.error as OrderResponse;
+          if (error.status === 400 && rejectedOrder
+              && typeof rejectedOrder.id === 'number' && rejectedOrder.status === 'REJECTED') {
+            this.addOrderToBlotter(rejectedOrder);
+            this.completeOrderRequest();
+            const message = this.customerOrderRejectionMessage(rejectedOrder.rejectionReason);
+            this.orderErrorMessage.set(message);
+            this.notificationService.show(`Order rejected: ${message}`, 'error', 5000);
             return;
-
-
-
           }
 
-
-
-
-
-          /*
-           * The server has determined that the current idempotency
-           * key was already used for different order parameters.
-           * Discard the stale key so the next submission gets a
-           * fresh key.
-           */
-          if (error.status === 422) {
-
-            this.idempotencyService.clearKey();
-
-            this.orderErrorMessage.set(
-              'The previous order request key was already used. Please submit the order again.'
-            );
-
-            this.notificationService.show(
-              '✗ Previous order request expired. Please submit the order again.',
-              'error',
-              5000
-            );
-
+          if (error.status === 422 || error.status === 400 || error.status === 403) {
+            this.completeOrderRequest();
+            const message = error.status === 422
+              ? 'This request matches an earlier order with different details. Review your order history before submitting again.'
+              : error.status === 403
+                ? 'You do not have permission to place this order. Sign in with the correct account.'
+                : 'We could not submit this order. Check the instrument and quantity, then try again.';
+            this.orderErrorMessage.set(message);
+            this.notificationService.show(message, 'error', 5000);
             return;
-
           }
 
-
-          const backendReason =
-            typeof error.error === 'string'
-              ? error.error
-              : error.error?.message ?? null;
-
-          const customerMessage =
-            this.customerOrderRejectionMessage(backendReason);
-
-          this.orderErrorMessage.set(customerMessage);
-
-          this.notificationService.show(
-            `Order could not be completed: ${customerMessage}`,
-            'error',
-            5000
-          );
-
-
-
+          // Lost responses, server failures and processing conflicts do not prove
+          // rejection. Keep both the payload and its key for an explicit replay.
+          this.orderOutcomeUnconfirmed.set(true);
+          const message = error.status === 409
+            ? 'This request could not be confirmed yet. Review order history, then choose Confirm previous order again shortly.'
+            : 'We could not confirm the outcome of this order. Review your order history, then choose Confirm previous order to safely check the same request.';
+          this.orderErrorMessage.set(message);
+          this.notificationService.show(message, 'warning', 5000);
         }
-
-
-
       });
-
-
-
   }
 
-
-
-
+  private completeOrderRequest(): void {
+    this.pendingOrderRequest = null;
+    this.orderOutcomeUnconfirmed.set(false);
+    this.idempotencyService.clearKey();
+  }
 
   private addOrderToBlotter(
 
@@ -1821,6 +1590,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
 
+    if (this.quoteClockInterval !== null) {
+      window.clearInterval(this.quoteClockInterval);
+      this.quoteClockInterval = null;
+    }
+    this.fxRequestVersion++;
     this.fxRequest?.unsubscribe();
     this.dashboardRequestVersion++;
     this.dashboardRequest?.unsubscribe();

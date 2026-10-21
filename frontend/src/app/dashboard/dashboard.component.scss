@@ -168,6 +168,21 @@ h2 { margin: 0; font-size: 16px; }
 
 .orders-layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); align-items: start; gap: 20px; }
 .order-form { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
+.quote-status, .order-feedback, .estimate-warning {
+  padding: 12px;
+  border: 1px solid $border;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  p { margin: 0; }
+}
+.quote-status { color: $muted; }
+.quote-warning, .estimate-warning { color: #fbbf24; border-color: #8f691f; background: #211d14; }
+.order-feedback { margin: 0; }
+.order-success { color: $positive; border-color: rgba($positive, .5); }
+.order-error { color: $negative; border-color: rgba($negative, .5); }
+.estimate-note { margin: 8px 0 0; color: $muted; font-size: 11px; line-height: 1.7; }
 .ticket-instrument { display: flex; flex-direction: column; gap: 5px; strong { font-size: 20px; } span { color: $muted; font-size: 12px; overflow-wrap: anywhere; } }
 .order-summary { border: 1px solid $border; border-radius: 5px; background: $bg; padding: 12px; }
 .summary-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: $muted; font-size: 12px; line-height: 1.7; & + & { margin-top: 6px; } .mono { color: $text; overflow-wrap: anywhere; } }

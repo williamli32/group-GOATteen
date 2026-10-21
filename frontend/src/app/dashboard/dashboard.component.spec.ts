@@ -934,7 +934,7 @@ describe('DashboardComponent', () => {
             expect(
                 component.orderErrorMessage()
             ).toBe(
-                'Insufficient cash balance'
+                'You do not have enough available cash for this BUY order.'
             );
 
         }

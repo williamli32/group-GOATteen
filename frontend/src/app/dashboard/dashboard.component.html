@@ -144,7 +144,7 @@
                 <tbody>
                     @for (instrument of filteredMarketInstruments(); track instrument.instrumentId) {                    <tr class="market-row" [class.selected]="selectedInstrument()?.instrumentId === instrument.instrumentId">
                       <td class="market-symbol">
-                        <button type="button" class="instrument-link" [disabled]="orderSubmitting()"
+                        <button type="button" class="instrument-link" [disabled]="orderControlsLocked()"
                           [attr.aria-label]="'Trade ' + instrument.symbol + ' on ' + instrument.exchange"
                           (click)="selectInstrument(instrument)">{{ instrument.symbol }}</button>
                       </td>
@@ -188,7 +188,7 @@
         <div class="section-heading"><div><h1>Watchlist</h1><p>Keep your saved instruments together. Select one to open Orders.</p></div></div>
         <app-watchlist
           [instruments]="marketInstruments()" [marketLoading]="marketLoading()" [marketError]="marketErrorMessage()"
-          [selectedInstrumentId]="selectedInstrument()?.instrumentId ?? null" [selectionDisabled]="orderSubmitting()"
+          [selectedInstrumentId]="selectedInstrument()?.instrumentId ?? null" [selectionDisabled]="orderControlsLocked()"
           (instrumentSelected)="selectInstrument($event)" />
       </section>
 
@@ -207,20 +207,36 @@
             <div class="order-form">
               @if (selectedInstrument(); as selected) {
                 <div class="ticket-instrument"><strong>{{ selected.symbol }}</strong><span>{{ selected.name }}</span></div>
+                <div class="quote-status" [class.quote-warning]="marketRefreshFailed() || isQuoteStale(selected.latestQuote?.quotedAt)" role="status">
+                  @if (selected.latestQuote; as quote) {
+                    <p>Quote updated {{ quote.quotedAt | date:'medium' }} · {{ quoteAgeSeconds(quote.quotedAt) ?? '—' }}s ago.</p>
+                    @if (isQuoteStale(quote.quotedAt)) {
+                      <p>Stale quote. Refresh prices before relying on this estimate.</p>
+                    }
+                  } @else {
+                    <p>A current market quote is unavailable.</p>
+                  }
+                  @if (marketRefreshFailed()) {
+                    <p>Market refresh failed. The last available prices are still shown.</p>
+                  }
+                  @if (marketRefreshFailed() || isQuoteStale(selected.latestQuote?.quotedAt)) {
+                    <button type="button" class="text-button" [disabled]="marketLoading()" (click)="loadMarketData(false)">Refresh prices</button>
+                  }
+                </div>
                 <div class="order-summary">
                   <div class="summary-row"><span>MARKET</span><span class="mono">{{ marketName(selected.exchange) }}</span></div>
                   <div class="summary-row"><span>CURRENCY</span><span class="mono">{{ currencyName(selected.currency) }}</span></div>
                 </div>
                 <div class="side-buttons">
                   <button type="button" class="side-btn buy-btn" [class.active]="orderSide === 'BUY'"
-                    [attr.aria-pressed]="orderSide === 'BUY'" [disabled]="orderSubmitting()" (click)="setOrderSide('BUY')">BUY</button>
+                    [attr.aria-pressed]="orderSide === 'BUY'" [disabled]="orderControlsLocked()" (click)="setOrderSide('BUY')">BUY</button>
                   <button type="button" class="side-btn sell-btn" [class.active]="orderSide === 'SELL'"
-                    [attr.aria-pressed]="orderSide === 'SELL'" [disabled]="orderSubmitting()" (click)="setOrderSide('SELL')">SELL</button>
+                    [attr.aria-pressed]="orderSide === 'SELL'" [disabled]="orderControlsLocked()" (click)="setOrderSide('SELL')">SELL</button>
                 </div>
                 <div class="form-group">
                   <label for="orderQuantity">Quantity</label>
                   <input id="orderQuantity" name="orderQuantity" type="number" class="form-input" min="0" step="any"
-                    placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderSubmitting()" (change)="validateQuantity()"
+                    placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderControlsLocked()" (change)="validateQuantity()"
                     [attr.aria-invalid]="quantityError() ? 'true' : 'false'" [attr.aria-describedby]="quantityError() ? 'quantityErrorMessage' : null" />
                   @if (quantityError()) { <p id="quantityErrorMessage" class="quantity-error" role="alert">{{ quantityError() }}</p> }
                 </div>
@@ -236,17 +252,35 @@
                   <div class="summary-row"><span>ESTIMATED ACCOUNT {{ orderSide === 'BUY' ? 'DEBIT' : 'CREDIT' }} · {{ account()?.currency }}</span>
                     <span class="mono">@if (estimatedAccountSettlement() !== null) { {{ estimatedAccountSettlement() | currency:(account()?.currency ?? 'GBP') }} } @else { — }</span>
                   </div>
+                  @if (fxLoading()) {
+                    <p class="estimate-note" role="status">Calculating the account currency estimate...</p>
+                  } @else if (fxErrorMessage()) {
+                    <div class="estimate-warning" role="status">
+                      <p>{{ fxErrorMessage() }}</p>
+                      <button type="button" class="text-button" (click)="refreshFxQuote(true)">Retry estimate</button>
+                    </div>
+                  }
                   @if (fxQuote(); as fx) {
                     <div class="summary-row"><span>INDICATIVE FX ({{ fx.asOf }})</span><span class="mono">1 {{ fx.from }} = {{ fx.rate | number:'1.2-8' }} {{ fx.to }}</span></div>
                   }
                   <div class="summary-row"><span>ACCOUNT CASH</span><span class="mono">{{ (account()?.cashBalance ?? 0) | number:'1.2-2' }} {{ account()?.currency }}</span></div>
+                  <p class="estimate-note">Indicative estimates only. Final price and currency conversion are confirmed when the order executes.</p>
                 </div>
                 <button type="button" class="submit-btn" [class.buy]="orderSide === 'BUY'" [class.sell]="orderSide === 'SELL'"
-                  [disabled]="orderSubmitting() || !selected.latestQuote" (click)="submitOrder()">
-                  {{ orderSubmitting() ? 'SUBMITTING...' : 'SUBMIT ' + orderSide }}
+                  [disabled]="orderSubmitting() || (!orderOutcomeUnconfirmed() && !selected.latestQuote)" (click)="submitOrder()">
+                  {{ orderSubmitting() ? (orderOutcomeUnconfirmed() ? 'CONFIRMING...' : 'SUBMITTING...') : orderOutcomeUnconfirmed() ? 'Confirm previous order' : 'SUBMIT ' + orderSide }}
                 </button>
               } @else {
                 <div class="empty-orders">Select a market instrument from Account overview or Watchlist to create an order.</div>
+              }
+              @if (orderMessage()) {
+                <p class="order-feedback" [class.order-success]="!orderSubmitting() && !orderOutcomeUnconfirmed()" role="status">{{ orderMessage() }}</p>
+              }
+              @if (orderErrorMessage()) {
+                <p class="order-feedback order-error" role="alert">{{ orderErrorMessage() }}</p>
+              }
+              @if (orderOutcomeUnconfirmed()) {
+                <p class="estimate-note">Your order details are kept here. Confirm the previous order before changing them.</p>
               }
             </div>
           </section>
