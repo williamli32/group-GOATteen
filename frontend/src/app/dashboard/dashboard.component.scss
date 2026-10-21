@@ -102,6 +102,61 @@ h2 { margin: 0; font-size: 16px; }
   th { padding: 12px 16px; color: $muted; background: $bg; border-bottom: 1px solid $border; font-size: 12px; font-weight: 500; white-space: nowrap; }
   td { padding: 10px 16px; color: $muted; border-bottom: 1px solid rgba($border, .5); }
 }
+.market-filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(180px, 240px);
+  gap: 16px;
+  padding: 20px 16px;
+  border-bottom: 1px solid $border;
+  background: rgba($bg, .45);
+}
+
+.market-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  label {
+    color: $muted;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  input,
+  select {
+    min-height: 44px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid $border;
+    border-radius: 5px;
+    background: $bg;
+    color: $text;
+    font: inherit;
+    font-size: 13px;
+  }
+
+  input::placeholder {
+    color: rgba($muted, .7);
+  }
+
+  input:hover,
+  select:hover {
+    border-color: rgba($accent, .55);
+  }
+
+  input:focus,
+  select:focus {
+    border-color: $accent;
+    outline: 2px solid rgba($accent, .2);
+    outline-offset: 1px;
+  }
+}
+
+.market-search-field {
+  min-width: 0;
+}
 .market-table { min-width: 660px; th, td { text-align: right; &:first-child, &:nth-child(2) { text-align: left; } } }
 .market-row { &.selected { background: rgba($accent, .07); } &:hover { background: rgba($accent, .04); } }
 .market-last { color: $accent !important; }

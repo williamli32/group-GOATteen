@@ -1343,19 +1343,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   private customerOrderRejectionMessage(reason: string | null): string {
-    switch (reason) {
-      case 'Insufficient cash balance':
-        return 'You do not have enough available cash for this BUY order.';
+    const normalizedReason = reason?.toLowerCase() ?? '';
 
-      case 'Insufficient holding of this instrument':
-        return 'You do not hold enough of this instrument to complete this SELL order.';
-
-      case 'No market quote available for instrument':
-        return 'This instrument cannot be traded because a market quote is unavailable.';
-
-      default:
-        return reason ?? 'The order was rejected. Please review the order details.';
+    if (normalizedReason.includes('insufficient cash')) {
+      return 'You do not have enough available cash for this BUY order.';
     }
+
+    if (
+      normalizedReason.includes('insufficient holding')
+      || normalizedReason.includes('insufficient position')
+    ) {
+      return 'You do not hold enough of this instrument to complete this SELL order.';
+    }
+
+    if (normalizedReason.includes('no market quote')) {
+      return 'This instrument cannot be traded because a market quote is unavailable.';
+    }
+
+    if (
+      normalizedReason.includes('fx provider')
+      || normalizedReason.includes('fx rate')
+      || normalizedReason.includes('currency conversion')
+    ) {
+      return 'The currency conversion service is temporarily unavailable. Please try again shortly.';
+    }
+
+    if (normalizedReason.includes('not currently tradable')) {
+      return 'This instrument is not currently available for trading.';
+    }
+
+    if (normalizedReason.includes('order is not')) {
+      return 'This order could not be completed because its status changed. Please try again.';
+    }
+
+    return 'The order was rejected. Please review the order details and try again.';
   }
 
 

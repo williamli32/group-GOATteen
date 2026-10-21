@@ -101,27 +101,31 @@
               </div>
             }
 
-            <div class="market-filters">
-              <label for="market-search">Search instruments</label>
-              <input
-                id="market-search"
-                type="search"
-                [value]="marketSearch()"
-                (input)="marketSearch.set($any($event.target).value)"
-                placeholder="Search by symbol or name"
-                autocomplete="off">
+            <div class="market-filters" aria-label="Instrument filters">
+              <div class="market-filter-field market-search-field">
+                <label for="market-search">Search instruments</label>
+                <input
+                  id="market-search"
+                  type="search"
+                  [value]="marketSearch()"
+                  (input)="marketSearch.set($any($event.target).value)"
+                  placeholder="Search symbol or name"
+                  autocomplete="off">
+              </div>
 
-              <label for="market-class-filter">Asset class</label>
-              <select
-                id="market-class-filter"
-                [value]="marketClassFilter()"
-                (change)="marketClassFilter.set($any($event.target).value)">
-                @for (assetClass of marketClasses; track assetClass) {
-                  <option [value]="assetClass">
-                    {{ assetClass === 'ALL' ? 'All asset classes' : assetClass }}
-                  </option>
-                }
-              </select>
+              <div class="market-filter-field">
+                <label for="market-class-filter">Asset class</label>
+                <select
+                  id="market-class-filter"
+                  [value]="marketClassFilter()"
+                  (change)="marketClassFilter.set($any($event.target).value)">
+                  @for (assetClass of marketClasses; track assetClass) {
+                    <option [value]="assetClass">
+                      {{ assetClass === 'ALL' ? 'All asset classes' : assetClass }}
+                    </option>
+                  }
+                </select>
+              </div>
             </div>
 
             @if (marketRefreshFailed()) {
