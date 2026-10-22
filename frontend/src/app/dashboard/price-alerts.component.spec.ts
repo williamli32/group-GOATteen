@@ -44,6 +44,26 @@ describe('PriceAlertsComponent notification clear actions', () => {
     fixture.destroy();
   });
 
+  it('keeps alert form controls labelled and notification actions named', () => {
+    const fixture = TestBed.createComponent(PriceAlertsComponent);
+    fixture.componentRef.setInput('instruments', [{
+      instrumentId: 1, symbol: 'AAPL', name: 'Apple', exchange: 'NASDAQ',
+      instrumentClass: 'EQUITY', countryCode: 'US', currency: 'USD', tradable: true,
+      latestQuote: null
+    }]);
+    fixture.detectChanges();
+    const root: HTMLElement = fixture.nativeElement;
+
+    expect(root.querySelector('label[for="alert-instrument"]')?.textContent).toContain('Instrument');
+    expect(root.querySelector('label[for="alert-direction"]')?.textContent).toContain('Notify me when');
+    expect(root.querySelector('label[for="alert-threshold"]')?.textContent).toContain('Target price');
+    expect(root.querySelector<HTMLButtonElement>('.clear-all-button')?.getAttribute('aria-label'))
+      .toContain('Clear all triggered price alert notifications');
+    expect(root.querySelector<HTMLButtonElement>('.notification-history button')?.getAttribute('aria-label'))
+      .toContain('Clear AAPL triggered price notification');
+    fixture.destroy();
+  });
+
   it('clears the full notification inbox, not the alert configurations', () => {
     const fixture = TestBed.createComponent(PriceAlertsComponent);
     fixture.detectChanges();
