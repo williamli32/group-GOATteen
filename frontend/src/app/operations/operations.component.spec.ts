@@ -71,6 +71,16 @@ describe('OperationsComponent', () => {
             expect.objectContaining({ orderId: 42, side: 'BUY', status: 'FILLED' })
         );
     });
+
+    it('keeps the supported operations status options', () => {
+        const statusSelect = Array.from(fixture.nativeElement.querySelectorAll('select') as NodeListOf<HTMLSelectElement>)
+            .find((select: HTMLSelectElement) => Array.from(select.options)
+                .some((option: HTMLOptionElement) => option.textContent?.trim() === 'All statuses'))!;
+        const options = Array.from(statusSelect.options).map((option: HTMLOptionElement) => option.textContent?.trim());
+        expect(options).toContain('All statuses');
+        expect(options).toContain('FILLED');
+        expect(options).toContain('REJECTED');
+    });
     it('cancels earlier investigations so the selection and audit cannot disagree', () => {
         const first = new Subject<OperationsAuditResponse>();
         const second = new Subject<OperationsAuditResponse>();

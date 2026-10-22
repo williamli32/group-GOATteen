@@ -781,6 +781,15 @@ describe('AnalystDashboardComponent', () => {
         }
     );
 
+    it('keeps the supported reporting status options', () => {
+        const statusSelect = Array.from(fixture.nativeElement.querySelectorAll('select') as NodeListOf<HTMLSelectElement>)
+            .find((select: HTMLSelectElement) => Array.from(select.options)
+                .some((option: HTMLOptionElement) => option.textContent?.trim() === 'All statuses'))!;
+        expect(Array.from(statusSelect.options).map((option: HTMLOptionElement) => option.textContent?.trim())).toEqual([
+            'All statuses', 'FILLED', 'REJECTED'
+        ]);
+    });
+
 
     it(
         'renders empty result state when reporting returns no activity',
