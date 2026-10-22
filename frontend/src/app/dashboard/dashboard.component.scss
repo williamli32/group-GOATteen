@@ -94,7 +94,29 @@
   font-family: var(--mono);
   font-size: clamp(20px, 2.4vw, 30px);
 }
-.portfolio-value-heading > span {
+.portfolio-value-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+.portfolio-value-controls button {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.portfolio-value-controls button:hover { border-color: var(--emerald); color: var(--emerald); }
+.portfolio-value-controls button.active {
+  border-color: var(--emerald);
+  background: var(--emerald);
+  color: var(--on-accent);
+}
+.portfolio-range-caption {
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 11px;
 }
@@ -154,6 +176,10 @@
   font-size: 11px;
 }
 .portfolio-value-empty { margin: 22px 0 6px; color: var(--muted); font-size: 12px; }
+@media (max-width: 600px) {
+  .portfolio-value-heading { flex-direction: column; }
+  .portfolio-value-controls { justify-content: flex-start; }
+}
 
 .workspace-intro {
   position: relative;

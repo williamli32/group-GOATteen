@@ -38,6 +38,7 @@ import {
     AccountResponse,
     AddFundsResponse,
     HoldingsResponse,
+    PortfolioHistoryPoint,
     OrderResponse
 } from '../core/services/account';
 
@@ -92,6 +93,8 @@ describe('DashboardComponent', () => {
 
         getHoldings: () =>
             of(mockHoldings),
+
+        getPortfolioHistory: vi.fn<(days?: number) => Observable<PortfolioHistoryPoint[]>>(),
 
         getBlotter: () =>
             of(mockBlotter)
@@ -176,6 +179,10 @@ describe('DashboardComponent', () => {
     beforeEach(async () => {
 
         accountServiceMock.addFunds.mockReset();
+        accountServiceMock.getPortfolioHistory.mockReset();
+        accountServiceMock.getPortfolioHistory.mockReturnValue(of([
+            { date: '2026-10-22', value: 2000, cashValue: 2000, holdingsValue: 0 }
+        ]));
         sessionStorage.removeItem('leap_pending_funding_1');
         marketDayChange = null;
         placeOrderCallCount = 0;
@@ -322,7 +329,7 @@ describe('DashboardComponent', () => {
 
     it('opens one labelled dashboard panel at a time with matching tab state', () => {
         const root: HTMLElement = fixture.nativeElement;
-        const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+        const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('.dashboard-tabs [role="tab"]'));
         expect(tabs.map(tab => tab.textContent?.trim())).toEqual(['Account overview', 'Watchlist', 'Orders', 'Holdings']);
         expect(component.activeTab()).toBe('overview');
         for (const tab of tabs) {
@@ -333,6 +340,28 @@ describe('DashboardComponent', () => {
             expect(root.querySelector('[role="tabpanel"]:not([hidden])')?.getAttribute('aria-labelledby')).toBe(tab.id);
             expect(tab.getAttribute('aria-selected')).toBe('true');
             expect(tabs.filter(item => item.tabIndex === 0)).toEqual([tab]);
+        }
+    });
+
+    it('loads and switches the portfolio graph across all five time ranges', () => {
+        expect(accountServiceMock.getPortfolioHistory).toHaveBeenCalledWith(7);
+        const root: HTMLElement = fixture.nativeElement;
+        const rangeButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.portfolio-value-controls button'));
+        expect(rangeButtons.map(button => button.textContent?.trim())).toEqual(['5D', '1M', 'YTD', '1Y', 'ALL']);
+
+        const ranges = [
+            { index: 1, days: 30, label: '1M' },
+            { index: 2, days: -1, label: 'YTD' },
+            { index: 3, days: 365, label: '1Y' },
+            { index: 4, days: 0, label: 'ALL' },
+            { index: 0, days: 7, label: '5D' }
+        ];
+        for (const range of ranges) {
+            rangeButtons[range.index].click();
+            fixture.detectChanges();
+            expect(accountServiceMock.getPortfolioHistory).toHaveBeenLastCalledWith(range.days);
+            expect(rangeButtons[range.index].getAttribute('aria-pressed')).toBe('true');
+            expect(root.querySelector('.portfolio-range-caption')?.textContent).toContain(range.label);
         }
     });
 

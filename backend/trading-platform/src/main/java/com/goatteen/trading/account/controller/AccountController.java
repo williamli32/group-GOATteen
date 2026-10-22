@@ -21,6 +21,7 @@ import com.goatteen.trading.portfolio.dto.PositionResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -150,9 +151,10 @@ public class AccountController {
     }
 
         @GetMapping("/me/portfolio-history")
-        public ResponseEntity<List<PortfolioHistoryPoint>> getPortfolioHistory() {
+        public ResponseEntity<List<PortfolioHistoryPoint>> getPortfolioHistory(
+                        @RequestParam(defaultValue = "7") int days) {
                 Long userId = currentUserService.getCurrentUserId();
                 Account account = accountOwnershipService.getCurrentUserAccount(userId);
-                return ResponseEntity.ok(portfolioHistoryService.history(account.getId(), 7));
+                return ResponseEntity.ok(portfolioHistoryService.history(account.getId(), days));
         }
 }

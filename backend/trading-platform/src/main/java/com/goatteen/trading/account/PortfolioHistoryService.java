@@ -19,9 +19,27 @@ public class PortfolioHistoryService {
 
     @Transactional(readOnly = true)
     public List<PortfolioHistoryPoint> history(Long accountId, int days) {
-        int boundedDays = Math.max(1, Math.min(days, 30));
         LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(boundedDays - 1L);
+        LocalDate startDate;
+        if (days == 0) {
+            startDate = jdbc.queryForObject("""
+                    SELECT COALESCE(MIN(event_day), CURRENT_DATE)
+                    FROM (
+                        SELECT created_at::date AS event_day
+                        FROM cash_transactions
+                        WHERE account_id = ?
+                        UNION ALL
+                        SELECT recorded_at::date AS event_day
+                        FROM position_history
+                        WHERE account_id = ?
+                    ) account_events
+                    """, LocalDate.class, accountId, accountId);
+                } else if (days == -1) {
+                    startDate = endDate.withDayOfYear(1);
+        } else {
+            int boundedDays = Math.max(1, Math.min(days, 365));
+            startDate = endDate.minusDays(boundedDays - 1L);
+        }
 
         String sql = """
                 WITH days AS (

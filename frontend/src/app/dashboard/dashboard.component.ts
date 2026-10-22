@@ -140,6 +140,7 @@ interface PortfolioValuePoint {
   timestamp: number;
   value: number;
 }
+type PortfolioHistoryRange = 7 | 30 | -1 | 365 | 0;
 
 interface QuoteHistoryPoint {
   timestamp: number;
@@ -186,7 +187,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
     readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
     readonly hoveredPortfolioPoint = signal<number | null>(null);
     readonly selectedMarketHistory = signal<QuoteHistoryPoint[]>([]);
-    readonly portfolioHistoryWindowDays = 7;
+    readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(7);
+    readonly portfolioHistoryRequestFailed = signal(false);
+    private portfolioHistoryRequest?: Subscription;
+
+    readonly portfolioHistoryRanges: ReadonlyArray<{ days: PortfolioHistoryRange; label: string }> = [
+      { days: 7, label: '5D' },
+      { days: 30, label: '1M' },
+      { days: -1, label: 'YTD' },
+      { days: 365, label: '1Y' },
+      { days: 0, label: 'ALL' }
+    ];
+
+    portfolioHistoryRangeLabel(): string {
+      return this.portfolioHistoryRanges.find(range => range.days === this.portfolioHistoryDays())?.label ?? '5D';
+    }
+
+    selectPortfolioHistoryRange(days: PortfolioHistoryRange): void {
+      if (this.portfolioHistoryDays() === days) return;
+      this.portfolioHistoryDays.set(days);
+      this.hoveredPortfolioPoint.set(null);
+      this.portfolioHistoryRequest?.unsubscribe();
+      this.portfolioHistoryRequestFailed.set(false);
+      this.portfolioHistoryRequest = this.accountService.getPortfolioHistory(days).subscribe({
+        next: history => {
+          this.portfolioValueHistory.set(history.map(point => ({
+            timestamp: new Date(`${point.date}T12:00:00`).getTime(),
+            value: Number(point.value)
+          })));
+        },
+        error: () => this.portfolioHistoryRequestFailed.set(true)
+      });
+    }
 
 
   readonly dashboardTabs: ReadonlyArray<{ id: DashboardTab; label: string }> = [
@@ -521,13 +553,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   showPortfolioDateLabel(index: number): boolean {
     const count = this.portfolioValueHistory().length;
-    return count <= 8 || index === 0 || index === count - 1 || index % 5 === 0;
+    const labelInterval = Math.max(1, Math.ceil((count - 1) / 7));
+    return count <= 8 || index === 0 || index === count - 1 || index % labelInterval === 0;
   }
 
   private recordPortfolioValue(): void {
     if (!this.account() || !this.holdings() || !this.marketInstruments().length) return;
     const point = { timestamp: Date.now(), value: this.portfolioValue() };
-    const cutoff = point.timestamp - this.portfolioHistoryWindowDays * 24 * 60 * 60 * 1000;
+    const cutoff = point.timestamp - 7 * 24 * 60 * 60 * 1000;
     this.portfolioValueHistory.update(history => [
       ...history.filter(existing => existing.timestamp >= cutoff),
       point
@@ -702,7 +735,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       portfolioHistory:
 
-        this.accountService.getPortfolioHistory(),
+        this.accountService.getPortfolioHistory(this.portfolioHistoryDays()),
 
 
 
@@ -789,6 +822,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
               value: Number(point.value)
             }))
           );
+          this.portfolioHistoryRequestFailed.set(false);
 
 
 
@@ -1790,6 +1824,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.fxRequest?.unsubscribe();
     this.dashboardRequestVersion++;
     this.dashboardRequest?.unsubscribe();
+    this.portfolioHistoryRequest?.unsubscribe();
 
 
 

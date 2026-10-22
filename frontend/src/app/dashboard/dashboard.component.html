@@ -49,8 +49,18 @@
             <p class="eyebrow">PORTFOLIO VALUE</p>
             <h2>{{ portfolioValueLabel(portfolioValue()) }}</h2>
           </div>
-          <span>Past 7 days · account history · {{ portfolioValueHistory().length }} daily values</span>
+          <div class="portfolio-value-controls" role="group" aria-label="Portfolio graph time range">
+            @for (range of portfolioHistoryRanges; track range.days) {
+              <button type="button" [class.active]="portfolioHistoryDays() === range.days"
+                [attr.aria-pressed]="portfolioHistoryDays() === range.days"
+                (click)="selectPortfolioHistoryRange(range.days)">{{ range.label }}</button>
+            }
+          </div>
         </div>
+
+        <p class="portfolio-range-caption">
+          {{ portfolioHistoryRangeLabel() }} · account history · {{ portfolioValueHistory().length }} daily values
+        </p>
 
         @if (portfolioValueHistory().length > 0) {
           <svg class="portfolio-value-chart" viewBox="-72 0 872 260" preserveAspectRatio="none"
@@ -85,7 +95,9 @@
             </div>
           }
         } @else {
-          <p class="portfolio-value-empty">Portfolio value will appear after the first market refresh.</p>
+          <p class="portfolio-value-empty">
+            {{ portfolioHistoryRequestFailed() ? 'Portfolio history could not be loaded. Try selecting this range again.' : 'Portfolio value will appear after the first market refresh.' }}
+          </p>
         }
       </section>
 

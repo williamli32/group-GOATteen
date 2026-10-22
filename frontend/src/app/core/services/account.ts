@@ -103,9 +103,9 @@ export class AccountService {
 
   }
 
-  getPortfolioHistory(): Observable<PortfolioHistoryPoint[]> {
+  getPortfolioHistory(days = 7): Observable<PortfolioHistoryPoint[]> {
     return this.http.get<PortfolioHistoryPoint[]>(
-      `${this.apiUrl}/me/portfolio-history`
+      `${this.apiUrl}/me/portfolio-history`, { params: { days } }
     );
   }
 
