@@ -165,8 +165,7 @@
 }
 .portfolio-hover-value {
   position: absolute;
-  right: 24px;
-  top: 20px;
+  z-index: 2;
   padding: 7px 10px;
   border: 1px solid var(--emerald);
   border-radius: 5px;
@@ -174,6 +173,8 @@
   color: var(--ink);
   font-family: var(--mono);
   font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .portfolio-value-empty { margin: 22px 0 6px; color: var(--muted); font-size: 12px; }
 @media (max-width: 600px) {

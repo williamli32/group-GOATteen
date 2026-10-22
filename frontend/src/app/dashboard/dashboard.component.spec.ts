@@ -365,6 +365,28 @@ describe('DashboardComponent', () => {
         }
     });
 
+    it('does not let an older dashboard refresh replace a newly selected portfolio range', () => {
+        const staleHistory = new Subject<PortfolioHistoryPoint[]>();
+        accountServiceMock.getPortfolioHistory
+            .mockReturnValueOnce(staleHistory)
+            .mockReturnValueOnce(of([
+                { date: '2026-10-22', value: 1800, cashValue: 1800, holdingsValue: 0 }
+            ]));
+
+        component.loadDashboard(false);
+        component.selectPortfolioHistoryRange(-1);
+        expect(component.portfolioValueHistory().map(point => point.value)).toEqual([1800]);
+
+        staleHistory.next([
+            { date: '2026-09-22', value: 900, cashValue: 900, holdingsValue: 0 }
+        ]);
+        staleHistory.complete();
+        fixture.detectChanges();
+
+        expect(component.portfolioHistoryDays()).toBe(-1);
+        expect(component.portfolioValueHistory().map(point => point.value)).toEqual([1800]);
+    });
+
     it('supports arrow, Home and End keys with focus following the selected tab', () => {
         const root: HTMLElement = fixture.nativeElement;
         const key = (value: string) => {

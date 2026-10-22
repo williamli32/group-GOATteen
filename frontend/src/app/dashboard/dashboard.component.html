@@ -64,7 +64,8 @@
 
         @if (portfolioValueHistory().length > 0) {
           <svg class="portfolio-value-chart" viewBox="-72 0 872 260" preserveAspectRatio="none"
-            role="img" aria-label="Portfolio value over time">
+            role="img" aria-label="Portfolio value over time"
+            (pointermove)="onPortfolioChartPointerMove($event)" (pointerleave)="clearPortfolioChartHover()">
             @for (label of portfolioValueAxisLabels(); track label; let index = $index) {
               <text class="portfolio-y-label" x="-10" [attr.y]="22 + index * 42">{{ portfolioValueLabel(label) }}</text>
               <line class="portfolio-gridline" x1="0" [attr.y1]="22 + index * 42" x2="800" [attr.y2]="22 + index * 42" />
@@ -75,9 +76,7 @@
               <circle class="portfolio-value-point"
                 [attr.cx]="portfolioValuePointX(index)"
                 [attr.cy]="portfolioValuePointY(index)"
-                r="4"
-                (mouseenter)="hoveredPortfolioPoint.set(index)"
-                (mouseleave)="hoveredPortfolioPoint.set(null)">
+                r="4">
                 <title>{{ portfolioPointLabel(point.timestamp) }} · {{ portfolioValueLabel(point.value) }}</title>
               </circle>
               @if (showPortfolioDateLabel(index)) {
@@ -89,7 +88,9 @@
             }
           </svg>
           @if (hoveredPortfolioPoint() !== null) {
-            <div class="portfolio-hover-value" role="status">
+            <div class="portfolio-hover-value" role="status"
+              [style.left.px]="portfolioHoverPosition()?.left"
+              [style.top.px]="portfolioHoverPosition()?.top">
               {{ portfolioPointLabel(portfolioValueHistory()[hoveredPortfolioPoint()!].timestamp) }}
               · {{ portfolioValueLabel(portfolioValueHistory()[hoveredPortfolioPoint()!].value) }}
             </div>

@@ -186,6 +186,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ] as const;
     readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
     readonly hoveredPortfolioPoint = signal<number | null>(null);
+    readonly portfolioHoverPosition = signal<{ left: number; top: number } | null>(null);
     readonly selectedMarketHistory = signal<QuoteHistoryPoint[]>([]);
     readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(5);
     readonly portfolioHistoryRequestFailed = signal(false);
@@ -199,6 +200,41 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { days: 0, label: 'ALL' }
     ];
 
+    onPortfolioChartPointerMove(event: PointerEvent): void {
+      const points = this.portfolioValueHistory();
+      const chart = event.currentTarget;
+      const panel = chart instanceof Element ? chart.closest<HTMLElement>('.portfolio-value-panel') : null;
+      if (!points.length || !chart || !panel) return;
+
+      const chartBounds = (chart as SVGSVGElement).getBoundingClientRect();
+      const panelBounds = panel.getBoundingClientRect();
+      const viewBoxX = (event.clientX - chartBounds.left) / Math.max(chartBounds.width, 1) * 872 - 72;
+      const pointRatio = Math.min(1, Math.max(0, viewBoxX / 800));
+      const nearestIndex = Math.round(pointRatio * Math.max(points.length - 1, 0));
+      const pointX = this.portfolioValuePointX(nearestIndex);
+      const pointY = this.portfolioValuePointY(nearestIndex);
+      const pointScreenX = chartBounds.left + ((pointX + 72) / 872) * chartBounds.width;
+      const pointScreenY = chartBounds.top + (pointY / 260) * chartBounds.height;
+      if (Math.hypot(event.clientX - pointScreenX, event.clientY - pointScreenY) > 14) {
+        this.clearPortfolioChartHover();
+        return;
+      }
+
+      const tooltipWidth = 190;
+      const tooltipHeight = 36;
+
+      this.hoveredPortfolioPoint.set(nearestIndex);
+      this.portfolioHoverPosition.set({
+        left: Math.min(Math.max(event.clientX - panelBounds.left + 12, 8), Math.max(panelBounds.width - tooltipWidth - 8, 8)),
+        top: Math.min(Math.max(event.clientY - panelBounds.top - tooltipHeight - 10, 8), Math.max(panelBounds.height - tooltipHeight - 8, 8))
+      });
+    }
+
+    clearPortfolioChartHover(): void {
+      this.hoveredPortfolioPoint.set(null);
+      this.portfolioHoverPosition.set(null);
+    }
+
     portfolioHistoryRangeLabel(): string {
       return this.portfolioHistoryRanges.find(range => range.days === this.portfolioHistoryDays())?.label ?? '5D';
     }
@@ -206,7 +242,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     selectPortfolioHistoryRange(days: PortfolioHistoryRange): void {
       if (this.portfolioHistoryDays() === days) return;
       this.portfolioHistoryDays.set(days);
-      this.hoveredPortfolioPoint.set(null);
+      this.clearPortfolioChartHover();
       this.portfolioHistoryRequest?.unsubscribe();
       this.portfolioHistoryRequestFailed.set(false);
       this.portfolioHistoryRequest = this.accountService.getPortfolioHistory(days).subscribe({
@@ -674,6 +710,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     const requestVersion = ++this.dashboardRequestVersion;
+    const requestedPortfolioHistoryDays = this.portfolioHistoryDays();
 
 
 
@@ -735,7 +772,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       portfolioHistory:
 
-        this.accountService.getPortfolioHistory(this.portfolioHistoryDays()),
+        this.accountService.getPortfolioHistory(requestedPortfolioHistoryDays),
 
 
 
@@ -816,13 +853,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           );
 
-          this.portfolioValueHistory.set(
-            result.portfolioHistory.map(point => ({
-              timestamp: new Date(`${point.date}T12:00:00`).getTime(),
-              value: Number(point.value)
-            }))
-          );
-          this.portfolioHistoryRequestFailed.set(false);
+          if (this.portfolioHistoryDays() === requestedPortfolioHistoryDays) {
+            this.portfolioValueHistory.set(
+              result.portfolioHistory.map(point => ({
+                timestamp: new Date(`${point.date}T12:00:00`).getTime(),
+                value: Number(point.value)
+              }))
+            );
+            this.portfolioHistoryRequestFailed.set(false);
+          }
 
 
 
