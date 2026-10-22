@@ -372,6 +372,18 @@ describe('DashboardComponent', () => {
         }
     });
 
+    it('returns to the top of the dashboard when the available cash card is clicked', () => {
+        const top = fixture.nativeElement.querySelector('#dashboard-top') as HTMLElement;
+        const scrollIntoView = vi.fn();
+        top.scrollIntoView = scrollIntoView;
+        const cashCard = fixture.nativeElement.querySelector('.cash-summary-card') as HTMLButtonElement;
+
+        expect(cashCard.getAttribute('aria-label')).toContain('top of the dashboard');
+        cashCard.click();
+
+        expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    });
+
     it('does not let an older dashboard refresh replace a newly selected portfolio range', () => {
         const staleHistory = new Subject<PortfolioHistoryPoint[]>();
         accountServiceMock.getPortfolioHistory

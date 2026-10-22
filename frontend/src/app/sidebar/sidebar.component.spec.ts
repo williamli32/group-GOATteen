@@ -20,6 +20,7 @@ describe('SidebarComponent role navigation', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    localStorage.removeItem('leap_sidebar_width');
     auth.hasReportingAccess.mockReturnValue(false);
     auth.hasOperationsAccess.mockReturnValue(false);
     await TestBed.configureTestingModule({
@@ -56,5 +57,30 @@ describe('SidebarComponent role navigation', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance.navItems().map(item => item.route))
       .toEqual(['/dashboard', '/analyst', '/operations']);
+  });
+
+  it('lets users resize the sidebar with the keyboard and persists the chosen width', () => {
+    const separator = fixture.nativeElement.querySelector('.sidebar-resize-handle') as HTMLElement;
+    const sidebar = fixture.nativeElement.querySelector('.sidebar') as HTMLElement;
+    expect(separator.parentElement).toBe(fixture.nativeElement);
+    expect(separator.parentElement).not.toBe(sidebar);
+    expect(separator.getAttribute('aria-valuenow')).toBe('240');
+
+    separator.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.sidebarWidth()).toBe(248);
+    expect(separator.getAttribute('aria-valuenow')).toBe('248');
+    expect(localStorage.getItem('leap_sidebar_width')).toBe('248');
+  });
+
+  it('restores a previously saved sidebar width', () => {
+    localStorage.setItem('leap_sidebar_width', '300');
+    fixture.destroy();
+    fixture = TestBed.createComponent(SidebarComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.sidebarWidth()).toBe(300);
+    expect(fixture.nativeElement.style.getPropertyValue('--sidebar-width')).toBe('300px');
   });
 });

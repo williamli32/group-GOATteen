@@ -29,7 +29,7 @@
       <button type="button" class="retry-btn" (click)="loadDashboard()">Retry</button>
     </div>
   } @else {
-    <header class="topbar">
+    <header id="dashboard-top" class="topbar">
       <div class="account-identity">
         <span class="brand-name">Your workspace <span aria-hidden="true">/</span></span>
         <span class="account-name">{{ account()?.firstName }} {{ account()?.lastName }}</span>
@@ -155,14 +155,16 @@
           </div>
         </div>
         <div class="account-summary-grid">
-          <div class="summary-card">
+          <button type="button" class="summary-card cash-summary-card"
+            (click)="scrollToDashboardTop()"
+            aria-label="Available cash. Return to the top of the dashboard">
             <span class="summary-label">Available cash · {{ account()?.currency }}</span>
             <span class="summary-card-icon" aria-hidden="true">↗</span>
             <strong class="summary-value">{{
               account()?.cashBalance ?? 0
                 | currency: account()?.currency ?? 'GBP' : 'symbol' : '1.2-2'
             }}</strong>
-          </div>
+          </button>
           <div class="summary-card">
             <span class="summary-label">Holdings</span>
             <strong class="summary-value"

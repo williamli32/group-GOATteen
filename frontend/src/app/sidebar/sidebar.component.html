@@ -106,3 +106,8 @@
     </button>
   </div>
 </aside>
+<div class="sidebar-resize-handle" role="separator" aria-orientation="vertical"
+  aria-label="Resize sidebar" [attr.aria-valuemin]="200" [attr.aria-valuemax]="340"
+  [attr.aria-valuenow]="sidebarWidth()" tabindex="0"
+  (pointerdown)="startResize($event)" (keydown)="resizeFromKeyboard($event)"
+  title="Drag to resize; use arrow keys, Home/End, or Enter to reset"></div>

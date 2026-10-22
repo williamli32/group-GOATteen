@@ -1,11 +1,16 @@
 :host {
   display: block;
-  flex: 0 0 240px;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  align-self: flex-start;
+  flex: 0 0 var(--sidebar-width, 240px);
+  z-index: 5;
 }
 .sidebar {
   position: sticky;
   top: 0;
-  width: 240px;
+  width: var(--sidebar-width, 240px);
   height: 100dvh;
   min-height: 580px;
   display: flex;
@@ -17,6 +22,35 @@
   border-right: 1px solid #284235;
   scrollbar-width: thin;
   scrollbar-color: #557460 transparent;
+}
+.sidebar-resize-handle {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  right: -4px;
+  display: grid;
+  place-items: center;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+.sidebar-resize-handle::after {
+  width: 2px;
+  height: 34px;
+  border-radius: 2px;
+  background: #7a9c7e;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  content: '';
+}
+.sidebar-resize-handle:hover::after,
+.sidebar-resize-handle:focus-visible::after {
+  opacity: .8;
+}
+.sidebar-resize-handle:focus-visible {
+  outline: 1px solid #9fb3a4;
+  outline-offset: -2px;
 }
 .sidebar::-webkit-scrollbar {
   width: 3px;
@@ -223,6 +257,15 @@
     grid-template-columns: auto 1fr;
     gap: 20px;
     align-items: center;
+  }
+  :host {
+    position: static;
+    height: auto;
+    align-self: auto;
+    z-index: auto;
+  }
+  .sidebar-resize-handle {
+    display: none;
   }
   .sidebar-brand > span {
     font-size: 20px;

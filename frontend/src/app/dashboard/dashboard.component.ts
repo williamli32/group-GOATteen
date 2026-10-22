@@ -531,6 +531,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return Number(currentAccount.cashBalance) + holdingsValue;
   }
 
+  scrollToDashboardTop(): void {
+    this.host.nativeElement.querySelector<HTMLElement>('#dashboard-top')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   portfolioValuePoints(): string {
     const points = this.portfolioValueHistory();
     const maximum = Math.max(...points.map(point => point.value), 1);
