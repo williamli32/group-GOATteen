@@ -20,11 +20,88 @@
   --amber-soft: #fcf5e9;
   --blue: #476bb2;
   --violet: #7663a7;
+  --on-accent: #ffffff;
+  --placeholder: #86918c;
+  --focus: #4f9a7e;
+  --focus-soft: #126b5010;
+  --hover: #f7faf4;
+  --selected: #f0f6ec;
+  --tint: #eef3e6;
+  --tint-border: #dce6d1;
+  --positive-border: #c6dfce;
+  --negative-border: #ecccc9;
+  --amber-border: #eadbbd;
+  --hero: #e9eee1;
+  --hero-border: #e0e6d7;
+  --hero-ink: #2c4937;
+  --hero-glow: #faffecb3;
+  --popover: #fffefa;
+  --shadow-color: #173d2b26;
+  --overlay: #10271e59;
+  --chart-green: #22795c;
+  --chart-red: #b45a62;
+  --chart-gold: #b88a42;
+  --chart-violet: #8070b5;
+  --chart-blue: #6a87af;
+  --chart-grid: #e9ede7;
+  --chart-axis: #d5dfd2;
+  --chart-empty: #e4ebe3;
+  --allocation-saturation: 42%;
+  --allocation-lightness: 42%;
   --radius: 18px;
   --shadow: 0 4px 20px -12px #173d2b26;
   --ease: cubic-bezier(0.2, 0.75, 0.25, 1);
   --font: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #101b18;
+  --surface: #182822;
+  --surface-soft: #1d3029;
+  --ink: #edf4ed;
+  --muted: #b0c2b6;
+  --line: #33493e;
+  --line-strong: #536e5d;
+  --emerald: #79d5ac;
+  --emerald-hover: #a0e4c4;
+  --emerald-soft: #203d30;
+  --positive: #8cdeb6;
+  --negative: #ff9c9f;
+  --negative-soft: #3b262b;
+  --amber: #e4be7e;
+  --amber-soft: #3b3423;
+  --blue: #9ab9f1;
+  --violet: #b4a2ee;
+  --on-accent: #0c291f;
+  --placeholder: #8fa498;
+  --focus: #85ddb4;
+  --focus-soft: #79d5ac24;
+  --hover: #22382c;
+  --selected: #294632;
+  --tint: #23392c;
+  --tint-border: #405b43;
+  --positive-border: #41694e;
+  --negative-border: #75464d;
+  --amber-border: #786140;
+  --hero: #23392a;
+  --hero-border: #3b523e;
+  --hero-ink: #e0eecd;
+  --hero-glow: #91b46814;
+  --popover: #24392f;
+  --shadow-color: #00000050;
+  --overlay: #050d0bb3;
+  --chart-green: #72cfac;
+  --chart-red: #f2939e;
+  --chart-gold: #e8bf78;
+  --chart-violet: #b4a2ee;
+  --chart-blue: #9bbef1;
+  --chart-grid: #33483d;
+  --chart-axis: #536d5e;
+  --chart-empty: #344a3d;
+  --allocation-saturation: 52%;
+  --allocation-lightness: 64%;
+  --shadow: 0 4px 20px -12px #00000099;
 }
 html {
   box-sizing: border-box;
@@ -85,7 +162,7 @@ textarea {
     transform 0.18s var(--ease);
 }
 :focus-visible {
-  outline: 3px solid #4f9a7e;
+  outline: 3px solid var(--focus);
   outline-offset: 4px;
 }
 ::selection {
@@ -101,7 +178,7 @@ textarea {
   accent-color: var(--emerald);
 }
 input::placeholder {
-  color: #86918c;
+  color: var(--placeholder);
   opacity: 1;
 }
 button:disabled,

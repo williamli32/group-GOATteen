@@ -92,7 +92,7 @@ export function buildHoldingsAllocation(
       value,
       share: 0,
       path: '',
-      color: `hsl(${((position.instrumentId * 137.508 + 136) % 360).toFixed(2)} 42% 42%)`,
+      color: `hsl(${((position.instrumentId * 137.508 + 136) % 360).toFixed(2)} var(--allocation-saturation, 42%) var(--allocation-lightness, 42%))`,
     });
     result.total += value;
   }

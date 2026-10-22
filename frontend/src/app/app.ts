@@ -1,3 +1,5 @@
+import { ThemePreferences } from './core/ui/theme-preferences';
+import { ThemeToggleComponent } from './shared/theme-toggle.component';
 import { MotionToggleComponent } from './shared/motion-toggle.component';
 import { Component, computed, inject, signal } from '@angular/core';
 import {
@@ -15,7 +17,7 @@ import { Auth } from './core/auth/auth';
 import { SidebarComponent } from './sidebar/sidebar.component';
 
 @Component({
-  imports: [RouterOutlet, SidebarComponent, MotionToggleComponent],
+  imports: [RouterOutlet, SidebarComponent, MotionToggleComponent, ThemeToggleComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -29,6 +31,7 @@ export class App {
   private failedUrl: string | null = null;
 
   constructor() {
+    inject(ThemePreferences);
     this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
       if (event instanceof NavigationStart) {
         this.openingPage.set(true);

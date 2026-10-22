@@ -68,7 +68,7 @@ app-root {
     animation: workspace-light-drift 13s ease-in-out infinite;
   }
   .workspace-intro::before {
-    background: radial-gradient(ellipse at 72% 45%, #faffecb3, transparent 42%);
+    background: radial-gradient(ellipse at 72% 45%, var(--hero-glow), transparent 42%);
   }
 }
 @media (max-width: 650px) {

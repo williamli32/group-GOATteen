@@ -354,7 +354,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         value: string,
         detail: string,
         event: Event,
-        color = '#22795c',
+        color = 'var(--chart-green)',
     ): void {
         this.graphDialog.set({
             date,
@@ -375,7 +375,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         }[metric];
         this.showTrendDialog(title, this.graphDateLabel(point.date), metric === 'value'
             ? this.formatMoney(point.value, this.reportedCurrency()) : this.formatNumber(point.value),
-            detail, event, { orders: '#22795c', value: '#b88a42', clients: '#8070b5' }[metric]);
+            detail, event, { orders: 'var(--chart-green)', value: 'var(--chart-gold)', clients: 'var(--chart-violet)' }[metric]);
     }
 
     showBuySellDateDialog(index: number, event: Event): void {
@@ -392,12 +392,12 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
                 {
                     label: 'BUY fills',
                     value: this.formatNumber(point.buyFills),
-                    color: '#22795c'
+                    color: 'var(--chart-green)'
                 },
                 {
                     label: 'SELL fills',
                     value: this.formatNumber(point.sellFills),
-                    color: '#b45a62'
+                    color: 'var(--chart-red)'
                 },
                 
             ],
@@ -435,7 +435,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
             `${orders} orders`,
             'Order outcome total',
             event,
-            status === 'FILLED' ? '#22795c' : '#b45a62',
+            status === 'FILLED' ? 'var(--chart-green)' : 'var(--chart-red)',
         );
     }
 
@@ -489,7 +489,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
             buy + sell;
 
         if (total <= 0) {
-            return '#e4ebe3';
+            return 'var(--chart-empty)';
         }
 
         const buyEnd =
@@ -498,12 +498,12 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         return `
         radial-gradient(
             circle,
-            #ffffff 0 57%,
+            var(--surface) 0 57%,
             transparent 58%
         ),
         conic-gradient(
-            #22795c 0 ${buyEnd}%,
-            #b45a62 ${buyEnd}% 100%
+            var(--chart-green) 0 ${buyEnd}%,
+            var(--chart-red) ${buyEnd}% 100%
         )
     `;
     }

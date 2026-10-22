@@ -59,7 +59,7 @@
   height: 5px;
   width: 5px;
   border-radius: 50%;
-  background: #819d70;
+  background: var(--chart-green);
 }
 .report-views {
   display: flex;
@@ -100,7 +100,7 @@
 .chart-panel,
 .table-panel,
 .state-panel {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   box-shadow: var(--shadow);
@@ -127,7 +127,7 @@
   min-height: 34px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
-  background: white;
+  background: var(--surface);
   color: var(--emerald);
   padding: 7px 11px;
   font-size: 11px;
@@ -136,7 +136,7 @@
 }
 .text-button:hover {
   background: var(--emerald-soft);
-  border-color: #97b4a1;
+  border-color: var(--line-strong);
 }
 .filter-grid {
   display: grid;
@@ -170,11 +170,11 @@ select {
 }
 input:focus,
 select:focus {
-  border-color: #75a48b;
-  box-shadow: 0 0 0 3px #126b5010;
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 3px var(--focus-soft);
 }
 input[type='date'] {
-  color-scheme: light;
+  color-scheme: inherit;
 }
 .apply-button {
   min-height: 40px;
@@ -182,7 +182,7 @@ input[type='date'] {
   background: var(--emerald);
   border: 1px solid var(--emerald);
   border-radius: 8px;
-  color: white;
+  color: var(--on-accent);
   font-size: 11px;
   font-weight: 650;
   white-space: nowrap;
@@ -212,7 +212,7 @@ input[type='date'] {
 .applied-scope strong {
   font-weight: 600;
   font-size: 11px;
-  color: #5b735d;
+  color: var(--muted);
 }
 .applied-scope p {
   margin: 5px 0;
@@ -236,7 +236,7 @@ input[type='date'] {
   flex-wrap: wrap;
   padding: 11px 13px;
   margin-top: 16px;
-  border: 1px solid #e8daba;
+  border: 1px solid var(--amber-border);
   border-radius: 8px;
   background: var(--amber-soft);
   color: var(--amber);
@@ -284,11 +284,11 @@ input[type='date'] {
   border-radius: 50%;
 }
 .orders-key {
-  background: #22795c;
+  background: var(--chart-green);
 }
 .value-key {
   margin-left: 8px;
-  background: #b88a42;
+  background: var(--chart-gold);
 }
 .metric-grid {
   display: grid;
@@ -307,7 +307,7 @@ input[type='date'] {
   padding: 22px;
   border: 1px solid var(--line);
   border-radius: 15px;
-  background: white;
+  background: var(--surface);
   color: var(--ink);
   text-align: left;
   overflow: hidden;
@@ -319,8 +319,8 @@ input[type='date'] {
 }
 .metric-card:hover {
   transform: translateY(-3px);
-  border-color: #a8bd9e;
-  box-shadow: 0 9px 28px -18px #17452855;
+  border-color: var(--line-strong);
+  box-shadow: 0 9px 28px -18px var(--shadow-color);
 }
 .metric-card::before {
   content: '';
@@ -330,7 +330,7 @@ input[type='date'] {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #7e9e78;
+  background: var(--chart-green);
 }
 .metric-card span {
   font-size: 11px;
@@ -363,16 +363,16 @@ input[type='date'] {
   color: #b6cab2;
 }
 .accent-red::before {
-  background: #b45a62;
+  background: var(--chart-red);
 }
 .accent-gold::before {
-  background: #b88a42;
+  background: var(--chart-gold);
 }
 .accent-violet::before {
-  background: #8070b5;
+  background: var(--chart-violet);
 }
 .accent-blue::before {
-  background: #6a87af;
+  background: var(--chart-blue);
 }
 .trend-grid {
   display: grid;
@@ -459,12 +459,12 @@ input[type='date'] {
   aspect-ratio: auto;
 }
 .chart-gridline {
-  stroke: #e9ede7;
+  stroke: var(--chart-grid);
   stroke-dasharray: 3 5;
   stroke-width: 1;
 }
 .chart-axis {
-  stroke: #d5dfd2;
+  stroke: var(--chart-axis);
   stroke-width: 1;
 }
 .orders-area,
@@ -482,30 +482,30 @@ input[type='date'] {
   vector-effect: non-scaling-stroke;
 }
 .orders-line {
-  stroke: #22795c;
+  stroke: var(--chart-green);
 }
 .value-line {
-  stroke: #b88a42;
+  stroke: var(--chart-gold);
 }
 .client-line {
-  stroke: #8070b5;
+  stroke: var(--chart-violet);
 }
 .orders-point,
 .value-point,
 .client-point {
-  stroke: white;
+  stroke: var(--surface);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
   cursor: pointer;
 }
 .orders-point {
-  fill: #22795c;
+  fill: var(--chart-green);
 }
 .value-point {
-  fill: #b88a42;
+  fill: var(--chart-gold);
 }
 .client-point {
-  fill: #8070b5;
+  fill: var(--chart-violet);
 }
 circle[tabindex]:focus-visible {
   outline: 2px solid var(--emerald);
@@ -558,7 +558,7 @@ circle[tabindex]:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 15px solid white;
+  border: 15px solid var(--surface);
   border-radius: 50%;
   color: var(--ink);
   cursor: help;
@@ -598,10 +598,10 @@ circle[tabindex]:focus-visible {
   border-radius: 50%;
 }
 .buy-dot {
-  background: #22795c;
+  background: var(--chart-green);
 }
 .sell-dot {
-  background: #b45a62;
+  background: var(--chart-red);
 }
 .buy-sell-history {
   flex: 1 1 310px;
@@ -631,11 +631,11 @@ circle[tabindex]:focus-visible {
   overflow: visible;
 }
 .history-gridline {
-  stroke: #e9ede7;
+  stroke: var(--chart-grid);
   stroke-dasharray: 3 5;
 }
 .history-axis {
-  stroke: #d5dfd2;
+  stroke: var(--chart-axis);
 }
 .buy-history-line,
 .sell-history-line {
@@ -646,22 +646,22 @@ circle[tabindex]:focus-visible {
   stroke-linejoin: round;
 }
 .buy-history-line {
-  stroke: #22795c;
+  stroke: var(--chart-green);
 }
 .sell-history-line {
-  stroke: #b45a62;
+  stroke: var(--chart-red);
 }
 .buy-history-point {
-  fill: #22795c;
-  stroke: white;
+  fill: var(--chart-green);
+  stroke: var(--surface);
 }
 .sell-history-point {
-  fill: #b45a62;
-  stroke: white;
+  fill: var(--chart-red);
+  stroke: var(--surface);
 }
 .history-label,
 .history-y-label {
-  fill: #859480;
+  fill: var(--muted);
   font: 10px var(--mono);
 }
 .outcome-bars {
@@ -672,7 +672,7 @@ circle[tabindex]:focus-visible {
 }
 .outcome-bars > div {
   position: relative;
-  background: linear-gradient(transparent 31px, #f1f4ed 31px);
+  background: linear-gradient(transparent 31px, var(--chart-grid) 31px);
   border-radius: 6px;
   min-height: 40px;
 }
@@ -694,10 +694,10 @@ circle[tabindex]:focus-visible {
   min-width: 0;
 }
 .filled-bar {
-  background: #22795c;
+  background: var(--chart-green);
 }
 .rejected-bar {
-  background: #b45a62;
+  background: var(--chart-red);
 }
 .table-panel {
   overflow-x: auto;
@@ -706,7 +706,7 @@ circle[tabindex]:focus-visible {
   font-size: 11px;
   padding: 4px 6px;
   border-radius: 4px;
-  background: #eef3eb;
+  background: var(--surface-soft);
 }
 .buy-pill {
   color: var(--positive);
@@ -738,7 +738,7 @@ circle[tabindex]:focus-visible {
 }
 .error-state {
   background: var(--negative-soft);
-  border-color: #ecd4cc;
+  border-color: var(--negative-border);
   color: var(--negative);
   justify-content: start;
 }
@@ -763,7 +763,7 @@ circle[tabindex]:focus-visible {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: #10271e59;
+  background: var(--overlay);
   backdrop-filter: blur(7px);
   animation: enter-soft 0.15s var(--ease) both;
 }
@@ -773,10 +773,10 @@ circle[tabindex]:focus-visible {
   max-height: calc(100dvh - 48px);
   overflow: auto;
   padding: 37px;
-  border: 1px solid #dfe8d9;
+  border: 1px solid var(--line);
   border-radius: 22px;
-  background: white;
-  box-shadow: 0 30px 120px #10271e40;
+  background: var(--surface);
+  box-shadow: 0 30px 120px var(--shadow-color);
   animation: enter-soft 0.22s var(--ease) both;
 }
 .metric-modal h2 {
@@ -795,7 +795,7 @@ circle[tabindex]:focus-visible {
   height: 36px;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background: white;
+  background: var(--surface);
   color: var(--muted);
   font-size: 22px;
 }
@@ -852,7 +852,7 @@ circle[tabindex]:focus-visible {
   font-size: 12px;
   line-height: 1.8;
   margin: 0;
-  color: #60755e;
+  color: var(--muted);
 }
 .modal-kicker {
   color: var(--emerald);
@@ -874,8 +874,8 @@ circle[tabindex]:focus-visible {
   padding: 18px 35px 18px 18px;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: #fffefa;
-  box-shadow: 0 12px 40px #173d2b26;
+  background: var(--popover);
+  box-shadow: 0 12px 40px var(--shadow-color);
   display: grid;
   gap: 8px;
   pointer-events: none;

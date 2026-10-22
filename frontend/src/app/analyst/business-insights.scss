@@ -7,7 +7,7 @@
   .insight-card {
     min-width: 0;
     padding: 24px;
-    background: white;
+    background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 16px;
     box-shadow: var(--shadow);
@@ -30,7 +30,7 @@
   }
   .insight-card p {
     font-size: 12px;
-    color: #617a61;
+    color: var(--emerald);
     margin: 11px 0 0;
   }
   .insight-card small {
@@ -41,8 +41,8 @@
     margin-top: 11px;
   }
   .insight-card:first-child {
-    background: #eef3e6;
-    border-color: #dce6d1;
+    background: var(--tint);
+    border-color: var(--tint-border);
   }
   .rejection-trend-panel {
     margin-top: 20px;
@@ -113,16 +113,16 @@
     overflow: visible;
   }
   .rejection-gridline {
-    stroke: #e7ece3;
+    stroke: var(--chart-grid);
     stroke-width: 1;
     stroke-dasharray: 3 5;
   }
   .rejection-baseline {
-    stroke: #d0dcca;
+    stroke: var(--chart-axis);
     stroke-dasharray: none;
   }
   .rejection-trend-line {
-    stroke: #b45a62;
+    stroke: var(--chart-red);
     stroke-width: 2.4;
     fill: none;
   }
@@ -146,16 +146,16 @@
     content: '';
     width: 12px;
     height: 12px;
-    border: 2px solid white;
+    border: 2px solid var(--surface);
     border-radius: 50%;
-    background: #b45a62;
+    background: var(--chart-red);
   }
   .rejection-trend-point:hover,
   .rejection-trend-point:focus-visible {
     z-index: 2;
   }
   .rejection-trend-point:focus-visible {
-    outline: 2px solid #b45a62;
+    outline: 2px solid var(--chart-red);
     outline-offset: 1px;
   }
   .rejection-trend-point:hover .rejection-point-tooltip,
@@ -173,8 +173,8 @@
     padding: 13px 16px;
     border: 1px solid var(--line-strong);
     border-radius: 10px;
-    background: #fffefa;
-    box-shadow: 0 10px 32px #173d2b26;
+    background: var(--popover);
+    box-shadow: 0 10px 32px var(--shadow-color);
     transform: translateX(-50%);
     pointer-events: none;
     text-align: left;
@@ -184,7 +184,7 @@
     color: var(--muted);
   }
   .rejection-point-tooltip strong {
-    color: #a84c57;
+    color: var(--negative);
     font-size: 13px;
     font-weight: 600;
   }
@@ -233,7 +233,7 @@
     display: inline-block;
     width: 6px;
     height: 6px;
-    background: #b45a62;
+    background: var(--chart-red);
     border-radius: 50%;
     margin-right: 5px;
   }

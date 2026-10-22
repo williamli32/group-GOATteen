@@ -1,3 +1,4 @@
+import { ThemeToggleComponent } from '../shared/theme-toggle.component';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -13,7 +14,13 @@ interface NavItem {
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, MotionToggleComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    RouterLinkActive,
+    MotionToggleComponent,
+    ThemeToggleComponent,
+  ],
   templateUrl: './sidebar.component.html',
   styleUrls: ['./sidebar.component.scss'],
 })

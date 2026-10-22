@@ -89,9 +89,9 @@ path {
   border: 1px solid var(--line-strong);
   border-top: 3px solid var(--emerald);
   border-radius: 12px;
-  background: #fffefa;
+  background: var(--popover);
   color: var(--ink);
-  box-shadow: 0 12px 32px #173d2b2b;
+  box-shadow: 0 12px 32px var(--shadow-color);
   text-align: left;
   animation: allocation-tooltip-arrive 0.12s var(--ease) both;
 }

@@ -7,8 +7,8 @@
   display: inline-flex;
   gap: 4px;
   padding: 4px;
-  background: #eef2e8;
-  border: 1px solid #e2e8d9;
+  background: var(--tint);
+  border: 1px solid var(--tint-border);
   border-radius: 10px;
   margin-bottom: 22px;
 }
@@ -23,17 +23,17 @@
   border-radius: 7px;
 }
 .watchlist-views button[aria-pressed='true'] {
-  background: white;
-  border-color: #dce6d0;
-  color: #5a7f42;
-  box-shadow: 0 2px 5px #1745280a;
+  background: var(--surface);
+  border-color: var(--tint-border);
+  color: var(--emerald);
+  box-shadow: 0 2px 5px var(--shadow-color);
 }
 .watchlist {
   min-width: 0;
   padding: 24px;
   border: 1px solid var(--line);
   border-radius: 17px;
-  background: white;
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 header {
@@ -65,7 +65,7 @@ button {
   padding: 9px 13px;
   border: 1px solid var(--line-strong);
   background: var(--emerald);
-  color: white;
+  color: var(--on-accent);
   font-weight: 600;
 }
 button:hover:not(:disabled) {
@@ -73,7 +73,7 @@ button:hover:not(:disabled) {
 }
 .refresh-button,
 .remove-button {
-  background: white;
+  background: var(--surface);
   color: var(--muted);
   border-color: var(--line);
 }
@@ -101,7 +101,7 @@ select {
   min-height: 42px;
   padding: 9px 12px;
   border: 1px solid var(--line-strong);
-  background: white;
+  background: var(--surface);
   color: var(--ink);
 }
 .add-controls button {
@@ -122,18 +122,18 @@ li {
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: white;
+  background: var(--surface);
   transition:
     transform 0.2s var(--ease),
     border-color 0.2s var(--ease);
 }
 li:hover {
-  border-color: #c0d2b1;
+  border-color: var(--line-strong);
   transform: translateY(-1px);
 }
 li.selected {
-  background: #f4f8ee;
-  border-color: #afc69a;
+  background: var(--selected);
+  border-color: var(--line-strong);
 }
 .instrument-button {
   background: none;

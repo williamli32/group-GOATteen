@@ -1,11 +1,3 @@
-$surface: #ffffff;
-$inner: #f8faf6;
-$border: #e1e8dd;
-$text: #243b29;
-$muted: #657575;
-$accent: #116b51;
-$danger: #ad454a;
-
 :host {
   display: block;
   min-width: 0;
@@ -15,10 +7,10 @@ $danger: #ad454a;
 .price-alerts {
   min-width: 0;
   padding: 24px;
-  background: $surface;
-  border: 1px solid $border;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 17px;
-  color: $text;
+  color: var(--ink);
 }
 button,
 select,
@@ -37,7 +29,7 @@ button:disabled {
 button:focus-visible,
 select:focus-visible,
 input:focus-visible {
-  outline: 2px solid #116b51;
+  outline: 2px solid var(--emerald);
   outline-offset: 3px;
 }
 .alerts-header,
@@ -50,10 +42,10 @@ input:focus-visible {
 }
 .alerts-header {
   padding-bottom: 20px;
-  border-bottom: 1px solid $border;
+  border-bottom: 1px solid var(--line);
 }
 .eyebrow {
-  color: $accent;
+  color: var(--emerald);
   font-weight: 700;
   font-size: 10px;
   letter-spacing: 1.3px;
@@ -70,24 +62,24 @@ h3 {
 p {
   margin: 6px 0 0;
   line-height: 1.65;
-  color: $muted;
+  color: var(--muted);
   font-size: 12px;
 }
 .active-count {
   flex-shrink: 0;
   padding: 6px 10px;
-  color: $accent;
-  background: rgba($accent, 0.09);
-  border: 1px solid rgba($accent, 0.3);
+  color: var(--emerald);
+  background: var(--emerald-soft);
+  border: 1px solid var(--positive-border);
   border-radius: 4px;
   font-size: 11px;
 }
 .alert-form {
   margin-top: 18px;
   padding: 16px;
-  border: 1px solid $border;
+  border: 1px solid var(--line);
   border-radius: 11px;
-  background: $inner;
+  background: var(--surface-soft);
 }
 .form-title {
   flex-wrap: wrap;
@@ -95,11 +87,11 @@ p {
   align-items: center;
 }
 .form-title strong {
-  color: $text;
+  color: var(--ink);
   font-size: 14px;
 }
 .form-title span {
-  color: $muted;
+  color: var(--muted);
   font-size: 11px;
 }
 .alert-fields {
@@ -115,7 +107,7 @@ p {
 }
 label {
   font-size: 11px;
-  color: $muted;
+  color: var(--muted);
 }
 select,
 input {
@@ -123,10 +115,10 @@ input {
   min-width: 0;
   min-height: 42px;
   padding: 10px 12px;
-  color: $text;
-  border: 1px solid #d0deca;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   box-sizing: border-box;
   font-size: 12px;
 }
@@ -136,7 +128,7 @@ input:disabled {
 }
 .quote-hint {
   padding-top: 10px;
-  color: #54843d;
+  color: var(--emerald);
   font-size: 11px;
 }
 .form-actions {
@@ -147,36 +139,36 @@ input:disabled {
 }
 .primary-button {
   padding: 10px 16px;
-  border: 1px solid $accent;
-  color: #ffffff;
-  background: $accent;
+  border: 1px solid var(--emerald);
+  color: var(--on-accent);
+  background: var(--emerald);
   font-weight: 700;
 }
 .primary-button:hover:not(:disabled) {
-  background: #0b523e;
+  background: var(--emerald-hover);
 }
 .secondary-button,
 .text-button {
   padding: 9px 12px;
-  border: 1px solid #d5dfcc;
-  color: #54843d;
-  background: #ffffff;
+  border: 1px solid var(--line-strong);
+  color: var(--emerald);
+  background: var(--surface);
 }
 .secondary-button:hover:not(:disabled),
 .text-button:hover:not(:disabled) {
-  background: #edf5e8;
+  background: var(--tint);
 }
 .text-button {
   background: transparent;
 }
 .danger-button {
   padding: 9px 12px;
-  color: #ad454a;
-  border: 1px solid rgba($danger, 0.4);
+  color: var(--negative);
+  border: 1px solid var(--negative-border);
   background: transparent;
 }
 .danger-button:hover:not(:disabled) {
-  background: rgba($danger, 0.1);
+  background: var(--negative-soft);
 }
 .feedback {
   padding: 10px 12px;
@@ -184,12 +176,12 @@ input:disabled {
   margin-top: 12px;
 }
 .error {
-  color: #ad454a;
-  background: rgba($danger, 0.08);
+  color: var(--negative);
+  background: var(--negative-soft);
 }
 .success {
-  color: #54843d;
-  background: rgba($accent, 0.08);
+  color: var(--emerald);
+  background: var(--emerald-soft);
 }
 .list-heading {
   align-items: center;
@@ -202,7 +194,7 @@ input:disabled {
   gap: 10px;
 }
 .list-heading span {
-  color: $muted;
+  color: var(--muted);
   font-size: 11px;
 }
 .alert-list {
@@ -222,8 +214,8 @@ input:disabled {
   min-width: 0;
   padding: 14px;
   border-radius: 11px;
-  border: 1px solid $border;
-  background: $inner;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
 }
 .alert-details,
 .notification-detail {
@@ -243,28 +235,28 @@ input:disabled {
   display: inline-flex;
   padding: 4px 7px;
   border-radius: 4px;
-  border: 1px solid #dce4d5;
-  color: $muted;
-  background: #f4f7ef;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface-soft);
   font-size: 10px;
 }
 .status-active {
-  color: $accent;
-  border-color: rgba($accent, 0.35);
-  background: rgba($accent, 0.08);
+  color: var(--emerald);
+  border-color: var(--positive-border);
+  background: var(--emerald-soft);
 }
 .status-triggered {
-  color: #946523;
-  border-color: rgba(#946523, 0.4);
-  background: rgba(#946523, 0.08);
+  color: var(--amber);
+  border-color: var(--amber-border);
+  background: var(--amber-soft);
 }
 .alert-condition strong {
-  color: $text;
+  color: var(--ink);
 }
 .alert-meta {
   display: block;
   margin-top: 5px;
-  color: $muted;
+  color: var(--muted);
   font-size: 11px;
 }
 .card-actions {
@@ -288,7 +280,7 @@ input:disabled {
   gap: 8px;
 }
 .clear-all-confirm > span {
-  color: $muted;
+  color: var(--muted);
   font-size: 11px;
 }
 .notification-card > .secondary-button {
@@ -306,8 +298,8 @@ input:disabled {
   flex-wrap: nowrap;
 }
 .notification-card.unread {
-  border-color: rgba($accent, 0.42);
-  background: #edf5e6;
+  border-color: var(--positive-border);
+  background: var(--tint);
 }
 .notification-indicator {
   flex: 0 0 6px;
@@ -319,7 +311,7 @@ input:disabled {
   background: #a3b58f;
 }
 .unread .notification-indicator {
-  background: $accent;
+  background: var(--emerald);
 }
 .notification-detail strong {
   overflow-wrap: anywhere;
@@ -331,19 +323,19 @@ input:disabled {
 .notification-detail small {
   display: block;
   margin-top: 6px;
-  color: $muted;
+  color: var(--muted);
   font-size: 10px;
 }
 .read-label {
-  color: $muted;
+  color: var(--muted);
   font-size: 11px;
 }
 .empty-state {
   display: block;
   padding: 24px;
-  border: 1px dashed $border;
+  border: 1px dashed var(--line);
   border-radius: 8px;
-  color: $muted;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
 }

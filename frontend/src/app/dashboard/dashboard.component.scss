@@ -30,7 +30,7 @@
 }
 .brand-name > span {
   margin-left: 12px;
-  color: #bdc9bf;
+  color: var(--muted);
 }
 .account-name {
   font-weight: 650;
@@ -38,7 +38,7 @@
 .account-number {
   color: var(--muted);
   padding: 4px 8px;
-  background: #edf0e9;
+  background: var(--surface-soft);
   border-radius: 5px;
   font-family: var(--mono);
   font-size: 11px;
@@ -68,7 +68,7 @@
   height: 5px;
   width: 5px;
   border-radius: 50%;
-  background: #539373;
+  background: var(--chart-green);
   animation: soft-pulse 3s ease-in-out infinite;
 }
 
@@ -79,8 +79,8 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
   gap: 24px;
   align-items: center;
-  background: #e9eee1;
-  border: 1px solid #e0e6d7;
+  background: var(--hero);
+  border: 1px solid var(--hero-border);
   border-radius: 23px;
   margin-bottom: 30px;
   overflow: hidden;
@@ -106,7 +106,7 @@
   letter-spacing: -2px;
   font-weight: 500;
   margin: 0 0 16px;
-  color: #2c4937;
+  color: var(--hero-ink);
 }
 .workspace-intro h1 em {
   font-style: normal;
@@ -212,7 +212,7 @@
   padding: 9px 13px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: white;
+  background: var(--surface);
   color: var(--emerald);
   font-size: 12px;
   font-weight: 600;
@@ -221,7 +221,7 @@
 .retry-btn:hover,
 .market-retry-btn:hover {
   background: var(--emerald-soft);
-  border-color: #92b6a2;
+  border-color: var(--line-strong);
 }
 .text-button {
   border: 0;
@@ -244,7 +244,7 @@
   flex-direction: column;
   gap: 9px;
   justify-content: center;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 15px;
   padding: 24px;
@@ -305,14 +305,14 @@
 }
 .summary-card:not(:first-child):hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -15px #173d2b40;
+  box-shadow: 0 8px 24px -15px var(--shadow-color);
 }
 .market-terminal,
 .positions-section,
 .order-panel,
 .recent-orders {
   min-width: 0;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 17px;
   box-shadow: var(--shadow);
@@ -325,7 +325,7 @@
   flex-wrap: wrap;
   gap: 10px;
   padding: 22px 23px;
-  border-bottom: 1px solid #edf1eb;
+  border-bottom: 1px solid var(--line);
 }
 .panel-heading h2 {
   font-size: 16px;
@@ -344,7 +344,7 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 15px 23px;
-  background: #fbfcf9;
+  background: var(--surface-soft);
   border-bottom: 1px solid var(--line);
 }
 .selected-symbol {
@@ -376,7 +376,7 @@
   gap: 16px;
   padding: 18px 23px;
   border-bottom: 1px solid var(--line);
-  background: white;
+  background: var(--surface);
 }
 .market-filter-field {
   display: flex;
@@ -404,8 +404,8 @@
 .market-filter-field input:focus,
 .market-filter-field select:focus {
   outline: 0;
-  border-color: #72a48a;
-  box-shadow: 0 0 0 3px #126b5010;
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 3px var(--focus-soft);
 }
 .market-table-wrapper,
 .table-wrapper {
@@ -423,10 +423,10 @@
   max-width: 190px;
 }
 .market-row.selected {
-  background: #f0f6ec;
+  background: var(--selected);
 }
 .market-row:hover {
-  background: #f7faf4;
+  background: var(--hover);
 }
 .instrument-link {
   min-height: 36px;
@@ -451,8 +451,8 @@
   border-radius: 9px;
   display: grid;
   place-items: center;
-  background: #edf2e6;
-  border: 1px solid #e2ead9;
+  background: var(--tint);
+  border: 1px solid var(--tint-border);
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -584,7 +584,7 @@
 .quote-warning,
 .estimate-warning {
   color: var(--amber);
-  border-color: #eadbbd;
+  border-color: var(--amber-border);
   background: var(--amber-soft);
 }
 .order-feedback {
@@ -593,12 +593,12 @@
 .order-success {
   color: var(--positive);
   background: var(--emerald-soft);
-  border-color: #c6dfce;
+  border-color: var(--positive-border);
 }
 .order-error {
   color: var(--negative);
   background: var(--negative-soft);
-  border-color: #ecccc9;
+  border-color: var(--negative-border);
 }
 .estimate-note {
   margin: 9px 0 0;
@@ -637,7 +637,7 @@
   display: flex;
   gap: 8px;
   padding: 4px;
-  background: #f1f4ee;
+  background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: 10px;
 }
@@ -652,16 +652,16 @@
   font-weight: 650;
 }
 .buy-btn.active {
-  background: white;
+  background: var(--surface);
   color: var(--emerald);
-  border-color: #dce8d9;
-  box-shadow: 0 2px 5px #1a352310;
+  border-color: var(--positive-border);
+  box-shadow: 0 2px 5px var(--shadow-color);
 }
 .sell-btn.active {
-  background: white;
+  background: var(--surface);
   color: var(--negative);
-  border-color: #e8d6d3;
-  box-shadow: 0 2px 5px #1a352310;
+  border-color: var(--negative-border);
+  box-shadow: 0 2px 5px var(--shadow-color);
 }
 .form-group {
   display: flex;
@@ -680,7 +680,7 @@
   padding: 12px;
   border: 1px solid var(--line-strong);
   border-radius: 9px;
-  background: white;
+  background: var(--surface);
   color: var(--ink);
   font-size: 17px;
   font-variant-numeric: tabular-nums;
@@ -698,7 +698,7 @@
   min-height: 46px;
   border: 0;
   border-radius: 9px;
-  color: white;
+  color: var(--on-accent);
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.3px;
@@ -722,7 +722,7 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 19px;
-  background: white;
+  background: var(--surface);
 }
 .order-header,
 .order-details {
@@ -745,18 +745,18 @@
   border-radius: 5px;
   letter-spacing: 0.4px;
   color: var(--muted);
-  background: #f1f4ee;
+  background: var(--surface-soft);
   border: 1px solid var(--line);
 }
 .status-filled .order-status {
   background: var(--emerald-soft);
   color: var(--positive);
-  border-color: #d2e6d7;
+  border-color: var(--positive-border);
 }
 .status-rejected .order-status {
   color: var(--negative);
   background: var(--negative-soft);
-  border-color: #efd8d3;
+  border-color: var(--negative-border);
 }
 .order-details {
   font-size: 12px;
@@ -811,8 +811,8 @@
   border: 1px solid var(--line);
   border-left: 3px solid var(--emerald);
   border-radius: 12px;
-  background: white;
-  box-shadow: 0 14px 48px #173d2b24;
+  background: var(--surface);
+  box-shadow: 0 14px 48px var(--shadow-color);
   animation: enter-soft 0.22s var(--ease) both;
 }
 .notification-content {

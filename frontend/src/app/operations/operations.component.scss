@@ -74,8 +74,8 @@ h3 {
   font-size: 11px;
   letter-spacing: 0.9px;
   white-space: nowrap;
-  background: #eaf0e3;
-  border: 1px solid #dce6d1;
+  background: var(--tint);
+  border: 1px solid var(--tint-border);
   color: var(--muted);
   padding: 8px 11px;
   border-radius: 6px;
@@ -84,7 +84,7 @@ h3 {
 .search-panel,
 .blotter-panel,
 .detail-panel {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 17px;
   box-shadow: var(--shadow);
@@ -117,14 +117,14 @@ h3 {
   padding: 8px 12px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: white;
+  background: var(--surface);
   color: var(--emerald);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
 }
 .reset-button:hover:not(:disabled) {
-  border-color: #99b19a;
+  border-color: var(--line-strong);
   background: var(--emerald-soft);
 }
 .quick-lookup {
@@ -142,14 +142,14 @@ h3 {
 .quick-lookup > button {
   background: var(--emerald);
   border-color: var(--emerald);
-  color: white;
+  color: var(--on-accent);
   min-height: 42px;
   padding: 10px 17px;
   font-size: 12px;
 }
 .quick-lookup > button:hover:not(:disabled) {
   background: var(--emerald-hover);
-  color: white;
+  color: var(--on-accent);
 }
 .quick-lookup > p {
   font-size: 11px;
@@ -184,7 +184,7 @@ h3 {
   content: '+';
   display: grid;
   place-items: center;
-  border: 1px solid #d7e2ce;
+  border: 1px solid var(--line);
   border-radius: 4px;
   width: 16px;
   height: 16px;
@@ -273,21 +273,21 @@ select {
 }
 input:hover,
 select:hover {
-  border-color: #9eb39c;
+  border-color: var(--line-strong);
 }
 input:focus,
 select:focus {
-  border-color: #75a48b;
-  box-shadow: 0 0 0 3px #126b5010;
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 3px var(--focus-soft);
 }
 input[type='date'] {
-  color-scheme: light;
+  color-scheme: inherit;
 }
 .search-button {
   min-height: 42px;
   padding: 10px 15px;
   background: var(--emerald);
-  color: white;
+  color: var(--on-accent);
   border: 1px solid var(--emerald);
   border-radius: 8px;
   font-size: 12px;
@@ -308,7 +308,7 @@ input[type='date'] {
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  border: 1px solid #e7d8b7;
+  border: 1px solid var(--amber-border);
   padding: 11px 13px;
   border-radius: 8px;
   background: var(--amber-soft);
@@ -352,7 +352,7 @@ input[type='date'] {
   gap: 12px;
   flex-wrap: wrap;
   padding: 17px;
-  border: 1px solid #eccfc9;
+  border: 1px solid var(--negative-border);
   border-radius: 12px;
   background: var(--negative-soft);
   color: var(--negative);
@@ -406,7 +406,7 @@ tbody tr {
 }
 tbody tr:hover,
 tbody tr.selected-row {
-  background: #f0f6eb;
+  background: var(--selected);
 }
 .inspect-button {
   padding: 4px 0;
@@ -427,7 +427,7 @@ tbody tr.selected-row {
   letter-spacing: 0.3px;
 }
 .side-pill.buy {
-  background: #eef4e8;
+  background: var(--tint);
   color: var(--positive);
 }
 .side-pill.sell {
@@ -448,7 +448,7 @@ tbody tr.selected-row {
 }
 .status-submitted {
   color: var(--muted);
-  background: #f0f3f7;
+  background: var(--surface-soft);
 }
 .empty,
 .muted {
@@ -485,7 +485,7 @@ tbody tr.selected-row {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background: white;
+  background: var(--surface);
   color: var(--muted);
   font-size: 23px;
   line-height: 1;
@@ -527,7 +527,7 @@ tbody tr.selected-row {
   display: grid;
   gap: 8px;
   padding: 17px;
-  border: 1px solid #eadcbc;
+  border: 1px solid var(--amber-border);
   border-radius: 11px;
   background: var(--amber-soft);
   color: var(--amber);
@@ -543,9 +543,9 @@ tbody tr.selected-row {
   color: var(--muted);
 }
 .integrity-ok {
-  background: #eef5e7;
-  border-color: #d7e5cd;
-  color: #607d4c;
+  background: var(--tint);
+  border-color: var(--tint-border);
+  color: var(--emerald);
 }
 .integrity-ok > span {
   color: var(--muted);
@@ -575,7 +575,7 @@ tbody tr.selected-row {
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #f4f7f0;
+  background: var(--surface-soft);
   margin: 20px 0 0;
 }
 .evidence-navigation button {
@@ -591,10 +591,10 @@ tbody tr.selected-row {
   padding: 7px 8px;
 }
 .evidence-navigation button[aria-pressed='true'] {
-  border-color: #dae5d0;
-  background: white;
-  color: #537947;
-  box-shadow: 0 2px 5px #173d2b0d;
+  border-color: var(--tint-border);
+  background: var(--surface);
+  color: var(--emerald);
+  box-shadow: 0 2px 5px var(--shadow-color);
 }
 .detail-section {
   padding-top: 25px;
@@ -614,7 +614,7 @@ tbody tr.selected-row {
 .detail-fact strong {
   font-size: 12px;
   font-weight: 550;
-  color: #576e4b;
+  color: var(--muted);
   overflow-wrap: anywhere;
 }
 .timeline {
@@ -633,7 +633,7 @@ tbody tr.selected-row {
   content: '';
   position: absolute;
   width: 1px;
-  background: #d9e4cf;
+  background: var(--chart-empty);
   top: 12px;
   bottom: -3px;
   left: 4px;
@@ -642,9 +642,9 @@ tbody tr.selected-row {
   width: 9px;
   height: 9px;
   margin-top: 5px;
-  border: 2px solid #9db48b;
+  border: 2px solid var(--line-strong);
   border-radius: 50%;
-  background: white;
+  background: var(--surface);
   z-index: 1;
 }
 .timeline-entry > div {
@@ -679,14 +679,14 @@ tbody tr.selected-row {
   padding: 13px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fafbf8;
+  background: var(--surface-soft);
   min-width: 0;
 }
 .fact-grid strong {
   font-size: 12px;
   font-weight: 550;
   line-height: 1.7;
-  color: #536f47;
+  color: var(--emerald);
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
@@ -705,7 +705,7 @@ tbody tr.selected-row {
   padding: 15px;
   border: 1px solid var(--line);
   border-radius: 11px;
-  background: white;
+  background: var(--surface);
   margin-bottom: 12px;
 }
 .cash-ledger article > strong {
@@ -715,7 +715,7 @@ tbody tr.selected-row {
 }
 .cash-ledger article > span {
   font-size: 19px;
-  color: #486d36;
+  color: var(--emerald);
   font-weight: 550;
   letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
@@ -891,7 +891,7 @@ tbody tr.selected-row {
     font-size: 12px;
   }
   .detail-panel {
-    border-color: #cadcbf;
-    box-shadow: 0 8px 24px -15px #173d2b30;
+    border-color: var(--line-strong);
+    box-shadow: 0 8px 24px -15px var(--shadow-color);
   }
 }

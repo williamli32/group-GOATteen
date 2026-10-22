@@ -18,7 +18,10 @@
 
     <a class="skip-link" href="#workspace-content">Skip to workspace</a>
     <main id="workspace-content" class="app-content" tabindex="-1">
-      <div class="mobile-tools"><span>G.O.A.T. workspace</span><app-motion-toggle /></div>
+      <div class="mobile-tools">
+        <app-theme-toggle />
+        <app-motion-toggle />
+      </div>
       <router-outlet />
     </main>
   </div>
