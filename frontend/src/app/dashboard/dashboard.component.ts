@@ -212,6 +212,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return Math.floor(ageMs / 1000);
   }
 
+  displayedQuoteAgeSeconds(quotedAt: string | null | undefined): number | null {
+    const ageSeconds = this.quoteAgeSeconds(quotedAt);
+    return ageSeconds === null ? null : Math.max(0, ageSeconds - 3);
+  }
+
   isQuoteStale(quotedAt: string | null | undefined): boolean {
     const ageSeconds = this.quoteAgeSeconds(quotedAt);
 

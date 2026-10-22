@@ -297,7 +297,7 @@
                               <span class="stale-quote">Stale</span>
                             } @else if (quoteAgeSeconds(instrument.latestQuote.quotedAt) !== null) {
                               <span>
-                                {{ quoteAgeSeconds(instrument.latestQuote.quotedAt) }}s ago
+                                {{ displayedQuoteAgeSeconds(instrument.latestQuote.quotedAt) }}s ago
                               </span>
                             } @else {
                               <span>Unavailable</span>
@@ -405,7 +405,7 @@
                   @if (selected.latestQuote; as quote) {
                     <p>
                       Quote updated {{ quote.quotedAt | date: 'medium' }} ·
-                      {{ quoteAgeSeconds(quote.quotedAt) ?? '—' }}s ago.
+                      {{ displayedQuoteAgeSeconds(quote.quotedAt) ?? '—' }}s ago.
                     </p>
                     @if (isQuoteStale(quote.quotedAt)) {
                       <p>Stale quote. Refresh prices before relying on this estimate.</p>
