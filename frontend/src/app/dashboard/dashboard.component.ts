@@ -136,6 +136,10 @@ import {
 } from '../core/services/notification';
 
 type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
+interface PortfolioValuePoint {
+  timestamp: number;
+  value: number;
+}
 
 
 
@@ -174,6 +178,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     'CRYPTO',
     'COMMODITY'
   ] as const;
+    readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
+    readonly hoveredPortfolioPoint = signal<number | null>(null);
 
 
   readonly dashboardTabs: ReadonlyArray<{ id: DashboardTab; label: string }> = [
@@ -410,7 +416,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   constructor(
-
     private accountService: AccountService,
 
     private fxRateService: FxRateService,
@@ -430,6 +435,76 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly host: ElementRef<HTMLElement>
 
   ) { }
+
+  portfolioValue(): number {
+    const currentAccount = this.account();
+    const currentHoldings = this.holdings();
+    if (!currentAccount) return 0;
+
+    const holdingsValue = (currentHoldings?.positions ?? []).reduce((total, position) => {
+      const instrument = this.marketInstruments().find(
+        item => item.instrumentId === position.instrumentId
+      );
+      return total + Number(position.quantity) * (instrument?.latestQuote?.lastPrice ?? 0);
+    }, 0);
+
+    return Number(currentAccount.cashBalance) + holdingsValue;
+  }
+
+  portfolioValuePoints(): string {
+    const points = this.portfolioValueHistory();
+    const maximum = Math.max(...points.map(point => point.value), 1);
+    const minimum = Math.min(...points.map(point => point.value), 0);
+    const range = Math.max(maximum - minimum, 1);
+
+    return points.map((point, index) => {
+      const x = points.length === 1 ? 400 : (index / (points.length - 1)) * 800;
+      const y = 190 - ((point.value - minimum) / range) * 168;
+      return `${x},${y}`;
+    }).join(' ');
+  }
+
+  portfolioValueAxisLabels(): number[] {
+    const values = this.portfolioValueHistory().map(point => point.value);
+    const maximum = Math.max(...values, 1);
+    const minimum = Math.min(...values, 0);
+    const step = (maximum - minimum) / 4;
+    return [maximum, maximum - step, maximum - step * 2, maximum - step * 3, minimum];
+  }
+
+  portfolioValuePointX(index: number): number {
+    const points = this.portfolioValueHistory();
+    return points.length === 1 ? 400 : (index / Math.max(points.length - 1, 1)) * 800;
+  }
+
+  portfolioValuePointY(index: number): number {
+    const points = this.portfolioValueHistory();
+    const maximum = Math.max(...points.map(point => point.value), 1);
+    const minimum = Math.min(...points.map(point => point.value), 0);
+    const range = Math.max(maximum - minimum, 1);
+    return 190 - ((points[index]?.value ?? minimum) - minimum) / range * 168;
+  }
+
+  portfolioValueLabel(value: number): string {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: this.account()?.currency ?? 'GBP',
+      maximumFractionDigits: 2
+    }).format(value);
+  }
+
+  portfolioPointLabel(timestamp: number): string {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(timestamp);
+  }
+
+  private recordPortfolioValue(): void {
+    if (!this.account() || !this.holdings() || !this.marketInstruments().length) return;
+    const point = { timestamp: Date.now(), value: this.portfolioValue() };
+    this.portfolioValueHistory.update(history => [...history, point].slice(-24));
+  }
 
 
 
@@ -683,6 +758,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             result.orders
 
           );
+
+          this.recordPortfolioValue();
 
 
 
@@ -985,6 +1062,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             instruments
 
           );
+
+          this.recordPortfolioValue();
 
 
 

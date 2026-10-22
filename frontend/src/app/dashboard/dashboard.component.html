@@ -43,6 +43,46 @@
     </header>
 
     @if (activeTab() === 'overview') {
+      <section class="portfolio-value-panel" aria-label="Portfolio value chart">
+        <div class="portfolio-value-heading">
+          <div>
+            <p class="eyebrow">PORTFOLIO VALUE</p>
+            <h2>{{ portfolioValueLabel(portfolioValue()) }}</h2>
+          </div>
+          <span>Live session estimate · {{ portfolioValueHistory().length }} snapshots</span>
+        </div>
+
+        @if (portfolioValueHistory().length > 0) {
+          <svg class="portfolio-value-chart" viewBox="-72 0 872 260" preserveAspectRatio="none"
+            role="img" aria-label="Portfolio value over time">
+            @for (label of portfolioValueAxisLabels(); track label; let index = $index) {
+              <text class="portfolio-y-label" x="-10" [attr.y]="22 + index * 42">{{ portfolioValueLabel(label) }}</text>
+              <line class="portfolio-gridline" x1="0" [attr.y1]="22 + index * 42" x2="800" [attr.y2]="22 + index * 42" />
+            }
+            <line class="portfolio-axis" x1="0" y1="190" x2="800" y2="190" />
+            <polyline class="portfolio-value-line" [attr.points]="portfolioValuePoints()" />
+            @for (point of portfolioValueHistory(); track point.timestamp; let index = $index) {
+              <circle class="portfolio-value-point"
+                [attr.cx]="portfolioValuePointX(index)"
+                [attr.cy]="portfolioValuePointY(index)"
+                r="4"
+                (mouseenter)="hoveredPortfolioPoint.set(index)"
+                (mouseleave)="hoveredPortfolioPoint.set(null)">
+                <title>{{ portfolioPointLabel(point.timestamp) }} · {{ portfolioValueLabel(point.value) }}</title>
+              </circle>
+            }
+          </svg>
+          @if (hoveredPortfolioPoint() !== null) {
+            <div class="portfolio-hover-value" role="status">
+              {{ portfolioPointLabel(portfolioValueHistory()[hoveredPortfolioPoint()!].timestamp) }}
+              · {{ portfolioValueLabel(portfolioValueHistory()[hoveredPortfolioPoint()!].value) }}
+            </div>
+          }
+        } @else {
+          <p class="portfolio-value-empty">Portfolio value will appear after the first market refresh.</p>
+        }
+      </section>
+
       <section class="workspace-intro" aria-label="Welcome to your trading workspace">
         <div class="intro-copy">
           <p class="eyebrow">A LITTLE MORE PERSPECTIVE</p>
