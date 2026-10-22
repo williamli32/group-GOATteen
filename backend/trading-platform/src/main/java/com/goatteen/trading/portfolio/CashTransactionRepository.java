@@ -11,6 +11,8 @@ public interface CashTransactionRepository
 
     Optional<CashTransaction> findByAccountIdAndFundingKey(Long accountId, UUID fundingKey);
 
+        Optional<CashTransaction> findByAccountIdAndWithdrawalKey(Long accountId, UUID withdrawalKey);
+
     List<CashTransaction> findByAccountIdOrderByCreatedAtDesc(Long accountId);
 
     Optional<CashTransaction>

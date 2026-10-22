@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 import { AccountResponse, AccountService, AddFundsResponse } from '../core/services/account';
 
 interface PendingFunding { amount: string; key: string; }
+type MoneyAction = 'fund' | 'withdraw';
 
 @Component({
   selector: 'app-account-funding', standalone: true,
@@ -21,6 +22,8 @@ export class AccountFundingComponent {
   readonly pending = signal<PendingFunding | null>(null);
   readonly error = signal('');
   readonly success = signal('');
+  readonly action = signal<MoneyAction>('fund');
+  readonly confirmWithdrawal = signal(false);
   amount = '';
   private readonly service = inject(AccountService);
   private readonly destroyRef = inject(DestroyRef);
@@ -38,12 +41,36 @@ export class AccountFundingComponent {
     }
   }
 
+  selectAction(action: MoneyAction): void {
+    this.action.set(action);
+    this.error.set('');
+    this.success.set('');
+    this.amount = '';
+  }
+
   minorUnits(): number {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency: this.account().currency })
       .resolvedOptions().maximumFractionDigits ?? 2;
   }
 
   submit(): void {
+    if (this.action() === 'withdraw') {
+      this.confirmWithdrawal.set(true);
+      return;
+    }
+    this.submitFunding();
+  }
+
+  cancelWithdrawal(): void {
+    if (!this.funding()) this.confirmWithdrawal.set(false);
+  }
+
+  confirmWithdrawalRequest(): void {
+    this.confirmWithdrawal.set(false);
+    this.submitFunding();
+  }
+
+  private submitFunding(): void {
     if (this.funding()) return;
     this.error.set('');
     this.success.set('');
@@ -76,7 +103,10 @@ export class AccountFundingComponent {
     }
     this.pending.set(request);
     this.funding.set(true);
-    this.service.addFunds(request.amount, request.key).pipe(
+    const request$ = this.action() === 'withdraw'
+      ? this.service.withdrawFunds(request.amount, request.key)
+      : this.service.addFunds(request.amount, request.key);
+    request$.pipe(
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.funding.set(false))
     ).subscribe({
@@ -86,7 +116,8 @@ export class AccountFundingComponent {
         this.amount = '';
         const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: response.currency,
           currencyDisplay: 'code' }).format(response.amount);
-        this.success.set(response.replayed ? `Your previous ${money} funding is confirmed.` : `Added ${money} to your account.`);
+        const verb = this.action() === 'withdraw' ? 'Withdrew' : 'Added';
+        this.success.set(response.replayed ? `Your previous ${money} request is confirmed.` : `${verb} ${money} ${this.action() === 'withdraw' ? 'from' : 'to'} your account.`);
         this.funded.emit(response);
       },
       error: failure => {
@@ -102,7 +133,9 @@ export class AccountFundingComponent {
     });
   }
 
-  private storageKey(): string { return `leap_pending_funding_${this.account().accountId}`; }
+  private storageKey(): string {
+    return `leap_pending_${this.action()}_${this.account().accountId}`;
+  }
 
   private readPending(key: string): PendingFunding | null {
     const stored = sessionStorage.getItem(key);

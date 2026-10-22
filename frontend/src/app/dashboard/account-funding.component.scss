@@ -16,6 +16,9 @@
   justify-content: space-between;
   gap: 14px;
 }
+.money-tabs { display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--tint-border); }
+.money-tabs button { border: 0; border-radius: 6px 6px 0 0; background: transparent; color: var(--muted); }
+.money-tabs button.active { background: var(--surface); color: var(--emerald); }
 h2 {
   font-size: 13px;
   font-weight: 650;
@@ -95,6 +98,12 @@ button.secondary {
 .funding-success {
   color: var(--positive);
 }
+.withdrawal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(8, 16, 25, .62); backdrop-filter: blur(7px); }
+.withdrawal-dialog { width: min(440px, 100%); padding: 28px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface); box-shadow: 0 24px 80px rgba(0, 0, 0, .3); }
+.withdrawal-dialog h2 { margin: 0 0 12px; }
+.withdrawal-dialog p { margin-bottom: 18px; }
+.withdrawal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.confirm-withdrawal { background: var(--negative); border-color: var(--negative); color: white; }
 @media (max-width: 600px) {
   .funding-panel {
     padding: 17px 18px;

@@ -90,6 +90,10 @@ export class AccountService {
     return this.http.post<AddFundsResponse>(`${this.apiUrl}/me/funds`, { amount, idempotencyKey });
   }
 
+  withdrawFunds(amount: string, idempotencyKey: string): Observable<AddFundsResponse> {
+    return this.http.post<AddFundsResponse>(`${this.apiUrl}/me/funds/withdraw`, { amount, idempotencyKey });
+  }
+
 
   getHoldings(): Observable<HoldingsResponse> {
 

@@ -51,12 +51,23 @@ public class CashTransaction {
     @Column(name = "funding_key")
     private UUID fundingKey;
 
+    @Column(name = "withdrawal_key")
+    private UUID withdrawalKey;
+
     public UUID getFundingKey() {
         return fundingKey;
     }
 
     public void setFundingKey(UUID fundingKey) {
         this.fundingKey = fundingKey;
+    }
+
+    public UUID getWithdrawalKey() {
+        return withdrawalKey;
+    }
+
+    public void setWithdrawalKey(UUID withdrawalKey) {
+        this.withdrawalKey = withdrawalKey;
     }
 
 
