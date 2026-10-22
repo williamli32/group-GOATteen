@@ -104,22 +104,12 @@
   font-size: 12px;
   line-height: 1.8;
 }
-.note-orbit {
+.note-goat {
   display: block;
   width: 28px;
   height: 28px;
-  border: 1px solid #7a9c7e;
-  border-radius: 50%;
-  position: relative;
   margin-bottom: 16px;
-}
-.note-orbit::before {
-  position: absolute;
-  content: '';
-  inset: 5px -7px;
-  border: 1px solid #7a9c7e;
-  border-radius: 50%;
-  transform: rotate(-40deg);
+  color: #7a9c7e;
 }
 .note-rule {
   display: block;
