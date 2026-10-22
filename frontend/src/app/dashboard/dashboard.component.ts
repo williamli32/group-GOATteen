@@ -142,15 +142,6 @@ interface PortfolioValuePoint {
 }
 type PortfolioHistoryRange = 5 | 30 | -1 | 365 | 0;
 
-interface QuoteHistoryPoint {
-  timestamp: number;
-  price: number;
-}
-
-
-
-
-
 @Component({
 
   selector: 'app-dashboard',
@@ -187,7 +178,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
     readonly hoveredPortfolioPoint = signal<number | null>(null);
     readonly portfolioHoverPosition = signal<{ left: number; top: number } | null>(null);
-    readonly selectedMarketHistory = signal<QuoteHistoryPoint[]>([]);
     readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(5);
     readonly portfolioHistoryRequestFailed = signal(false);
     private portfolioHistoryRequest?: Subscription;
@@ -1256,20 +1246,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.refreshFxQuote();
 
 
-          const activeInstrument = this.selectedInstrument();
-          const activeQuote = activeInstrument?.latestQuote;
-          if (activeQuote) {
-            const point = {
-              timestamp: new Date(activeQuote.quotedAt).getTime(),
-              price: activeQuote.lastPrice
-            };
-            this.selectedMarketHistory.update(history => [
-              ...history.filter(existing => existing.timestamp !== point.timestamp),
-              point
-            ].slice(-60));
-          }
-
-
           }
 
 
@@ -1435,13 +1411,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       instrument
 
     );
-    this.selectedMarketHistory.set([]);
-    if (instrument.latestQuote) {
-      this.selectedMarketHistory.set([{
-        timestamp: new Date(instrument.latestQuote.quotedAt).getTime(),
-        price: instrument.latestQuote.lastPrice
-      }]);
-    }
     this.refreshFxQuote();
 
 
@@ -1459,43 +1428,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectTab('orders');
 
   }
-
-  marketHistoryPoints(): string {
-    const points = this.selectedMarketHistory();
-    const values = points.map(point => point.price);
-    const minimum = Math.min(...values, 0);
-    const maximum = Math.max(...values, 1);
-    const range = Math.max(maximum - minimum, 0.000001);
-
-    return points.map((point, index) => {
-      const x = points.length === 1 ? 400 : (index / (points.length - 1)) * 800;
-      const y = 190 - ((point.price - minimum) / range) * 168;
-      return `${x},${y}`;
-    }).join(' ');
-  }
-
-  marketHistoryPointX(index: number): number {
-    const points = this.selectedMarketHistory();
-    return points.length === 1 ? 400 : (index / Math.max(points.length - 1, 1)) * 800;
-  }
-
-  marketHistoryPointY(index: number): number {
-    const points = this.selectedMarketHistory();
-    const values = points.map(point => point.price);
-    const minimum = Math.min(...values, 0);
-    const maximum = Math.max(...values, 1);
-    const range = Math.max(maximum - minimum, 0.000001);
-    return 190 - (((points[index]?.price ?? minimum) - minimum) / range) * 168;
-  }
-
-  marketPriceLabel(price: number): string {
-    return new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 6
-    }).format(price);
-  }
-
-
 
   setOrderSide(
 
