@@ -45,6 +45,13 @@ describe('AccountFundingComponent', () => {
     expect(sessionStorage.getItem('leap_pending_funding_10')).toBeNull();
   });
 
+  it('keeps the funding amount labelled and the submit action named', () => {
+    const root: HTMLElement = fixture.nativeElement;
+    expect(root.querySelector('label[for="funding-amount"]')?.textContent).toContain('Amount');
+    expect(root.querySelector<HTMLInputElement>('#funding-amount')).not.toBeNull();
+    expect(root.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toContain('Add USD');
+  });
+
   it.each(['0', '-1', '1.001', 'NaN', 'Infinity', '1e4'])('rejects invalid amount %s', value => {
     component.amount = value;
     component.submit();

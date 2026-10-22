@@ -115,6 +115,8 @@ describe('DashboardComponent', () => {
 
                     instrumentClass: 'EQUITY_UK',
 
+                    exchange: 'LSE',
+
                     currency: 'GBP',
 
                     tradable: true,
@@ -405,6 +407,24 @@ describe('DashboardComponent', () => {
         expect(component.activeTab()).toBe('overview');
         key('ArrowRight');
         expect(component.activeTab()).toBe('watchlist');
+    });
+
+    it('keeps dashboard form labels and market action names accessible', () => {
+        const root: HTMLElement = fixture.nativeElement;
+        const labelFor = (id: string) =>
+            root.querySelector<HTMLLabelElement>(`label[for="${id}"]`);
+
+        expect(labelFor('market-search')?.textContent).toContain('Search instruments');
+        expect(labelFor('market-class-filter')?.textContent).toContain('Asset class');
+        expect(labelFor('orderQuantity')?.textContent).toContain('Quantity');
+        expect(root.querySelector<HTMLInputElement>('#market-search')).not.toBeNull();
+        expect(root.querySelector<HTMLSelectElement>('#market-class-filter')).not.toBeNull();
+        expect(root.querySelector<HTMLInputElement>('#orderQuantity')).not.toBeNull();
+
+        const instrumentLink = root.querySelector<HTMLButtonElement>('.instrument-link');
+        expect(instrumentLink?.getAttribute('aria-label')).toContain('Trade');
+        expect(instrumentLink?.getAttribute('aria-label')).toContain('VOD.L');
+        expect(instrumentLink?.getAttribute('aria-label')).toContain('LSE');
     });
 
     it('opens the order ticket when a market symbol is selected', () => {

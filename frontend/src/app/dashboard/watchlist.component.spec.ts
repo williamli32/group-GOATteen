@@ -57,6 +57,19 @@ describe('WatchlistComponent', () => {
     expect(service.add).not.toHaveBeenCalled();
   });
 
+  it('keeps watchlist controls labelled and instrument actions named', () => {
+    const root: HTMLElement = fixture.nativeElement;
+    const instrumentLabel = root.querySelector<HTMLLabelElement>('label[for="watchlist-instrument"]');
+    const instrumentSelect = root.querySelector<HTMLSelectElement>('#watchlist-instrument');
+    const instrumentButton = root.querySelector<HTMLButtonElement>('.instrument-button');
+    const removeButton = root.querySelector<HTMLButtonElement>('.remove-button');
+
+    expect(instrumentLabel?.textContent).toContain('Add an instrument');
+    expect(instrumentSelect).not.toBeNull();
+    expect(instrumentButton?.getAttribute('aria-label')).toContain('Select RIO on NYSE');
+    expect(removeButton?.getAttribute('aria-label')).toContain('Remove RIO on NYSE');
+  });
+
   it('does not replace a newer saved quote with an older market response', () => {
     const selected = vi.fn();
     component.instrumentSelected.subscribe(selected);
