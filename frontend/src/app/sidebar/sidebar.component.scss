@@ -1,11 +1,11 @@
 :host {
   display: block;
-  flex: 0 0 224px;
+  flex: 0 0 240px;
 }
 .sidebar {
   position: sticky;
   top: 0;
-  width: 224px;
+  width: 240px;
   height: 100dvh;
   min-height: 580px;
   display: flex;
@@ -15,6 +15,21 @@
   color: #d1dfd6;
   overflow-y: auto;
   border-right: 1px solid #284235;
+  scrollbar-width: thin;
+  scrollbar-color: #557460 transparent;
+}
+.sidebar::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: #557460;
+  border-radius: 3px;
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #7a9c7e;
 }
 .sidebar-brand {
   display: flex;

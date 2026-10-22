@@ -19,8 +19,7 @@
 }
 .topbar {
   min-height: 88px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 30px;
+  margin-bottom: 10px;
 }
 .account-identity {
   font-size: 12px;
@@ -240,9 +239,9 @@
 }
 .dashboard-tabs {
   display: flex;
-  gap: 26px;
+  gap: 22px;
   border-bottom: 1px solid var(--line);
-  margin-bottom: 29px;
+  margin-bottom: 18px;
 }
 .dashboard-tab {
   position: relative;
@@ -1096,7 +1095,7 @@
   }
   .topbar {
     min-height: 73px;
-    margin-bottom: 22px;
+    margin-bottom: 8px;
   }
   .topbar-right {
     margin-left: auto;
@@ -1147,9 +1146,9 @@
     display: none;
   }
   .dashboard-tabs {
-    gap: 22px;
+    gap: 16px;
     overflow-x: auto;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
   }
   .dashboard-tab {
     font-size: 12px;

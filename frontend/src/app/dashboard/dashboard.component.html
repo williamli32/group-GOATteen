@@ -42,6 +42,25 @@
       </div>
     </header>
 
+    <div class="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+      @for (tab of dashboardTabs; track tab.id; let index = $index) {
+        <button
+          type="button"
+          role="tab"
+          class="dashboard-tab"
+          [id]="'dashboard-tab-' + tab.id"
+          [class.active]="activeTab() === tab.id"
+          [attr.aria-selected]="activeTab() === tab.id"
+          [attr.aria-controls]="'dashboard-panel-' + tab.id"
+          [tabIndex]="activeTab() === tab.id ? 0 : -1"
+          (click)="selectTab(tab.id)"
+          (keydown)="onTabKeydown($event, index)"
+        >
+          {{ tab.label }}
+        </button>
+      }
+    </div>
+
     @if (activeTab() === 'overview') {
       <section class="portfolio-value-panel" aria-label="Portfolio value chart">
         <div class="portfolio-value-heading">
@@ -115,25 +134,6 @@
         <span class="intro-detail" aria-hidden="true">G.O.A.T. / YOUR TRADING WORKSPACE</span>
       </section>
     }
-
-    <div class="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
-      @for (tab of dashboardTabs; track tab.id; let index = $index) {
-        <button
-          type="button"
-          role="tab"
-          class="dashboard-tab"
-          [id]="'dashboard-tab-' + tab.id"
-          [class.active]="activeTab() === tab.id"
-          [attr.aria-selected]="activeTab() === tab.id"
-          [attr.aria-controls]="'dashboard-panel-' + tab.id"
-          [tabIndex]="activeTab() === tab.id ? 0 : -1"
-          (click)="selectTab(tab.id)"
-          (keydown)="onTabKeydown($event, index)"
-        >
-          {{ tab.label }}
-        </button>
-      }
-    </div>
 
     <div class="dashboard-content">
       <!-- Keep panels mounted so tab changes preserve forms and pending requests. -->

@@ -332,6 +332,11 @@ describe('DashboardComponent', () => {
     it('opens one labelled dashboard panel at a time with matching tab state', () => {
         const root: HTMLElement = fixture.nativeElement;
         const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('.dashboard-tabs [role="tab"]'));
+        const header = root.querySelector('.topbar')!;
+        const menu = root.querySelector('.dashboard-tabs')!;
+        const graph = root.querySelector('.portfolio-value-panel')!;
+        expect(header.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(menu.compareDocumentPosition(graph) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(tabs.map(tab => tab.textContent?.trim())).toEqual(['Account overview', 'Watchlist', 'Orders', 'Holdings']);
         expect(component.activeTab()).toBe('overview');
         for (const tab of tabs) {
