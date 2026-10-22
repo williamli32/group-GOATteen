@@ -1,15 +1,20 @@
 <section class="funding-panel" aria-label="Account money">
   <div class="funding-heading">
     <div><h2>Transfer money</h2><p>Manage your account balance in {{ account().currency }}.</p></div>
-    @if (!isOpen()) { <button type="button" (click)="open()">Add funds</button> }
+    @if (!isOpen()) { <button type="button" (click)="open()">Expand</button> }
     @else { <button type="button" class="secondary" (click)="isOpen.set(false)" [disabled]="funding()">Close</button> }
   </div>
   <div class="money-tabs" role="tablist" aria-label="Money actions">
-    <button type="button" role="tab" [class.active]="action() === 'fund'" [attr.aria-selected]="action() === 'fund'" (click)="selectAction('fund')">Add funds</button>
+    <button type="button" role="tab" [class.active]="action() === 'fund'" [attr.aria-selected]="action() === 'fund'" (click)="selectAction('fund')">Transfer funds</button>
     <button type="button" role="tab" [class.active]="action() === 'withdraw'" [attr.aria-selected]="action() === 'withdraw'" (click)="selectAction('withdraw')">Withdraw</button>
   </div>
   @if (isOpen()) {
     <form (ngSubmit)="submit()" [attr.aria-busy]="funding()">
+      <p class="action-description">
+        {{ action() === 'withdraw'
+          ? 'Transfer money into external bank account'
+          : 'Add money into investment portfolio from external bank account' }}
+      </p>
       <label for="funding-amount">Amount ({{ account().currency }})</label>
       <div class="funding-controls">
         <input id="funding-amount" name="fundingAmount" type="text" inputmode="decimal" autocomplete="off"
