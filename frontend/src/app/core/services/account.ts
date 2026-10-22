@@ -40,6 +40,13 @@ export interface HoldingsResponse {
   positions: PositionResponse[];
 }
 
+export interface PortfolioHistoryPoint {
+  date: string;
+  value: number;
+  cashValue: number;
+  holdingsValue: number;
+}
+
 
 export interface OrderResponse {
   id: number;
@@ -90,6 +97,12 @@ export class AccountService {
       `${this.apiUrl}/me/holdings`
     );
 
+  }
+
+  getPortfolioHistory(): Observable<PortfolioHistoryPoint[]> {
+    return this.http.get<PortfolioHistoryPoint[]>(
+      `${this.apiUrl}/me/portfolio-history`
+    );
   }
 
 

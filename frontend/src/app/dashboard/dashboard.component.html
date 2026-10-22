@@ -49,7 +49,7 @@
             <p class="eyebrow">PORTFOLIO VALUE</p>
             <h2>{{ portfolioValueLabel(portfolioValue()) }}</h2>
           </div>
-          <span>Live session estimate · {{ portfolioValueHistory().length }} snapshots</span>
+          <span>Past 7 days · account history · {{ portfolioValueHistory().length }} daily values</span>
         </div>
 
         @if (portfolioValueHistory().length > 0) {
@@ -70,6 +70,12 @@
                 (mouseleave)="hoveredPortfolioPoint.set(null)">
                 <title>{{ portfolioPointLabel(point.timestamp) }} · {{ portfolioValueLabel(point.value) }}</title>
               </circle>
+              @if (showPortfolioDateLabel(index)) {
+                <text class="portfolio-x-label"
+                  [attr.x]="portfolioValuePointX(index)" y="214">
+                  {{ portfolioPointDateLabel(point.timestamp) }}
+                </text>
+              }
             }
           </svg>
           @if (hoveredPortfolioPoint() !== null) {
@@ -197,6 +203,7 @@
                   </div>
                 }
               </div>
+
             }
 
             <div class="market-filters" aria-label="Instrument filters">
@@ -386,6 +393,39 @@
             </button>
           </div>
         </div>
+        @if (selectedInstrument(); as selected) {
+          <section class="market-history-panel orders-price-history" aria-label="Selected instrument price history">
+            <div class="panel-heading">
+              <h2>{{ selected.symbol }} price history</h2>
+              <span>Session quotes · {{ selectedMarketHistory().length }} points</span>
+            </div>
+            @if (selectedMarketHistory().length > 0) {
+              <svg class="market-history-chart" viewBox="-58 0 858 220" preserveAspectRatio="none"
+                role="img" [attr.aria-label]="selected.symbol + ' price history chart'">
+                <line class="market-history-gridline" x1="0" y1="22" x2="800" y2="22" />
+                <line class="market-history-gridline" x1="0" y1="106" x2="800" y2="106" />
+                <line class="market-history-axis" x1="0" y1="190" x2="800" y2="190" />
+                <polyline class="market-history-line" [attr.points]="marketHistoryPoints()" />
+                @for (point of selectedMarketHistory(); track point.timestamp; let index = $index) {
+                  <circle class="market-history-point"
+                    [attr.cx]="marketHistoryPointX(index)"
+                    [attr.cy]="marketHistoryPointY(index)"
+                    r="4">
+                    <title>{{ point.timestamp | date:'medium' }} · {{ marketPriceLabel(point.price) }}</title>
+                  </circle>
+                  @if (selectedMarketHistory().length <= 8 || index === 0 || index === selectedMarketHistory().length - 1 || index % 5 === 0) {
+                    <text class="market-history-x-label"
+                      [attr.x]="marketHistoryPointX(index)" y="214">
+                      {{ point.timestamp | date:'MMM d' }}
+                    </text>
+                  }
+                }
+              </svg>
+            } @else {
+              <p class="market-history-empty">Waiting for price history to load.</p>
+            }
+          </section>
+        }
         <div class="orders-layout">
           <section class="order-panel" aria-labelledby="order-ticket-title">
             <div class="panel-heading"><h2 id="order-ticket-title">Order ticket</h2></div>

@@ -135,6 +135,12 @@
   vector-effect: non-scaling-stroke;
 }
 .portfolio-value-point:hover { r: 7; }
+.portfolio-x-label {
+  fill: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-anchor: middle;
+}
 .portfolio-hover-value {
   position: absolute;
   right: 24px;
@@ -423,6 +429,61 @@
   padding: 15px 23px;
   background: var(--surface-soft);
   border-bottom: 1px solid var(--line);
+}
+
+.market-history-panel {
+  margin: 18px 0 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.market-history-chart {
+  display: block;
+  width: 100%;
+  height: 190px;
+  overflow: visible;
+}
+
+.orders-price-history {
+  margin: 0 0 24px;
+}
+
+.orders-price-history .market-history-chart {
+  height: 320px;
+}
+
+.market-history-gridline {
+  stroke: var(--line);
+  stroke-dasharray: 3 5;
+}
+
+.market-history-axis { stroke: var(--muted); }
+.market-history-line {
+  fill: none;
+  stroke: var(--emerald);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.market-history-point {
+  fill: var(--emerald);
+  stroke: var(--surface-soft);
+  stroke-width: 2;
+  cursor: crosshair;
+  vector-effect: non-scaling-stroke;
+}
+
+.market-history-point:hover { r: 7; }
+.market-history-empty { margin: 18px 0 0; color: var(--muted); font-size: 12px; }
+.market-history-x-label {
+  fill: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-anchor: middle;
 }
 .selected-symbol {
   font-size: 18px;
