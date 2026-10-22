@@ -13,8 +13,8 @@ import { DailyPriceChange } from '../core/services/market-data';
     + '} @else { — }</span>',
   styles: [
     ':host { display: inline-block; white-space: nowrap; font-variant-numeric: tabular-nums; }'
-    + 'span { color: #a5b6c6; font-weight: 600; }'
-    + '.positive { color: #72dfb6; } .negative { color: #ff9ba8; }'
+    + 'span { color: var(--muted); font-weight: 600; }'
+    + '.positive { color: var(--positive); } .negative { color: var(--negative); }'
   ]
 })
 export class DailyPriceChangeComponent {

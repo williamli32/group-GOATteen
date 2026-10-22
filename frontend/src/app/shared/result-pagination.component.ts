@@ -66,7 +66,7 @@ import { boundedPage, pageCount } from '../core/utils/reporting-workflow';
         align-items: center;
         flex-wrap: wrap;
         padding: 12px 0;
-        color: #a9bac9;
+        color: var(--muted);
         font-size: 12px;
       }
       label {
@@ -79,10 +79,10 @@ import { boundedPage, pageCount } from '../core/utils/reporting-workflow';
       button {
         font: inherit;
         color: inherit;
-        background: #0c1724;
-        border: 1px solid #365464;
-        border-radius: 4px;
-        min-height: 34px;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        min-height: 40px;
         padding: 5px 8px;
       }
       input {
@@ -91,6 +91,10 @@ import { boundedPage, pageCount } from '../core/utils/reporting-workflow';
       button {
         cursor: pointer;
       }
+      button:not(:disabled):hover {
+        background: var(--emerald-soft);
+        color: var(--emerald);
+      }
       button:disabled {
         opacity: 0.45;
         cursor: default;
@@ -98,7 +102,7 @@ import { boundedPage, pageCount } from '../core/utils/reporting-workflow';
       button:focus-visible,
       input:focus-visible,
       select:focus-visible {
-        outline: 2px solid #72d8c0;
+        outline: 2px solid var(--emerald);
         outline-offset: 2px;
       }
     `,

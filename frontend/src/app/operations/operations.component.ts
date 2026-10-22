@@ -13,6 +13,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ResultPaginationComponent } from '../shared/result-pagination.component';
+import { MarketMotionComponent } from '../shared/market-motion.component';
 import {
   boundedPage,
   dateRangeError,
@@ -35,7 +36,7 @@ type EvidenceSection = 'lifecycle' | 'execution' | 'settlement';
 @Component({
   selector: 'app-operations',
   standalone: true,
-  imports: [CommonModule, FormsModule, ResultPaginationComponent],
+  imports: [CommonModule, FormsModule, ResultPaginationComponent, MarketMotionComponent],
   templateUrl: './operations.component.html',
   styleUrl: './operations.component.scss',
 })

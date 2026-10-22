@@ -187,4 +187,22 @@ describe('WatchlistComponent', () => {
     expect(fixture.nativeElement.querySelector('.quote small').textContent).toContain('Quote:');
     expect(fixture.nativeElement.querySelector('.instrument-button').disabled).toBe(true);
   });
+  it('keeps the watchlist and alert editor mounted while changing views', () => {
+    component.addId = '2';
+    const editor = fixture.nativeElement.querySelector('app-price-alerts');
+    const controls = [...fixture.nativeElement.querySelectorAll('.watchlist-views button')] as HTMLButtonElement[];
+    expect(controls).toHaveLength(2);
+    controls[1].click();
+    fixture.detectChanges();
+    expect(component.view()).toBe('alerts');
+    expect(fixture.nativeElement.querySelector('#saved-instruments-view').hidden).toBe(true);
+    expect(fixture.nativeElement.querySelector('#price-alerts-view').hidden).toBe(false);
+    controls[0].click();
+    fixture.detectChanges();
+    expect(component.addId).toBe('2');
+    expect(component.savedInstruments()).toEqual([first]);
+    expect(fixture.nativeElement.querySelector('app-price-alerts')).toBe(editor);
+    expect(service.getWatchlist).toHaveBeenCalledTimes(1);
+  });
+
 });

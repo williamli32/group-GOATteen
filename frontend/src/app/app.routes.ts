@@ -1,87 +1,54 @@
-import {
-  Routes
-} from '@angular/router';
+import { Routes } from '@angular/router';
 
-import {
-  Login
-} from './features/auth/login/login';
+import { authGuard } from './core/guards/auth-guard';
 
-import {
-  Register
-} from './features/auth/register/register';
+import { analystGuard } from './core/guards/analyst-guard';
 
-import {
-  DashboardComponent
-} from './dashboard/dashboard.component';
-
-import {
-  authGuard
-} from './core/guards/auth-guard';
-
-import {
-  analystGuard
-} from './core/guards/analyst-guard';
-
-import {
-  operationsGuard
-} from './core/guards/operations-guard';
-
-import {
-  AnalystDashboardComponent
-} from './analyst/analyst-dashboard.component';
-
-import {
-  OperationsComponent
-} from './operations/operations.component';
-
+import { operationsGuard } from './core/guards/operations-guard';
 
 export const routes: Routes = [
-
   {
     path: 'login',
-    component: Login
+    loadComponent: () => import('./features/auth/login/login').then((module) => module.Login),
   },
 
   {
     path: 'register',
-    component: Register
+    loadComponent: () =>
+      import('./features/auth/register/register').then((module) => module.Register),
   },
 
   {
     path: 'dashboard',
-    component: DashboardComponent,
-    canActivate: [
-      authGuard
-    ]
+    loadComponent: () =>
+      import('./dashboard/dashboard.component').then((module) => module.DashboardComponent),
+    canActivate: [authGuard],
   },
 
   {
     path: 'analyst',
-    component: AnalystDashboardComponent,
-    canActivate: [
-      authGuard,
-      analystGuard
-    ]
+    loadComponent: () =>
+      import('./analyst/analyst-dashboard.component').then(
+        (module) => module.AnalystDashboardComponent,
+      ),
+    canActivate: [authGuard, analystGuard],
   },
 
   {
     path: 'operations',
-    component: OperationsComponent,
-    canActivate: [
-      authGuard,
-      operationsGuard
-    ]
+    loadComponent: () =>
+      import('./operations/operations.component').then((module) => module.OperationsComponent),
+    canActivate: [authGuard, operationsGuard],
   },
 
   {
     path: '',
     redirectTo: 'login',
-    pathMatch: 'full'
+    pathMatch: 'full',
   },
 
   {
     path: '**',
-    redirectTo: 'login'
-  }
-
+    redirectTo: 'login',
+  },
 ];

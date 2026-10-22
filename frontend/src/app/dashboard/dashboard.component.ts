@@ -1,3 +1,7 @@
+import { MarketMotionComponent } from '../shared/market-motion.component';
+import { HoldingsAllocationComponent } from './holdings-allocation.component';
+import { ResultPaginationComponent } from '../shared/result-pagination.component';
+import { boundedPage, pageRows } from '../core/utils/reporting-workflow';
 import { PriceAlertPopupListenerComponent } from './price-alert-popup-listener.component';
 import { FxRateService, type FxQuote } from '../core/services/fx-rate';
 import {
@@ -152,7 +156,7 @@ type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
 
     AccountFundingComponent,
     WatchlistComponent,
-    DailyPriceChangeComponent
+    DailyPriceChangeComponent, MarketMotionComponent, ResultPaginationComponent, HoldingsAllocationComponent
 
   ],
 
@@ -251,6 +255,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return matchesSearch && matchesClass;
     });
   });
+  readonly marketPage = signal(1);
+  readonly marketPageSize = signal(10);
+  readonly currentMarketPage = computed(() => boundedPage(this.marketPage(), this.filteredMarketInstruments().length, this.marketPageSize()));
+  readonly visibleMarketInstruments = computed(() => pageRows(this.filteredMarketInstruments(), this.currentMarketPage(), this.marketPageSize()));
+  setMarketSearch(value: string): void { this.marketSearch.set(value); this.marketPage.set(1); }
+  setMarketClass(value: string): void { this.marketClassFilter.set(value); this.marketPage.set(1); }
+  setMarketPageSize(size: number): void { if ([10, 25, 50].includes(size)) { this.marketPageSize.set(size); this.marketPage.set(1); } }
+
   selectedInstrument =
 
     signal<MarketInstrumentResponse | null>(null);
@@ -263,7 +275,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
   readonly marketRefreshFailed = signal(false);
-  private readonly quoteClock = signal(Date.now());
+  readonly quoteClock = signal(Date.now());
   private quoteClockInterval: number | null = null;
 
   private readonly quoteStaleAfterMs = 10_000;
@@ -1193,6 +1205,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
 
+
+  holdingInstrument(position: { instrumentId: number }): MarketInstrumentResponse | null {
+    return this.marketInstruments().find(instrument => instrument.instrumentId === position.instrumentId) ?? null;
+  }
+
+  openHolding(position: { instrumentId: number }): void {
+    const instrument = this.holdingInstrument(position);
+    if (instrument) this.selectInstrument(instrument);
+  }
 
   selectInstrument(
 

@@ -1,0 +1,176 @@
+<section class="allocation-card" aria-label="Holdings allocation">
+  <header class="allocation-heading">
+    <div>
+      <p class="eyebrow">YOUR INVESTMENTS</p>
+      <h2>Investment allocation</h2>
+      <p>Estimated market value · {{ accountCurrency() }}</p>
+    </div>
+    <span class="allocation-count"
+      >{{ allocation().slices.length }} of {{ allocation().holdingCount }} holdings valued</span
+    >
+  </header>
+
+  @if (marketLoading() || fxLoading()) {
+    <p class="allocation-note" role="status">Updating prices and currency conversions…</p>
+  }
+  @if (marketRefreshFailed() || allocation().stale) {
+    <div class="allocation-warning">
+      <span>Prices may be out of date. The chart uses the latest available quotes.</span>
+      <button type="button" (click)="refreshPrices.emit()" [disabled]="marketLoading()">
+        Refresh prices
+      </button>
+    </div>
+  }
+  @if (!marketLoading() && !fxLoading() && allocation().missing.length) {
+    <div class="allocation-warning" role="status">
+      <span
+        >Not valued: {{ allocation().missing.join(', ') }}. Prices or currency conversions are
+        unavailable. Percentages cover valued holdings only.</span
+      >
+      @if (fxFailed()) {
+        <button type="button" (click)="retryFx()">Retry conversion</button>
+      }
+      <button type="button" (click)="refreshPrices.emit()">Refresh prices</button>
+    </div>
+  }
+
+  @if (allocation().slices.length && (!fxLoading() || !allocation().missing.length)) {
+    <div #allocationBody class="allocation-body">
+      <figure class="allocation-chart">
+        <div
+          #pieStage
+          class="pie-stage"
+          (pointerleave)="clearPointerTooltip()"
+          (pointercancel)="dismissTooltip()"
+        >
+          <svg
+            viewBox="0 0 240 240"
+            role="img"
+            aria-label="Investment allocation by estimated market value; instrument values and percentages are listed alongside the pie chart"
+            [attr.aria-describedby]="tooltipSlice() ? tooltipId : null"
+            focusable="false"
+          >
+            <desc>
+              Each slice represents an instrument's share of valued holdings in
+              {{ accountCurrency() }}.
+            </desc>
+            @for (slice of allocation().slices; track slice.instrumentId) {
+              <path
+                [attr.d]="slice.path"
+                [attr.fill]="slice.color"
+                [class.slice-active]="tooltipSlice()?.instrumentId === slice.instrumentId"
+                [class.slice-muted]="
+                  tooltipSlice() && tooltipSlice()?.instrumentId !== slice.instrumentId
+                "
+                (pointerenter)="showPointerTooltip(slice.instrumentId, $event)"
+                (pointermove)="movePointerTooltip($event)"
+                stroke="#ffffff"
+                stroke-width="1.2"
+                stroke-linejoin="round"
+              />
+            }
+          </svg>
+          @if (tooltipSlice(); as slice) {
+            <div
+              #pieTooltip
+              class="allocation-tooltip"
+              role="tooltip"
+              [id]="tooltipId"
+              [style.left.px]="tooltipPosition().x"
+              [style.top.px]="tooltipPosition().y"
+            >
+              <div class="tooltip-heading">
+                <span
+                  class="allocation-swatch"
+                  [style.background-color]="slice.color"
+                  aria-hidden="true"
+                ></span>
+                <strong>{{ slice.symbol }}</strong>
+                <span class="tooltip-kicker">HOLDING</span>
+              </div>
+              <p class="tooltip-name">{{ slice.instrumentName }}</p>
+              <dl>
+                <div>
+                  <dt>Estimated value</dt>
+                  <dd>{{ formatValue(slice.value) }}</dd>
+                </div>
+                <div>
+                  <dt>Allocation</dt>
+                  <dd>{{ formatShare(slice.share) }}</dd>
+                </div>
+              </dl>
+            </div>
+          }
+        </div>
+        <figcaption>
+          <span>{{
+            allocation().missing.length ? 'Valued holdings' : 'Holdings market value'
+          }}</span>
+          <strong>{{ formatValue(allocation().total) }}</strong>
+        </figcaption>
+      </figure>
+      <ul
+        class="allocation-legend"
+        aria-label="Holdings values and allocation percentages"
+        tabindex="0"
+      >
+        @for (slice of allocation().slices; track slice.instrumentId) {
+          <li>
+            <button
+              type="button"
+              class="allocation-instrument"
+              [disabled]="selectionDisabled()"
+              (click)="instrumentSelected.emit(slice)"
+              (focus)="showFocusTooltip(slice.instrumentId)"
+              (blur)="clearFocusTooltip()"
+              [attr.aria-describedby]="
+                tooltipSlice()?.instrumentId === slice.instrumentId ? tooltipId : null
+              "
+              [attr.aria-label]="
+                'Open Orders for ' + slice.instrumentName + '. ' + sliceTooltip(slice)
+              "
+            >
+              <span
+                class="allocation-swatch"
+                [style.background-color]="slice.color"
+                aria-hidden="true"
+              ></span>
+              <span class="allocation-name"
+                ><strong>{{ slice.symbol }}</strong
+                ><small>{{ slice.instrumentName }}</small></span
+              >
+              <span class="allocation-value"
+                ><strong>{{ formatShare(slice.share) }}</strong
+                ><small>{{ formatValue(slice.value) }}</small></span
+              >
+            </button>
+          </li>
+        }
+      </ul>
+    </div>
+  } @else if (!marketLoading() && !fxLoading()) {
+    <div class="allocation-empty">
+      <span aria-hidden="true">◔</span>
+      <p>
+        {{
+          allocation().holdingCount
+            ? 'A chart will appear when prices and currency conversions are available.'
+            : 'Your investment allocation will appear when you hold instruments.'
+        }}
+      </p>
+    </div>
+  }
+
+  <footer class="allocation-footnote">
+    <span
+      >Allocation uses current quantities × latest available prices, converted to
+      {{ accountCurrency() }}. Excludes cash.</span
+    >
+    @if (allocation().oldestQuote) {
+      <span>Oldest quote: {{ allocation().oldestQuote | date: 'medium' : 'UTC' }} UTC.</span>
+    }
+    @if (fxAsOf()) {
+      <span>FX as of {{ fxAsOf() }}.</span>
+    }
+  </footer>
+</section>

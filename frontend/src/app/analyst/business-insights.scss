@@ -1,155 +1,295 @@
 .business-insights {
+  .insight-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 17px;
+  }
+  .insight-card {
+    min-width: 0;
+    padding: 24px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+  }
+  .insight-card h3 {
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--muted);
+    margin: 0 0 18px;
+  }
+  .insight-card strong {
+    font-size: 30px;
+    line-height: 1.2;
+    font-weight: 550;
+    letter-spacing: -1px;
+    color: var(--ink);
+    display: block;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+  .insight-card p {
+    font-size: 12px;
+    color: #617a61;
+    margin: 11px 0 0;
+  }
+  .insight-card small {
+    display: block;
+    font-size: 11px;
+    line-height: 1.8;
+    color: var(--muted);
+    margin-top: 11px;
+  }
+  .insight-card:first-child {
+    background: #eef3e6;
+    border-color: #dce6d1;
+  }
+  .rejection-trend-panel {
+    margin-top: 20px;
+    padding: 25px;
+  }
+  .rejection-trend-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .rejection-trend-heading h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: -0.3px;
+  }
+  .rejection-trend-heading p {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 7px 0 0;
+  }
+  .rejection-trend-period {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .rejection-trend-coverage {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 20px 0 0;
+  }
+  .rejection-single-point {
+    font-size: 11px;
+    color: var(--amber);
+    line-height: 1.7;
+  }
+  .rejection-axis-title {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 20px 0 16px;
+  }
+  .rejection-chart {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    column-gap: 12px;
+    margin-right: 12px;
+  }
+  .rejection-y-axis,
+  .rejection-plot {
+    position: relative;
+    height: 220px;
+    min-width: 0;
+  }
+  .rejection-y-tick {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font: 10px var(--mono);
+  }
+  .rejection-trend-svg {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .rejection-gridline {
+    stroke: #e7ece3;
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+  }
+  .rejection-baseline {
+    stroke: #d0dcca;
+    stroke-dasharray: none;
+  }
+  .rejection-trend-line {
+    stroke: #b45a62;
+    stroke-width: 2.4;
+    fill: none;
+  }
+  .rejection-trend-point {
+    position: absolute;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink);
+    transform: translate(-50%, -50%);
+    cursor: help;
+  }
+  .rejection-trend-point::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 2px solid white;
+    border-radius: 50%;
+    background: #b45a62;
+  }
+  .rejection-trend-point:hover,
+  .rejection-trend-point:focus-visible {
+    z-index: 2;
+  }
+  .rejection-trend-point:focus-visible {
+    outline: 2px solid #b45a62;
+    outline-offset: 1px;
+  }
+  .rejection-trend-point:hover .rejection-point-tooltip,
+  .rejection-trend-point:focus-visible .rejection-point-tooltip {
+    display: grid;
+  }
+  .rejection-point-tooltip {
+    position: absolute;
+    bottom: calc(100% + 9px);
+    left: 50%;
+    display: none;
+    gap: 6px;
+    width: max-content;
+    max-width: min(260px, calc(100vw - 110px));
+    padding: 13px 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: #fffefa;
+    box-shadow: 0 10px 32px #173d2b26;
+    transform: translateX(-50%);
+    pointer-events: none;
+    text-align: left;
+    font: 11px/1.6 var(--font);
+  }
+  .rejection-point-tooltip span {
+    color: var(--muted);
+  }
+  .rejection-point-tooltip strong {
+    color: #a84c57;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .rejection-tooltip-start {
+    left: 0;
+    transform: none;
+  }
+  .rejection-tooltip-end {
+    right: 0;
+    left: auto;
+    transform: none;
+  }
+  .rejection-x-axis {
+    position: relative;
+    grid-column: 2;
+    height: 20px;
+    margin-top: 15px;
+  }
+  .rejection-x-tick {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    color: var(--muted);
+    font: 10px var(--mono);
+  }
+  .rejection-tick-start {
+    transform: none;
+  }
+  .rejection-tick-end {
+    transform: translateX(-100%);
+  }
+  .rejection-date-title {
+    grid-column: 2;
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .rejection-trend-note {
+    margin: 20px 0 0;
+    font-size: 11px;
+    line-height: 1.8;
+    color: var(--muted);
+  }
+  .rejection-legend-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #b45a62;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  .rejection-trend-empty {
+    padding: 34px 12px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .rejection-trend-empty p {
+    line-height: 1.8;
+  }
+  @media (max-width: 1050px) {
     .insight-cards {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
     }
     .insight-card {
-        min-width: 0;
-        padding: 1.25rem;
-        border: 1px solid #31515e;
-        border-radius: 1rem;
-        background: #101c29;
-        color: #e7f0f4;
-        h3 { margin: 0 0 1rem; font-size: .9rem; color: #acc4cf; }
-        strong { display: block; font-size: 1.7rem; overflow-wrap: anywhere; }
-        p { margin: .6rem 0; }
-        small { display: block; color: #acc4cf; line-height: 1.6; }
+      padding: 21px;
     }
-    .rejection-trend-panel { margin-top: 1rem; padding: 1.25rem; }
-    .rejection-trend-heading {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: .75rem 1.5rem;
-        p { margin: .4rem 0 0; color: #acc4cf; font-size: .85rem; }
+  }
+  @media (max-width: 650px) {
+    .insight-cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
     }
-    .rejection-trend-period { color: #acc4cf; font-size: .8rem; line-height: 1.6; }
-    .rejection-trend-coverage { margin: .75rem 0; color: #acc4cf; font-size: .8rem; }
-    .rejection-single-point { color: #ee7b83; font-size: .85rem; }
-    .rejection-axis-title { margin: 1.25rem 0 .9rem; color: #acc4cf; font-size: .75rem; }
+    .insight-card {
+      padding: 18px;
+    }
+    .insight-card strong {
+      font-size: 25px;
+    }
+    .insight-card h3 {
+      font-size: 11px;
+    }
+    .insight-card p {
+      font-size: 11px;
+    }
+    .insight-card small {
+      font-size: 11px;
+    }
+    .rejection-trend-panel {
+      padding: 23px 17px;
+    }
     .rejection-chart {
-        display: grid;
-        grid-template-columns: 3rem minmax(0, 1fr);
-        column-gap: .75rem;
-        margin-right: .75rem;
+      grid-template-columns: 2.3rem minmax(0, 1fr);
+      column-gap: 8px;
     }
-    .rejection-y-axis, .rejection-plot { position: relative; height: 220px; min-width: 0; }
-    .rejection-y-tick {
-        position: absolute;
-        right: 0;
-        transform: translateY(-50%);
-        color: #acc4cf;
-        font: 11px 'JetBrains Mono', monospace;
+    .rejection-tick-secondary {
+      display: none;
     }
-    .rejection-trend-svg {
-        position: absolute;
-        inset: 0;
-        display: block;
-        width: 100%;
-        height: 100%;
-        overflow: visible;
-    }
-    .rejection-gridline { stroke: #263b4b; stroke-width: 1; stroke-dasharray: 3 5; }
-    .rejection-baseline { stroke: #496071; stroke-dasharray: none; }
-    .rejection-trend-line { fill: none; stroke: #ee7b83; stroke-width: 2.5; }
-    // HTML markers retain a circular, fixed-size shape when the SVG stretches.
-    .rejection-trend-point {
-        position: absolute;
-        z-index: 1;
-        display: grid;
-        place-items: center;
-        width: 20px;
-        height: 20px;
-        min-width: 0;
-        padding: 0;
-        border: 0;
-        border-radius: 50%;
-        background: transparent;
-        color: #e7f0f4;
-        transform: translate(-50%, -50%);
-        cursor: help;
-        &::after {
-            content: '';
-            width: 14px;
-            height: 14px;
-            border: 2px solid #101c29;
-            border-radius: 50%;
-            background: #ee7b83;
-        }
-        &:hover, &:focus-visible { z-index: 2; }
-        &:focus-visible { outline: 2px solid #ee7b83; outline-offset: 2px; }
-        &:hover .rejection-point-tooltip, &:focus-visible .rejection-point-tooltip { display: grid; }
-    }
-    .rejection-point-tooltip {
-        position: absolute;
-        bottom: calc(100% + 8px);
-        left: 50%;
-        display: none;
-        gap: .4rem;
-        width: max-content;
-        max-width: min(240px, calc(100vw - 110px));
-        padding: .8rem 1rem;
-        border: 1px solid #496071;
-        border-radius: .5rem;
-        background: #101c29;
-        box-shadow: 0 8px 24px #0006;
-        transform: translateX(-50%);
-        pointer-events: none;
-        text-align: left;
-        font: 12px/1.5 'IBM Plex Sans', sans-serif;
-        span { color: #acc4cf; }
-        strong { color: #ee7b83; font-size: .9rem; }
-        &.rejection-tooltip-start { left: 0; transform: none; }
-        &.rejection-tooltip-end { right: 0; left: auto; transform: none; }
-    }
-    .rejection-x-axis { position: relative; grid-column: 2; height: 1.25rem; margin-top: .9rem; }
     .rejection-x-tick {
-        position: absolute;
-        transform: translateX(-50%);
-        white-space: nowrap;
-        color: #acc4cf;
-        font: 11px 'JetBrains Mono', monospace;
-        &.rejection-tick-start { transform: none; }
-        &.rejection-tick-end { transform: translateX(-100%); }
+      font-size: 8px;
     }
-    .rejection-date-title {
-        grid-column: 2;
-        margin: .5rem 0 0;
-        color: #acc4cf;
-        font-size: .75rem;
-        text-align: center;
+    .rejection-trend-heading p {
+      font-size: 11px;
     }
-    .rejection-trend-note { margin: 1rem 0 0; color: #acc4cf; font-size: .75rem; line-height: 1.7; }
-    .rejection-legend-dot {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        margin-right: .3rem;
-        border-radius: 50%;
-        background: #ee7b83;
-    }
-    .rejection-trend-empty {
-        display: grid;
-        place-content: center;
-        min-height: 220px;
-        margin-top: 1rem;
-        padding: 1.5rem;
-        border: 1px dashed #31515e;
-        border-radius: .5rem;
-        text-align: center;
-        strong { color: #e7f0f4; }
-        p, small { color: #acc4cf; font-size: .85rem; line-height: 1.6; }
-        p { margin: .75rem 0 .4rem; }
-    }
-    @media (max-width: 900px) {
-        .insight-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 600px) {
-        .insight-cards { grid-template-columns: minmax(0, 1fr); }
-        .rejection-trend-panel { padding: 1rem; }
-        .rejection-chart { grid-template-columns: 2.5rem minmax(0, 1fr); column-gap: .5rem; }
-        .rejection-tick-secondary { display: none; }
-    }
+  }
 }

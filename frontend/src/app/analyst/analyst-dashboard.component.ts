@@ -1,3 +1,4 @@
+import { MarketMotionComponent } from '../shared/market-motion.component';
 import { CommonModule } from '@angular/common';
 import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -116,17 +117,29 @@ type MetricKey =
     | 'clients'
     | 'instruments';
 
+type ReportView = 'overview' | 'insights' | 'trends' | 'data';
 type ReportTable = 'instruments' | 'values' | 'clients' | 'activity';
 type DailyMetric = 'orders' | 'value' | 'clients' | 'BUY' | 'SELL';
 
 @Component({
     selector: 'app-analyst-dashboard',
     standalone: true,
-    imports: [CommonModule, FormsModule, ResultPaginationComponent],
+    imports: [CommonModule, FormsModule, ResultPaginationComponent, MarketMotionComponent],
     templateUrl: './analyst-dashboard.component.html',
     styleUrls: ['./analyst-dashboard.component.scss', './business-insights.scss']
 })
 export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewChecked {
+    readonly reportViews: ReadonlyArray<{ id: ReportView; label: string }> = [
+        { id: 'overview', label: 'Overview' }, { id: 'insights', label: 'Business insights' },
+        { id: 'trends', label: 'Activity & trends' }, { id: 'data', label: 'Data explorer' }
+    ];
+    readonly activeView = signal<ReportView>('overview');
+    selectReportView(view: ReportView): void {
+        this.activeView.set(view);
+        this.closeMetric();
+        this.hideTrendDialog();
+        this.persistPreferences();
+    }
     readonly Math = Math;
     readonly today = new Date().toISOString().slice(0, 10);
     readonly defaultFromDate = this.dateDaysAgo(30);
@@ -341,7 +354,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         value: string,
         detail: string,
         event: Event,
-        color = '#72d8c0',
+        color = '#22795c',
     ): void {
         this.graphDialog.set({
             date,
@@ -362,7 +375,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         }[metric];
         this.showTrendDialog(title, this.graphDateLabel(point.date), metric === 'value'
             ? this.formatMoney(point.value, this.reportedCurrency()) : this.formatNumber(point.value),
-            detail, event, { orders: '#72d8c0', value: '#f0b75d', clients: '#b49aff' }[metric]);
+            detail, event, { orders: '#22795c', value: '#b88a42', clients: '#8070b5' }[metric]);
     }
 
     showBuySellDateDialog(index: number, event: Event): void {
@@ -379,12 +392,12 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
                 {
                     label: 'BUY fills',
                     value: this.formatNumber(point.buyFills),
-                    color: '#72d8c0'
+                    color: '#22795c'
                 },
                 {
                     label: 'SELL fills',
                     value: this.formatNumber(point.sellFills),
-                    color: '#ee7b83'
+                    color: '#b45a62'
                 },
                 
             ],
@@ -422,7 +435,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
             `${orders} orders`,
             'Order outcome total',
             event,
-            status === 'FILLED' ? '#72d8c0' : '#ee7b83',
+            status === 'FILLED' ? '#22795c' : '#b45a62',
         );
     }
 
@@ -476,7 +489,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
             buy + sell;
 
         if (total <= 0) {
-            return '#315f65';
+            return '#e4ebe3';
         }
 
         const buyEnd =
@@ -485,12 +498,12 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
         return `
         radial-gradient(
             circle,
-            #101c29 0 57%,
+            #ffffff 0 57%,
             transparent 58%
         ),
         conic-gradient(
-            #72d8c0 0 ${buyEnd}%,
-            #ee7b83 ${buyEnd}% 100%
+            #22795c 0 ${buyEnd}%,
+            #b45a62 ${buyEnd}% 100%
         )
     `;
     }
@@ -576,9 +589,10 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
     }
 
     private restorePreferences(): void {
-        const saved = readWorkflowPreferences<{ filters?: ReportingFilters; pageSize?: number; pages?: Partial<Record<ReportTable, number>> }>('reports');
+        const saved = readWorkflowPreferences<{ filters?: ReportingFilters; pageSize?: number; pages?: Partial<Record<ReportTable, number>>; view?: ReportView }>('reports');
         if (!saved || typeof saved !== 'object' || !saved.filters || typeof saved.filters !== 'object'
             || Array.isArray(saved.filters) || this.validateFilters(saved.filters)) return;
+        if (saved.view && ['overview', 'insights', 'trends', 'data'].includes(saved.view)) this.activeView.set(saved.view);
         const f = saved.filters;
         const filters: ReportingFilters = { fromDate: f.fromDate, toDate: f.toDate, currency: f.currency,
             instrumentId: f.instrumentId, clientId: f.clientId, side: f.side, status: f.status };
@@ -594,7 +608,7 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy, AfterViewCh
     }
 
     private persistPreferences(): void {
-        saveWorkflowPreferences('reports', { filters: this.appliedFilters(), pageSize: this.pageSize(), pages: this.pages() });
+        saveWorkflowPreferences('reports', { filters: this.appliedFilters(), pageSize: this.pageSize(), pages: this.pages(), view: this.activeView() });
     }
 
     private loadMarketInstruments(): void {

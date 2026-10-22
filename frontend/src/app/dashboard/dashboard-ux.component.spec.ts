@@ -79,6 +79,37 @@ describe('Dashboard trading recovery', () => {
     sessionStorage.removeItem('leap_pending_order_idempotency_key');
   });
 
+  it('opens the exact holding from its symbol or name without submitting or replacing a pending order', () => {
+    const holding = { instrumentId: 2, symbol: 'HELD', instrumentName: 'Held company', quantity: 3 };
+    const live = { ...instrument, instrumentId: 2, symbol: 'HELD', name: 'Held company',
+      latestQuote: { ...instrument.latestQuote!, instrumentId: 2, symbol: 'HELD' } };
+    component.marketInstruments.set([instrument, live]);
+    component.holdings.set({ accountId: 1, currency: 'GBP', cashBalance: 2000, positions: [holding] });
+    component.setMarketSearch('Does not match this holding');
+    component.selectTab('holdings'); fixture.detectChanges();
+    const symbol = fixture.nativeElement.querySelector('.positions-table .symbol-cell button') as HTMLButtonElement;
+    symbol.click(); fixture.detectChanges();
+    expect(component.activeTab()).toBe('orders');
+    expect(component.selectedInstrument()?.instrumentId).toBe(2);
+    expect(document.activeElement?.id).toBe('dashboard-tab-orders');
+    component.selectTab('holdings'); fixture.detectChanges();
+    const name = fixture.nativeElement.querySelector('.positions-table td[data-label="Instrument"] button') as HTMLButtonElement;
+    name.click(); fixture.detectChanges();
+    expect(component.activeTab()).toBe('orders');
+    expect(component.selectedInstrument()?.latestQuote).toEqual(live.latestQuote);
+    expect(orders.placeOrder).not.toHaveBeenCalled();
+    component.selectTab('holdings');
+    component.orderSubmitting.set(true); fixture.detectChanges();
+    expect(symbol.disabled).toBe(true);
+    component.openHolding({ instrumentId: 1 });
+    expect(component.activeTab()).toBe('holdings');
+    expect(component.selectedInstrument()?.instrumentId).toBe(2);
+    component.orderSubmitting.set(false);
+    component.marketInstruments.set([instrument]); fixture.detectChanges();
+    expect(name.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.positions-table').textContent).toContain('Market details unavailable');
+  });
+
   it('keeps an actionable rejection in the ticket after the popup closes', () => {
     orders.placeOrder.mockReturnValue(throwError(() => new HttpErrorResponse({
       status: 400, error: { ...filledOrder(), status: 'REJECTED',

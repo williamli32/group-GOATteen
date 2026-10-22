@@ -925,13 +925,13 @@ describe('AnalystDashboardComponent', () => {
 
             expect(style)
                 .toContain(
-                    '#72d8c0 0 33.33333333333333%'
+                    '0 33.33333333333333%'
                 );
 
 
             expect(style)
                 .toContain(
-                    '#ee7b83 33.33333333333333% 100%'
+                    '33.33333333333333% 100%'
                 );
 
         }
@@ -1587,6 +1587,7 @@ describe('AnalystDashboardComponent', () => {
             component.currency.set('INR');
             component.applyFilters();
             component.changePage('instruments', 2);
+            component.selectReportView('data');
             component.side.set('SELL');
             fixture.destroy();
             fixture = TestBed.createComponent(AnalystDashboardComponent);
@@ -1594,6 +1595,7 @@ describe('AnalystDashboardComponent', () => {
             fixture.detectChanges();
             expect(reportingService.getInsights).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'INR', side: undefined }));
             expect(component.pages().instruments).toBe(2);
+            expect(component.activeView()).toBe('data');
             const key = Object.keys(sessionStorage).find(key => key.includes('priya-goal4'))!;
             expect(sessionStorage.getItem(key)).not.toContain('PrivateStock');
             localStorage.setItem('accessToken', 'test.' + btoa(JSON.stringify({ sub: 'different-user' })) + '.signature');
@@ -1604,6 +1606,27 @@ describe('AnalystDashboardComponent', () => {
             localStorage.removeItem('accessToken');
             sessionStorage.clear();
         }
+    });
+
+    it('switches report views without applying draft filters or resetting result pages', () => {
+        component.instruments.set(Array.from({ length: 21 }, (_, i) => ({ instrumentId: i + 1, instrumentSymbol: 'Stock' + i, currency: 'GBP', fillCount: 1, executedQuantity: 1, tradedValue: 10 })));
+        component.changePage('instruments', 2);
+        component.currency.set('INR');
+        const callsBefore = reportingService.getInsights.mock.calls.length;
+        const buttons = [...fixture.nativeElement.querySelectorAll('.report-views button')] as HTMLButtonElement[];
+        const viewIds = ['overview', 'insights', 'trends', 'data'];
+        for (const [index, button] of buttons.entries()) {
+            button.click();
+            fixture.detectChanges();
+            expect(component.activeView()).toBe(viewIds[index]);
+            expect(button.getAttribute('aria-pressed')).toBe('true');
+            const panels = [...fixture.nativeElement.querySelectorAll('[id^="reports-view-"]')] as HTMLElement[];
+            expect(panels.filter(panel => !panel.hidden).map(panel => panel.id)).toEqual(['reports-view-' + viewIds[index]]);
+        }
+        expect(component.pages().instruments).toBe(2);
+        expect(component.currency()).toBe('INR');
+        expect(component.appliedFilters().currency).toBe('GBP');
+        expect(reportingService.getInsights).toHaveBeenCalledTimes(callsBefore);
     });
 
 });

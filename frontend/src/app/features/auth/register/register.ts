@@ -1,3 +1,5 @@
+import { MarketMotionComponent } from '../../../shared/market-motion.component';
+import { MotionToggleComponent } from '../../../shared/motion-toggle.component';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +11,7 @@ import { AccountCurrencyOption, Auth, RegistrationRole } from '../../../core/aut
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, MarketMotionComponent, MotionToggleComponent],
   templateUrl: './register.html',
   styleUrl: './register.scss'
 })

@@ -1,13 +1,21 @@
-import { Component, computed, inject } from '@angular/core';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { MotionToggleComponent } from './shared/motion-toggle.component';
+import { Component, computed, inject, signal } from '@angular/core';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationStart,
+  Router,
+  RouterOutlet,
+} from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 
 import { Auth } from './core/auth/auth';
 import { SidebarComponent } from './sidebar/sidebar.component';
 
 @Component({
-  imports: [RouterOutlet, SidebarComponent],
+  imports: [RouterOutlet, SidebarComponent, MotionToggleComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -15,6 +23,29 @@ import { SidebarComponent } from './sidebar/sidebar.component';
 export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(Auth);
+
+  readonly openingPage = signal(false);
+  readonly pageError = signal(false);
+  private failedUrl: string | null = null;
+
+  constructor() {
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
+      if (event instanceof NavigationStart) {
+        this.openingPage.set(true);
+        this.pageError.set(false);
+      } else if (event instanceof NavigationError) {
+        this.openingPage.set(false);
+        this.pageError.set(true);
+        this.failedUrl = event.url;
+      } else if (event instanceof NavigationEnd || event instanceof NavigationCancel) {
+        this.openingPage.set(false);
+      }
+    });
+  }
+
+  retryPage(): void {
+    if (this.failedUrl) void this.router.navigateByUrl(this.failedUrl).catch(() => undefined);
+  }
 
   private readonly currentUrl = toSignal(
     this.router.events.pipe(
@@ -29,7 +60,6 @@ export class App {
     const url = this.currentUrl().split(/[?#]/)[0];
     const isPublicRoute = url === '/login' || url === '/register';
 
-    return this.auth.isLoggedIn()
-      && !isPublicRoute;
+    return this.auth.isLoggedIn() && !isPublicRoute;
   });
 }

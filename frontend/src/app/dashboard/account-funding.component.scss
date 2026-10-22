@@ -1,15 +1,111 @@
-:host { display: block; }
-.funding-panel { margin-bottom: 20px; padding: 18px 22px; border: 1px solid #26394a; background: #101c29; color: #e7edf5; font: 14px 'IBM Plex Sans', sans-serif; }
-.funding-heading, .funding-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-h2 { margin: 0 0 6px; font-size: 18px; }
-p { margin: 6px 0; color: #9babba; }
-form { margin-top: 16px; max-width: 580px; }
-label { display: block; margin-bottom: 7px; }
-input { flex: 1; min-width: 0; padding: 11px; border: 1px solid #365464; background: #0b111b; color: inherit; font: inherit; }
-button { padding: 11px 16px; border: 1px solid #72d8c0; background: #72d8c0; color: #07130e; cursor: pointer; font: 600 13px 'IBM Plex Sans', sans-serif; }
-button.secondary { background: transparent; color: #72d8c0; }
-button:disabled { opacity: .6; cursor: wait; }
-button:focus-visible, input:focus-visible { outline: 2px solid #f0b75d; outline-offset: 3px; }
-.funding-error { color: #f2a1a7; }
-.funding-success { color: #88e5aa; }
-@media (max-width: 600px) { .funding-heading, .funding-controls { align-items: stretch; flex-direction: column; } }
+:host {
+  display: block;
+}
+.funding-panel {
+  background: #f0f4e9;
+  border: 1px solid #dce7ce;
+  border-radius: 13px;
+  padding: 18px 22px;
+  margin-bottom: 27px;
+  color: var(--ink);
+}
+.funding-heading,
+.funding-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+h2 {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.2px;
+  margin: 0 0 4px;
+}
+p {
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 4px 0;
+  color: #859273;
+}
+p strong {
+  font-weight: 600;
+  color: #617a50;
+}
+form {
+  margin-top: 20px;
+  max-width: 600px;
+}
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: #708a5a;
+}
+input {
+  flex: 1;
+  min-width: 0;
+  min-height: 43px;
+  padding: 10px 13px;
+  border: 1px solid #cadab9;
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  font-size: 13px;
+  outline: none;
+}
+input:focus {
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px #126b5010;
+}
+button {
+  min-height: 39px;
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: 1px solid #d1dfc1;
+  border-radius: 8px;
+  background: white;
+  color: #5b7c43;
+  font-size: 11px;
+  font-weight: 650;
+}
+button:hover:not(:disabled) {
+  background: #fafff4;
+  border-color: #91aa76;
+  transform: translateY(-1px);
+}
+button.secondary {
+  background: transparent;
+  color: #7d9366;
+  border-color: transparent;
+}
+.funding-controls button {
+  background: var(--emerald);
+  border-color: var(--emerald);
+  color: white;
+  min-height: 43px;
+}
+.funding-error {
+  color: var(--negative);
+}
+.funding-success {
+  color: var(--positive);
+}
+@media (max-width: 600px) {
+  .funding-panel {
+    padding: 17px 18px;
+  }
+  .funding-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .funding-heading > div {
+    min-width: 0;
+  }
+  .funding-heading p {
+    font-size: 10px;
+  }
+  .funding-heading button {
+    padding-inline: 12px;
+  }
+}

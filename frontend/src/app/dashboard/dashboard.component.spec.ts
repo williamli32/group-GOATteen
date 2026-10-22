@@ -959,4 +959,26 @@ describe('DashboardComponent', () => {
         expect(component.holdings()?.cashBalance).toBe(12000);
         spy.mockRestore();
     });
+    it('paginates the market list and returns to the first page when filters change', () => {
+        const first = component.marketInstruments()[0];
+        component.marketInstruments.set(Array.from({ length: 23 }, (_, i) => ({ ...first, instrumentId: i + 1, symbol: 'Stock' + (i + 1), instrumentClass: i < 3 ? 'FOREX' : 'EQUITY_UK' })));
+        component.marketPage.set(3);
+        expect(component.visibleMarketInstruments().map(item => item.instrumentId)).toEqual([21, 22, 23]);
+        component.setMarketSearch('Stock2');
+        expect(component.currentMarketPage()).toBe(1);
+        expect(component.visibleMarketInstruments().map(item => item.instrumentId)).toEqual([2, 20, 21, 22, 23]);
+        component.setMarketSearch('');
+        component.marketPage.set(2);
+        component.setMarketClass('FOREX');
+        expect(component.currentMarketPage()).toBe(1);
+        expect(component.visibleMarketInstruments()).toHaveLength(3);
+        component.setMarketClass('ALL');
+        component.marketPage.set(2);
+        component.setMarketPageSize(25);
+        expect(component.marketPage()).toBe(1);
+        expect(component.visibleMarketInstruments()).toHaveLength(23);
+        component.setMarketPageSize(999);
+        expect(component.marketPageSize()).toBe(25);
+    });
+
 });

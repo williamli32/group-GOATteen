@@ -7,8 +7,9 @@
         Find an order, verify its identity, then review the lifecycle, execution and settlement
         evidence.
       </p>
+      <span class="access-badge">READ-ONLY EVIDENCE</span>
     </div>
-    <span class="access-badge">PERSISTED RECORDS · READ ONLY</span>
+    <app-market-motion [framed]="true" />
   </header>
 
   <section class="search-panel" aria-label="Order search filters">
@@ -23,7 +24,7 @@
         ><span>OPERATIONS ACCESS</span>
       </div>
     </div>
-    <div class="search-grid">
+    <div class="quick-lookup">
       <label
         ><span>Order ID</span
         ><input
@@ -34,78 +35,6 @@
           [ngModel]="orderId() ?? ''"
           (ngModelChange)="setNumber('orderId', $event)"
       /></label>
-      <label
-        ><span>Client first name</span
-        ><input
-          type="text"
-          placeholder="Any first name"
-          [ngModel]="clientFirstName()"
-          (ngModelChange)="setClientFirstName($event)"
-      /></label>
-      <label
-        ><span>Client last name</span
-        ><input
-          type="text"
-          placeholder="Any last name"
-          [ngModel]="clientLastName()"
-          (ngModelChange)="setClientLastName($event)"
-      /></label>
-      <label
-        ><span>Account ID</span
-        ><input
-          type="number"
-          min="1"
-          step="1"
-          placeholder="Any account"
-          [ngModel]="accountId() ?? ''"
-          (ngModelChange)="setNumber('accountId', $event)"
-      /></label>
-      <label
-        ><span>Symbol</span
-        ><input
-          type="text"
-          placeholder="Any symbol"
-          [ngModel]="instrumentSymbol()"
-          (ngModelChange)="setInstrumentSymbol($event)"
-      /></label>
-      <label
-        ><span>Side</span
-        ><select [ngModel]="side() ?? ''" (ngModelChange)="setSide($event)">
-          <option value="">BUY and SELL</option>
-          <option value="BUY">BUY</option>
-          <option value="SELL">SELL</option>
-        </select></label
-      >
-      <label
-        ><span>Status</span
-        ><select [ngModel]="status() ?? ''" (ngModelChange)="setStatus($event)">
-          <option value="">All statuses</option>
-          <option value="FILLED">FILLED</option>
-          <option value="REJECTED">REJECTED</option>
-        </select></label
-      >
-      <label
-        ><span>From (optional)</span
-        ><input
-          type="date"
-          [ngModel]="fromDate()"
-          (ngModelChange)="fromDate.set($event)"
-          [max]="toDate()"
-      /></label>
-      <label
-        ><span>To (optional)</span
-        ><input
-          type="date"
-          [ngModel]="toDate()"
-          (ngModelChange)="toDate.set($event)"
-          [min]="fromDate()"
-      /></label>
-      <button class="search-button" type="button" (click)="search()" [disabled]="loading()">
-        {{ loading() ? 'Searching...' : 'Search orders' }}
-      </button>
-    </div>
-    <div class="search-help">
-      <span>Search combines every filter. Date limits use order submission dates.</span>
       <button
         type="button"
         class="reset-button"
@@ -114,7 +43,91 @@
       >
         Find ID across all dates
       </button>
-      <small>This clears the other filters and searches only for the entered order ID.</small>
+      <p>Have an order ID?<br />Go straight to its recorded evidence.</p>
+    </div>
+    <details class="search-options">
+      <summary>
+        Filter by client, account, instrument or date <span>Refine your search</span>
+      </summary>
+      <div class="search-grid">
+        <label
+          ><span>Client first name</span
+          ><input
+            type="text"
+            placeholder="Any first name"
+            [ngModel]="clientFirstName()"
+            (ngModelChange)="setClientFirstName($event)"
+        /></label>
+        <label
+          ><span>Client last name</span
+          ><input
+            type="text"
+            placeholder="Any last name"
+            [ngModel]="clientLastName()"
+            (ngModelChange)="setClientLastName($event)"
+        /></label>
+        <label
+          ><span>Account ID</span
+          ><input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="Any account"
+            [ngModel]="accountId() ?? ''"
+            (ngModelChange)="setNumber('accountId', $event)"
+        /></label>
+        <label
+          ><span>Symbol</span
+          ><input
+            type="text"
+            placeholder="Any symbol"
+            [ngModel]="instrumentSymbol()"
+            (ngModelChange)="setInstrumentSymbol($event)"
+        /></label>
+        <label
+          ><span>Side</span
+          ><select [ngModel]="side() ?? ''" (ngModelChange)="setSide($event)">
+            <option value="">BUY and SELL</option>
+            <option value="BUY">BUY</option>
+            <option value="SELL">SELL</option>
+          </select></label
+        >
+        <label
+          ><span>Status</span
+          ><select [ngModel]="status() ?? ''" (ngModelChange)="setStatus($event)">
+            <option value="">All statuses</option>
+            <option value="FILLED">FILLED</option>
+            <option value="REJECTED">REJECTED</option>
+          </select></label
+        >
+        <label
+          ><span>From (optional)</span
+          ><input
+            type="date"
+            [ngModel]="fromDate()"
+            (ngModelChange)="fromDate.set($event)"
+            [max]="toDate()"
+        /></label>
+        <label
+          ><span>To (optional)</span
+          ><input
+            type="date"
+            [ngModel]="toDate()"
+            (ngModelChange)="toDate.set($event)"
+            [min]="fromDate()"
+        /></label>
+      </div>
+      <div class="search-form-actions">
+        <button class="search-button" type="button" (click)="search()" [disabled]="loading()">
+          {{ loading() ? 'Searching...' : 'Search orders' }}
+        </button>
+      </div>
+    </details>
+    <div class="search-help">
+      <span
+        >Filter search combines all selected criteria. “Find ID across all dates” clears the other
+        filters.</span
+      >
     </div>
     @if (draftChanged()) {
       <div class="draft-notice" role="status">
@@ -147,7 +160,7 @@
     </div>
   }
 
-  <div class="operations-layout">
+  <div class="operations-layout" [class.investigating]="selectedOrder() !== null">
     <section class="blotter-panel" [attr.aria-busy]="loading()">
       <div class="panel-title">
         <div>
@@ -157,21 +170,21 @@
         <span>SELECT TO INVESTIGATE</span>
       </div>
       <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Client / Account</th>
-              <th>Instrument</th>
-              <th>Side</th>
-              <th>Status</th>
-              <th>Submitted (recorded time)</th>
+        <table role="table" class="workspace-table">
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">Order</th>
+              <th scope="col" role="columnheader">Client / Account</th>
+              <th scope="col" role="columnheader">Instrument</th>
+              <th scope="col" role="columnheader">Side</th>
+              <th scope="col" role="columnheader">Status</th>
+              <th scope="col" role="columnheader">Submitted (recorded time)</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             @if (loading()) {
-              <tr>
-                <td colspan="6" class="empty" role="status">
+              <tr role="row">
+                <td role="cell" colspan="6" class="empty" role="status">
                   Loading orders...
                   {{ orders().length ? 'Previous applied results remain below.' : '' }}
                 </td>
@@ -179,10 +192,11 @@
             }
             @for (order of visibleOrders(); track order.orderId) {
               <tr
+                role="row"
                 [class.selected-row]="selectedOrder()?.orderId === order.orderId"
                 (click)="inspect(order)"
               >
-                <td>
+                <td role="cell" data-label="Order">
                   <button
                     type="button"
                     class="inspect-button"
@@ -197,13 +211,13 @@
                   </button>
                   <small>{{ formatNumber(order.quantity) }} units</small>
                 </td>
-                <td>
+                <td role="cell" data-label="Client / Account">
                   <strong>{{ order.clientName }}</strong
                   ><small>Client #{{ order.clientId }} · {{ order.accountNumber }}</small
                   ><small>Account #{{ order.accountId }}</small>
                 </td>
-                <td>{{ order.instrumentSymbol }}</td>
-                <td>
+                <td role="cell" data-label="Instrument">{{ order.instrumentSymbol }}</td>
+                <td role="cell" data-label="Side">
                   <span
                     class="side-pill"
                     [class.buy]="order.side === 'BUY'"
@@ -211,17 +225,19 @@
                     >{{ order.side }}</span
                   >
                 </td>
-                <td>
+                <td role="cell" data-label="Status">
                   <span class="status-pill" [class]="'status-' + order.status.toLowerCase()">{{
                     order.status
                   }}</span>
                 </td>
-                <td>{{ timestamp(order.submittedAt) }}</td>
+                <td role="cell" data-label="Submitted (recorded time)">
+                  {{ timestamp(order.submittedAt) }}
+                </td>
               </tr>
             } @empty {
               @if (!loading() && !errorMessage()) {
-                <tr>
-                  <td colspan="6" class="empty">
+                <tr role="row">
+                  <td role="cell" colspan="6" class="empty">
                     No orders match the applied filters. Widen the dates, clear filters, or enter an
                     order ID and choose “Find ID across all dates”.
                   </td>
@@ -443,9 +459,7 @@
               <div>
                 <span>Bid / Ask (instrument currency)</span
                 ><strong
-                  >{{
-                    formatMoney(execution.bidPrice, result.evidence.instrument.currency, true)
-                  }}
+                  >{{ formatMoney(execution.bidPrice, result.evidence.instrument.currency, true) }}
                   /
                   {{
                     formatMoney(execution.askPrice, result.evidence.instrument.currency, true)

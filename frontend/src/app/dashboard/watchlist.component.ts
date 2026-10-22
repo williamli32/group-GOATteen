@@ -16,6 +16,7 @@ import { DailyPriceChangeComponent } from './daily-price-change.component';
   styleUrl: './watchlist.component.scss'
 })
 export class WatchlistComponent implements OnInit {
+  readonly view = signal<'instruments' | 'alerts'>('instruments');
   readonly instruments = input<MarketInstrumentResponse[]>([]);
   readonly marketLoading = input(false);
   readonly marketError = input('');
