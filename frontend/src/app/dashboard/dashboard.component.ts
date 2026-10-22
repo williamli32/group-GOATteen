@@ -140,7 +140,7 @@ interface PortfolioValuePoint {
   timestamp: number;
   value: number;
 }
-type PortfolioHistoryRange = 7 | 30 | -1 | 365 | 0;
+type PortfolioHistoryRange = 5 | 30 | -1 | 365 | 0;
 
 interface QuoteHistoryPoint {
   timestamp: number;
@@ -187,12 +187,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
     readonly hoveredPortfolioPoint = signal<number | null>(null);
     readonly selectedMarketHistory = signal<QuoteHistoryPoint[]>([]);
-    readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(7);
+    readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(5);
     readonly portfolioHistoryRequestFailed = signal(false);
     private portfolioHistoryRequest?: Subscription;
 
     readonly portfolioHistoryRanges: ReadonlyArray<{ days: PortfolioHistoryRange; label: string }> = [
-      { days: 7, label: '5D' },
+      { days: 5, label: '5D' },
       { days: 30, label: '1M' },
       { days: -1, label: 'YTD' },
       { days: 365, label: '1Y' },

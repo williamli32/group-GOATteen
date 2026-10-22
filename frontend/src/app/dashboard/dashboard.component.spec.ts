@@ -344,7 +344,7 @@ describe('DashboardComponent', () => {
     });
 
     it('loads and switches the portfolio graph across all five time ranges', () => {
-        expect(accountServiceMock.getPortfolioHistory).toHaveBeenCalledWith(7);
+        expect(accountServiceMock.getPortfolioHistory).toHaveBeenCalledWith(5);
         const root: HTMLElement = fixture.nativeElement;
         const rangeButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.portfolio-value-controls button'));
         expect(rangeButtons.map(button => button.textContent?.trim())).toEqual(['5D', '1M', 'YTD', '1Y', 'ALL']);
@@ -354,7 +354,7 @@ describe('DashboardComponent', () => {
             { index: 2, days: -1, label: 'YTD' },
             { index: 3, days: 365, label: '1Y' },
             { index: 4, days: 0, label: 'ALL' },
-            { index: 0, days: 7, label: '5D' }
+            { index: 0, days: 5, label: '5D' }
         ];
         for (const range of ranges) {
             rangeButtons[range.index].click();
