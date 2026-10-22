@@ -339,6 +339,12 @@ input:disabled {
   font-size: 12px;
   line-height: 1.7;
 }
+.loading-state {
+  display: block;
+  padding: 18px 24px;
+  color: var(--muted);
+  font-size: 12px;
+}
 @media (max-width: 850px) {
   .alert-fields {
     grid-template-columns: minmax(0, 1fr);

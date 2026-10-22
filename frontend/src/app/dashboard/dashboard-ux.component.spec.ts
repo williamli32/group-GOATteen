@@ -19,7 +19,9 @@ describe('Dashboard trading recovery', () => {
   const market = { getInstruments: vi.fn() };
   const fx = { quote: vi.fn() };
   const orders = { placeOrder: vi.fn() };
-  const account = { getMyAccount: vi.fn(), getHoldings: vi.fn(), getBlotter: vi.fn() };
+  const account = {
+    getMyAccount: vi.fn(), getHoldings: vi.fn(), getBlotter: vi.fn(), getPortfolioHistory: vi.fn()
+  };
 
   function filledOrder(id = 10): OrderResponse {
     return {
@@ -52,6 +54,7 @@ describe('Dashboard trading recovery', () => {
       accountId: 1, cashBalance: 2000, currency: 'GBP', positions: []
     }));
     account.getBlotter.mockReset().mockReturnValue(of([]));
+    account.getPortfolioHistory.mockReset().mockReturnValue(of([]));
     await TestBed.configureTestingModule({
       imports: [DashboardComponent],
       providers: [

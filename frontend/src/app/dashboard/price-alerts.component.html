@@ -73,40 +73,44 @@
     </button>
   </div>
   <ul class="alert-list">
-    @for (alert of alerts(); track alert.id) {
-      <li class="alert-card">
-        <div class="alert-details">
-          <div class="alert-card-top">
-            <strong>{{ alert.symbol }}</strong>
-            <span class="status" [class.status-active]="alert.enabled && alert.armed"
-              [class.status-triggered]="alert.enabled && !alert.armed">
-              {{ !alert.enabled ? 'Paused' : alert.armed ? 'Monitoring' : 'Waiting for reset' }}
-            </span>
-          </div>
-          <p class="alert-condition">
-            {{ alert.direction === 'ABOVE' ? 'At or above' : 'At or below' }}
-            <strong>{{ alert.threshold | number:'1.2-8' }} {{ alert.currency }}</strong>
-          </p>
-          @if (alert.enabled && !alert.armed) {
-            <span class="alert-meta">Waiting for the price to return {{ alert.direction === 'ABOVE' ? 'below' : 'above' }} the threshold before another alert</span>
-          } @else {
-            <span class="alert-meta">{{ alert.enabled ? 'Ready for the next crossing' : 'Monitoring paused' }}</span>
-          }
-          @if (alert.triggeredAt) {
-            <span class="alert-meta">Last triggered {{ alert.triggeredAt | date:'medium' }}</span>
-          }
-        </div>
-        <div class="card-actions">
-          <button type="button" class="secondary-button" (click)="edit(alert)" [disabled]="busy()">Edit</button>
-          <button type="button" class="secondary-button" (click)="toggle(alert)" [disabled]="busy()">
-            {{ alert.enabled ? 'Pause' : 'Resume' }}
-          </button>
-          <button type="button" class="danger-button" (click)="remove(alert)" [disabled]="busy()"
-            [attr.aria-label]="'Delete price alert for ' + alert.symbol">Delete</button>
-        </div>
-      </li>
-    } @empty {
+    @if (loading() && alerts().length === 0) {
+      <li class="loading-state" role="status" aria-live="polite">Loading saved price alerts...</li>
+    } @else if (alerts().length === 0 && !error()) {
       <li class="empty-state">No alerts yet. Create your first alert above to start monitoring a price.</li>
+    } @else {
+      @for (alert of alerts(); track alert.id) {
+        <li class="alert-card">
+          <div class="alert-details">
+            <div class="alert-card-top">
+              <strong>{{ alert.symbol }}</strong>
+              <span class="status" [class.status-active]="alert.enabled && alert.armed"
+                [class.status-triggered]="alert.enabled && !alert.armed">
+                {{ !alert.enabled ? 'Paused' : alert.armed ? 'Monitoring' : 'Waiting for reset' }}
+              </span>
+            </div>
+            <p class="alert-condition">
+              {{ alert.direction === 'ABOVE' ? 'At or above' : 'At or below' }}
+              <strong>{{ alert.threshold | number:'1.2-8' }} {{ alert.currency }}</strong>
+            </p>
+            @if (alert.enabled && !alert.armed) {
+              <span class="alert-meta">Waiting for the price to return {{ alert.direction === 'ABOVE' ? 'below' : 'above' }} the threshold before another alert</span>
+            } @else {
+              <span class="alert-meta">{{ alert.enabled ? 'Ready for the next crossing' : 'Monitoring paused' }}</span>
+            }
+            @if (alert.triggeredAt) {
+              <span class="alert-meta">Last triggered {{ alert.triggeredAt | date:'medium' }}</span>
+            }
+          </div>
+          <div class="card-actions">
+            <button type="button" class="secondary-button" (click)="edit(alert)" [disabled]="busy()">Edit</button>
+            <button type="button" class="secondary-button" (click)="toggle(alert)" [disabled]="busy()">
+              {{ alert.enabled ? 'Pause' : 'Resume' }}
+            </button>
+            <button type="button" class="danger-button" (click)="remove(alert)" [disabled]="busy()"
+              [attr.aria-label]="'Delete price alert for ' + alert.symbol">Delete</button>
+          </div>
+        </li>
+      }
     }
   </ul>
 
@@ -135,23 +139,27 @@
   </div>
   <p class="list-description">Notifications appear across your Dashboard and stay here until cleared. Clearing notifications does not delete or pause your configured price alerts.</p>
   <ul class="alert-list notification-history">
-    @for (notice of notices(); track notice.id) {
-      <li class="notification-card">
-        <span class="notification-indicator" aria-hidden="true"></span>
-        <div class="notification-detail">
-          <strong>{{ notice.symbol }} {{ notice.direction === 'ABOVE' ? 'reached your upper target' : 'reached your lower target' }}</strong>
-          <p>{{ notice.observedPrice | number:'1.2-8' }} {{ notice.currency }} observed
-            · Target {{ notice.threshold | number:'1.2-8' }} {{ notice.currency }}</p>
-          <small>{{ notice.quoteAt | date:'medium' }}</small>
-        </div>
-        <button type="button" class="secondary-button" (click)="clearNotice(notice)"
-          [disabled]="clearingAll() || clearingIds().includes(notice.id)"
-          [attr.aria-label]="'Clear ' + notice.symbol + ' triggered price notification'">
-          {{ clearingIds().includes(notice.id) ? 'Clearing...' : 'Clear' }}
-        </button>
-      </li>
-    } @empty {
+    @if (loading() && notices().length === 0) {
+      <li class="loading-state" role="status" aria-live="polite">Loading triggered notifications...</li>
+    } @else if (notices().length === 0 && !error()) {
       <li class="empty-state">No saved notifications. Your configured alerts will continue monitoring the market.</li>
+    } @else {
+      @for (notice of notices(); track notice.id) {
+        <li class="notification-card">
+          <span class="notification-indicator" aria-hidden="true"></span>
+          <div class="notification-detail">
+            <strong>{{ notice.symbol }} {{ notice.direction === 'ABOVE' ? 'reached your upper target' : 'reached your lower target' }}</strong>
+            <p>{{ notice.observedPrice | number:'1.2-8' }} {{ notice.currency }} observed
+              · Target {{ notice.threshold | number:'1.2-8' }} {{ notice.currency }}</p>
+            <small>{{ notice.quoteAt | date:'medium' }}</small>
+          </div>
+          <button type="button" class="secondary-button" (click)="clearNotice(notice)"
+            [disabled]="clearingAll() || clearingIds().includes(notice.id)"
+            [attr.aria-label]="'Clear ' + notice.symbol + ' triggered price notification'">
+            {{ clearingIds().includes(notice.id) ? 'Clearing...' : 'Clear' }}
+          </button>
+        </li>
+      }
     }
   </ul>
 </section>

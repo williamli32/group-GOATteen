@@ -42,7 +42,7 @@ describe('AccountFundingComponent', () => {
     expect(funded).toHaveBeenCalledWith(response);
     expect(fixture.nativeElement.textContent).toContain('Added USD');
     expect(component.amount).toBe('');
-    expect(sessionStorage.getItem('leap_pending_funding_10')).toBeNull();
+    expect(sessionStorage.getItem('leap_pending_fund_10')).toBeNull();
   });
 
   it('keeps the funding amount labelled and the submit action named', () => {
@@ -88,7 +88,7 @@ describe('AccountFundingComponent', () => {
 
   it('restores an unconfirmed request when the panel is reopened', () => {
     const key = crypto.randomUUID();
-    sessionStorage.setItem('leap_pending_funding_10', JSON.stringify({ amount: '10000.00', key }));
+    sessionStorage.setItem('leap_pending_fund_10', JSON.stringify({ amount: '10000.00', key }));
     component.open();
     expect(component.amount).toBe('10000.00');
     component.submit();
@@ -97,7 +97,7 @@ describe('AccountFundingComponent', () => {
 
   it('requires a previous amount to be confirmed before accepting a different amount', () => {
     const key = crypto.randomUUID();
-    sessionStorage.setItem('leap_pending_funding_10', JSON.stringify({ amount: '10000.00', key }));
+    sessionStorage.setItem('leap_pending_fund_10', JSON.stringify({ amount: '10000.00', key }));
     component.amount = '20';
     component.submit();
     expect(service.addFunds).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe('AccountFundingComponent', () => {
   });
 
   it('does not reuse a pending request from a different account', () => {
-    sessionStorage.setItem('leap_pending_funding_99', JSON.stringify({ amount: '5.00', key: crypto.randomUUID() }));
+    sessionStorage.setItem('leap_pending_fund_99', JSON.stringify({ amount: '5.00', key: crypto.randomUUID() }));
     component.amount = '10000';
     component.submit();
     expect(service.addFunds).toHaveBeenCalledWith('10000.00', expect.any(String));

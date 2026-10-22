@@ -91,6 +91,43 @@ describe('PriceAlertsComponent notification clear actions', () => {
     fixture.destroy();
   });
 
+  it('shows loading feedback instead of empty states before the initial alert requests finish', () => {
+    const alertsPending = new Subject<PriceAlert[]>();
+    const noticesPending = new Subject<PriceNotice[]>();
+    api.list.mockReturnValue(alertsPending);
+    api.notifications.mockReturnValue(noticesPending);
+
+    const fixture = TestBed.createComponent(PriceAlertsComponent);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loading()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Loading saved price alerts');
+    expect(fixture.nativeElement.textContent).toContain('Loading triggered notifications');
+    expect(fixture.nativeElement.textContent).not.toContain('No alerts yet');
+    expect(fixture.nativeElement.textContent).not.toContain('No saved notifications');
+
+    alertsPending.next([]);
+    alertsPending.complete();
+    noticesPending.next([]);
+    noticesPending.complete();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loading()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('No alerts yet');
+    expect(fixture.nativeElement.textContent).toContain('No saved notifications');
+    fixture.destroy();
+  });
+
+  it('does not show empty states when the initial alerts request fails', () => {
+    api.list.mockReturnValue(throwError(() => new Error('offline')));
+    const fixture = TestBed.createComponent(PriceAlertsComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.error()).toContain('Could not load');
+    expect(fixture.nativeElement.textContent).not.toContain('No alerts yet');
+    expect(fixture.nativeElement.textContent).not.toContain('No saved notifications');
+    expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toContain('Could not load');
+    fixture.destroy();
+  });
+
   it('disables bulk clear during an in-flight individual deletion', () => {
     const pending = new Subject<void>();
     api.clearNotice.mockReturnValue(pending);

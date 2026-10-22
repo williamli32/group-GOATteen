@@ -185,7 +185,7 @@ describe('DashboardComponent', () => {
         accountServiceMock.getPortfolioHistory.mockReturnValue(of([
             { date: '2026-10-22', value: 2000, cashValue: 2000, holdingsValue: 0 }
         ]));
-        sessionStorage.removeItem('leap_pending_funding_1');
+        sessionStorage.removeItem('leap_pending_fund_1');
         marketDayChange = null;
         placeOrderCallCount = 0;
 

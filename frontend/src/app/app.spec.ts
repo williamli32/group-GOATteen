@@ -97,6 +97,50 @@ describe('App', () => {
     expect(router.url).toBe('/analyst');
   });
 
+  it('completes the customer journey with Dashboard as the only workspace route', async () => {
+    signIn('CLIENT');
+    const fixture = await renderAt('/dashboard');
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a.nav-item'),
+      (link: HTMLAnchorElement) => link.getAttribute('href'));
+
+    expect(router.url).toBe('/dashboard');
+    expect(links).toEqual(['/dashboard']);
+    fixture.nativeElement.querySelector('a[href="/dashboard"]').click();
+    await fixture.whenStable();
+    expect(router.url).toBe('/dashboard');
+  });
+
+  it('completes the analyst journey between Dashboard and Reports only', async () => {
+    signIn('ANALYST');
+    const fixture = await renderAt('/dashboard');
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a.nav-item'),
+      (link: HTMLAnchorElement) => link.getAttribute('href'));
+    expect(links).toEqual(['/dashboard', '/analyst']);
+
+    fixture.nativeElement.querySelector('a[href="/analyst"]').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(router.url).toBe('/analyst');
+    fixture.nativeElement.querySelector('a[href="/dashboard"]').click();
+    await fixture.whenStable();
+    expect(router.url).toBe('/dashboard');
+  });
+
+  it('completes the operations journey across Dashboard, Reports, and Operations', async () => {
+    signIn('OPERATIONS');
+    const fixture = await renderAt('/dashboard');
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a.nav-item'),
+      (link: HTMLAnchorElement) => link.getAttribute('href'));
+    expect(links).toEqual(['/dashboard', '/analyst', '/operations']);
+
+    for (const path of ['/analyst', '/operations', '/dashboard']) {
+      fixture.nativeElement.querySelector(`a[href="${path}"]`).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(router.url).toBe(path);
+    }
+  });
+
   it.each(['/analyst', '/operations'])(
     'redirects a customer opening %s to Dashboard',
     async (url) => {
