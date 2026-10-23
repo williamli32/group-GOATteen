@@ -87,11 +87,13 @@ pipeline {
                         trap cleanup_browser_image EXIT
 
                         docker build --iidfile "$browser_image_id_file" -f Dockerfile.e2e .
+                        # Playwright removes and recreates its output directories.
+                        # Mount their writable parent, including this build's npm install.
                         docker run --rm --init --shm-size=1g \
                             -u "$(id -u):$(id -g)" \
                             -e HOME=/tmp \
-                            -v "$PWD/test-results:/app/test-results" \
-                            -v "$PWD/playwright-report:/app/playwright-report" \
+                            -v "$PWD:/app" \
+                            -w /app \
                             "$(cat "$browser_image_id_file")" \
                             sh -c 'npm run test:e2e:types && npm run test:e2e'
                     '''
