@@ -1,4 +1,4 @@
-<main class="analyst-shell">
+<section aria-label="Reports and insights" class="analyst-shell" [attr.aria-busy]="loading()">
   @if (expandedMetric(); as metric) {
     <div class="metric-modal-backdrop" (click)="toggleMetric(metric)">
       <section
@@ -279,7 +279,7 @@
   }
 
   @if (loading() && !summary()) {
-    <section class="state-panel">
+    <section class="state-panel" role="status" aria-live="polite">
       <span class="loader"></span>
 
       <span> Loading historical activity... </span>
@@ -1360,4 +1360,4 @@
       </div>
     </section>
   }
-</main>
+</section>

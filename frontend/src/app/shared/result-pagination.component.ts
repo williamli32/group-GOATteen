@@ -82,7 +82,7 @@ import { boundedPage, pageCount } from '../core/utils/reporting-workflow';
         background: var(--surface);
         border: 1px solid var(--line-strong);
         border-radius: 8px;
-        min-height: 40px;
+        min-height: 44px;
         padding: 5px 8px;
       }
       input {

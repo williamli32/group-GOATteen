@@ -16,7 +16,7 @@
     <div class="alert-fields">
       <div class="field">
         <label for="alert-instrument">Instrument</label>
-        <select id="alert-instrument" name="instrument" [(ngModel)]="instrumentId" required [disabled]="busy()">
+        <select id="alert-instrument" name="instrument" [(ngModel)]="instrumentId" required [disabled]="busy() || loading()">
           <option [ngValue]="null">Select an instrument</option>
           @for (instrument of instruments(); track instrument.instrumentId) {
             <option [ngValue]="instrument.instrumentId">
@@ -27,7 +27,7 @@
       </div>
       <div class="field">
         <label for="alert-direction">Notify me when</label>
-        <select id="alert-direction" name="direction" [(ngModel)]="direction" [disabled]="busy()">
+        <select id="alert-direction" name="direction" [(ngModel)]="direction" [disabled]="busy() || loading()">
           <option value="ABOVE">Price is at or above</option>
           <option value="BELOW">Price is at or below</option>
         </select>
@@ -35,7 +35,7 @@
       <div class="field">
         <label for="alert-threshold">Target price ({{ selectedInstrument()?.currency ?? 'quote currency' }})</label>
         <input id="alert-threshold" name="threshold" type="number" min="0.00000001" step="any"
-          [(ngModel)]="threshold" placeholder="e.g. 200.00" required [disabled]="busy()" />
+          [(ngModel)]="threshold" placeholder="e.g. 200.00" required [disabled]="busy() || loading()" />
       </div>
     </div>
     @if (selectedInstrument(); as instrument) {
@@ -51,17 +51,19 @@
     }
     <div class="form-actions">
       <button type="submit" class="primary-button"
-        [disabled]="busy() || instrumentId === null || (threshold ?? 0) <= 0">
+        [disabled]="busy() || loading() || instrumentId === null || (threshold ?? 0) <= 0">
         {{ busy() ? 'Saving...' : editId === null ? 'Create alert' : 'Save changes' }}
       </button>
       @if (editId !== null) {
-        <button type="button" class="secondary-button" (click)="reset()" [disabled]="busy()">Cancel editing</button>
+        <button type="button" class="secondary-button" (click)="reset()" [disabled]="busy() || loading()">Cancel editing</button>
       }
     </div>
   </form>
 
   @if (error()) { <p class="feedback error" role="alert">{{ error() }}</p> }
   @if (info()) { <p class="feedback success" role="status">{{ info() }}</p> }
+
+  @if (refreshFailed()) { <p class="feedback error" role="status">Background refresh failed. Saved alerts and notifications may be out of date. Use Refresh to try again.</p> }
 
   <div class="list-heading">
     <div>
@@ -102,11 +104,11 @@
             }
           </div>
           <div class="card-actions">
-            <button type="button" class="secondary-button" (click)="edit(alert)" [disabled]="busy()">Edit</button>
-            <button type="button" class="secondary-button" (click)="toggle(alert)" [disabled]="busy()">
+            <button type="button" class="secondary-button" (click)="edit(alert)" [disabled]="busy() || loading()">Edit</button>
+            <button type="button" class="secondary-button" (click)="toggle(alert)" [disabled]="busy() || loading()">
               {{ alert.enabled ? 'Pause' : 'Resume' }}
             </button>
-            <button type="button" class="danger-button" (click)="remove(alert)" [disabled]="busy()"
+            <button type="button" class="danger-button" (click)="remove(alert)" [disabled]="busy() || loading()"
               [attr.aria-label]="'Delete price alert for ' + alert.symbol">Delete</button>
           </div>
         </li>

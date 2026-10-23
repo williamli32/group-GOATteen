@@ -23,6 +23,7 @@ export class PriceAlertsComponent implements OnInit {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly info = signal('');
+  readonly refreshFailed = signal(false);
   readonly activeCount = computed(() => this.alerts().filter(alert => alert.enabled).length);
   readonly clearingIds = signal<number[]>([]);
   readonly clearingAll = signal(false);
@@ -51,11 +52,15 @@ export class PriceAlertsComponent implements OnInit {
         if (this.busy() || this.loading() || this.clearingAll() || this.clearingIds().length) return of(null);
         const version = this.noticesVersion;
         return forkJoin({ alerts: this.api.list(), notices: this.api.notifications() })
-          .pipe(map(data => ({data,version})), catchError(() => of(null)));
+          .pipe(map(data => ({data,version})), catchError(() => {
+            if (version === this.noticesVersion) this.refreshFailed.set(true);
+            return of(null);
+          }));
       })
     ).subscribe(result => {
       // Discard a request that started before a successful clear operation.
       if (result !== null && result.version === this.noticesVersion) {
+        this.refreshFailed.set(false);
         this.alerts.set(result.data.alerts);
         this.notices.set(result.data.notices);
       }
@@ -66,13 +71,14 @@ export class PriceAlertsComponent implements OnInit {
     if (this.loading()) return;
     this.loading.set(true);
     this.error.set('');
-    const version = this.noticesVersion;
+    const version = ++this.noticesVersion;
     forkJoin({ alerts: this.api.list(), notices: this.api.notifications() }).pipe(
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.loading.set(false))
     ).subscribe({
       next: result => {
         if (version !== this.noticesVersion) return;
+        this.refreshFailed.set(false);
         this.alerts.set(result.alerts);
         this.notices.set(result.notices);
       },
@@ -98,7 +104,7 @@ export class PriceAlertsComponent implements OnInit {
   }
 
   save(): void {
-    if (this.busy()) return;
+    if (this.busy() || this.loading()) return;
     const id = Number(this.instrumentId);
     const amount = this.threshold;
     if (!Number.isInteger(id) || id <= 0 || amount === null ||
@@ -111,6 +117,7 @@ export class PriceAlertsComponent implements OnInit {
     const body: PriceAlertChange = {
       instrumentId: id, direction: this.direction, threshold: amount, enabled: true
     };
+    this.noticesVersion++;
     this.busy.set(true);
     this.error.set('');
     this.info.set('');
@@ -127,7 +134,8 @@ export class PriceAlertsComponent implements OnInit {
   }
 
   toggle(alert: PriceAlert): void {
-    if (this.busy()) return;
+    if (this.busy() || this.loading()) return;
+    this.noticesVersion++;
     this.busy.set(true);
     this.error.set('');
     this.api.enabled(alert.id, !alert.enabled).pipe(
@@ -142,7 +150,8 @@ export class PriceAlertsComponent implements OnInit {
   }
 
   remove(alert: PriceAlert): void {
-    if (this.busy()) return;
+    if (this.busy() || this.loading()) return;
+    this.noticesVersion++;
     this.busy.set(true);
     this.error.set('');
     this.api.delete(alert.id).pipe(

@@ -4,9 +4,9 @@
     @if (!isOpen()) { <button type="button" (click)="open()">Expand</button> }
     @else { <button type="button" class="secondary" (click)="isOpen.set(false)" [disabled]="funding()">Close</button> }
   </div>
-  <div class="money-tabs" role="tablist" aria-label="Money actions">
-    <button type="button" role="tab" [class.active]="action() === 'fund'" [attr.aria-selected]="action() === 'fund'" (click)="selectAction('fund')">Transfer funds</button>
-    <button type="button" role="tab" [class.active]="action() === 'withdraw'" [attr.aria-selected]="action() === 'withdraw'" (click)="selectAction('withdraw')">Withdraw</button>
+  <div class="money-tabs" role="group" aria-label="Money actions">
+    <button type="button" [class.active]="action() === 'fund'" [attr.aria-pressed]="action() === 'fund'" [disabled]="funding() || confirmWithdrawal()" (click)="selectAction('fund')">Transfer funds</button>
+    <button type="button" [class.active]="action() === 'withdraw'" [attr.aria-pressed]="action() === 'withdraw'" [disabled]="funding() || confirmWithdrawal()" (click)="selectAction('withdraw')">Withdraw</button>
   </div>
   @if (isOpen()) {
     <form (ngSubmit)="submit()" [attr.aria-busy]="funding()">
@@ -31,10 +31,10 @@
 
   @if (confirmWithdrawal()) {
     <div class="withdrawal-backdrop" role="presentation" (click)="cancelWithdrawal()">
-      <section class="withdrawal-dialog" role="alertdialog" aria-modal="true" aria-labelledby="withdrawal-title" (click)="$event.stopPropagation()">
+      <section class="withdrawal-dialog" appModalFocus (modalEscape)="cancelWithdrawal()" role="alertdialog" aria-modal="true" aria-labelledby="withdrawal-title" aria-describedby="withdrawal-description" (click)="$event.stopPropagation()">
         <p class="eyebrow">CONFIRM WITHDRAWAL</p>
-        <h2 id="withdrawal-title">Withdraw {{ amount }} {{ account().currency }}?</h2>
-        <p>This amount will be removed from your available cash balance. This action cannot be undone.</p>
+        <h2 id="withdrawal-title">Withdraw {{ withdrawalAmount() }} {{ account().currency }}?</h2>
+        <p id="withdrawal-description">This amount will be removed from your available cash balance. This action cannot be undone.</p>
         <div class="withdrawal-actions">
           <button type="button" class="secondary" (click)="cancelWithdrawal()">Cancel</button>
           <button type="button" class="confirm-withdrawal" (click)="confirmWithdrawalRequest()">Confirm withdrawal</button>

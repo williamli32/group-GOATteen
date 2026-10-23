@@ -65,6 +65,52 @@ pipeline {
             }
         }
 
+        stage('Frontend Browser Validation') {
+            options {
+                timeout(time: 15, unit: 'MINUTES')
+            }
+            steps {
+                dir('frontend') {
+                    dir('test-results') { deleteDir() }
+                    dir('playwright-report') { deleteDir() }
+                    sh '''
+                        set -eu
+                        mkdir -p test-results playwright-report
+                        browser_image_id_file="$(mktemp)"
+                        rm -f "$browser_image_id_file"
+                        cleanup_browser_image() {
+                            if [ -s "$browser_image_id_file" ]; then
+                                docker image rm "$(cat "$browser_image_id_file")" >/dev/null 2>&1 || true
+                            fi
+                            rm -f "$browser_image_id_file"
+                        }
+                        trap cleanup_browser_image EXIT
+
+                        docker build --iidfile "$browser_image_id_file" -f Dockerfile.e2e .
+                        docker run --rm --init --shm-size=1g \
+                            -u "$(id -u):$(id -g)" \
+                            -e HOME=/tmp \
+                            -v "$PWD/test-results:/app/test-results" \
+                            -v "$PWD/playwright-report:/app/playwright-report" \
+                            "$(cat "$browser_image_id_file")" \
+                            sh -c 'npm run test:e2e:types && npm run test:e2e'
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts(
+                        artifacts: 'frontend/playwright-report/**,frontend/test-results/**',
+                        allowEmptyArchive: true
+                    )
+                    junit(
+                        testResults: 'frontend/test-results/e2e-junit.xml',
+                        allowEmptyResults: currentBuild.currentResult != 'SUCCESS'
+                    )
+                }
+            }
+        }
+
         stage('Start CI Database') {
             options {
                 /* Backstop for a stalled image pull or Docker command. */
@@ -215,6 +261,7 @@ pipeline {
 
             Frontend tests:       PASSED
             Frontend build:       PASSED
+            Browser UI checks:    PASSED
             Backend tests:        PASSED
             Backend build:        PASSED
             PostgreSQL tests:     PASSED

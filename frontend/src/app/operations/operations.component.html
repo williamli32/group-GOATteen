@@ -1,4 +1,4 @@
-<main class="operations-shell">
+<section aria-label="Operations investigation" class="operations-shell">
   <header class="operations-header">
     <div>
       <p class="eyebrow">INTERNAL OPERATIONS</p>
@@ -184,9 +184,9 @@
           <tbody role="rowgroup">
             @if (loading()) {
               <tr role="row">
-                <td role="cell" colspan="6" class="empty" role="status">
-                  Loading orders...
-                  {{ orders().length ? 'Previous applied results remain below.' : '' }}
+                <td role="cell" colspan="6" class="empty">
+                  <span role="status">Loading orders...
+                  {{ orders().length ? 'Previous applied results remain below.' : '' }}</span>
                 </td>
               </tr>
             }
@@ -605,4 +605,4 @@
       }
     </aside>
   </div>
-</main>
+</section>

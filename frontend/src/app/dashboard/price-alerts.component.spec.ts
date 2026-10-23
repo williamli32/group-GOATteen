@@ -139,4 +139,44 @@ describe('PriceAlertsComponent notification clear actions', () => {
     pending.next(); pending.complete();
     fixture.destroy();
   });
+
+  it('keeps saved results visible and announces a failed background refresh until recovery', () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(PriceAlertsComponent);
+    try {
+      fixture.detectChanges();
+      api.list.mockReturnValue(throwError(() => new Error('offline')));
+      vi.advanceTimersByTime(5000);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.alerts()).toEqual([alert]);
+      expect(fixture.componentInstance.notices()).toEqual([first, second]);
+      expect(fixture.componentInstance.refreshFailed()).toBe(true);
+      expect(fixture.nativeElement.textContent).toContain('Background refresh failed');
+      api.list.mockReturnValue(of([alert]));
+      vi.advanceTimersByTime(5000);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.refreshFailed()).toBe(false);
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores a stale polling failure after an explicit successful reload', () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(PriceAlertsComponent);
+    try {
+      fixture.detectChanges();
+      const oldPoll = new Subject<PriceAlert[]>();
+      api.list.mockReturnValueOnce(oldPoll);
+      vi.advanceTimersByTime(5000);
+      fixture.componentInstance.reload();
+      oldPoll.error(new Error('Old request failed after retry'));
+      expect(fixture.componentInstance.refreshFailed()).toBe(false);
+      expect(fixture.componentInstance.alerts()).toEqual([alert]);
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+    }
+  });
 });

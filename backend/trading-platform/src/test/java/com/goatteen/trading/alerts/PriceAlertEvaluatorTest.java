@@ -25,10 +25,10 @@ class PriceAlertEvaluatorTest {
 
     @Test
     void noQualifyingQuoteDoesNotWrite() {
-        when(jdbc.query(anyString(), any(RowMapper.class), any(LocalDateTime.class)))
+        when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class)))
             .thenReturn(List.of());
         new PriceAlertEvaluator(jdbc, 30).evaluate();
-        verify(jdbc).query(anyString(), any(RowMapper.class), any(LocalDateTime.class));
+        verify(jdbc).query(anyString(), any(RowMapper.class), any(Object[].class));
         verifyNoMoreInteractions(jdbc);
     }
 
@@ -38,7 +38,7 @@ class PriceAlertEvaluatorTest {
         // Simulate the database's eligible transition rows. Each scheduled poll
         // only selects an alert when its latest quote changes its state.
         AtomicInteger poll = new AtomicInteger();
-        when(jdbc.query(anyString(), any(RowMapper.class), any(LocalDateTime.class)))
+        when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class)))
             .thenAnswer(invocation -> {
                 String query = invocation.getArgument(0);
                 assertTrue(query.contains("a.enabled=TRUE"));

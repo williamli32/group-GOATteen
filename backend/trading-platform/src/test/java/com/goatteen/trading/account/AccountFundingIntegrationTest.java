@@ -4,6 +4,7 @@ import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
 
 import com.goatteen.trading.account.dto.AddFundsRequest;
 import com.goatteen.trading.account.dto.AddFundsResponse;
+import com.goatteen.trading.account.dto.WithdrawFundsRequest;
 import com.goatteen.trading.auth.dto.RegisterRequest;
 import com.goatteen.trading.auth.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +18,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -111,6 +113,35 @@ class AccountFundingIntegrationTest extends DatabaseIntegrationTestSupport {
         }));
         assertEquals(new BigDecimal("0.00"), balance(account[1]));
         assertEquals(0, credits(account[1]));
+    }
+
+    @Test
+    void withdrawalRetriesDebitOnceAndDoNotReuseADepositResult() {
+        long[] account = createAccount();
+        UUID key = UUID.randomUUID();
+        funding.addFunds(account[0], new AddFundsRequest(new BigDecimal("100.00"), key));
+        var request = new WithdrawFundsRequest(new BigDecimal("40.00"), key);
+        var original = funding.withdrawFunds(account[0], request);
+        var replay = funding.withdrawFunds(account[0], request);
+        assertFalse(original.replayed());
+        assertTrue(replay.replayed());
+        assertEquals(original.transactionId(), replay.transactionId());
+        assertEquals(new BigDecimal("-40.00"), replay.amount());
+        assertEquals(new BigDecimal("60.00"), balance(account[1]));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM cash_transactions WHERE account_id=? AND withdrawal_key IS NOT NULL",
+                Integer.class, account[1]));
+    }
+
+    @Test
+    void insufficientWithdrawalLeavesTheBalanceAndLedgerUnchanged() {
+        long[] account = createAccount();
+        funding.addFunds(account[0], new AddFundsRequest(new BigDecimal("100.00"), UUID.randomUUID()));
+        var rejected = assertThrows(ResponseStatusException.class, () -> funding.withdrawFunds(account[0],
+                new WithdrawFundsRequest(new BigDecimal("100.01"), UUID.randomUUID())));
+        assertEquals(409, rejected.getStatusCode().value());
+        assertEquals(new BigDecimal("100.00"), balance(account[1]));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM cash_transactions WHERE account_id=?",
+                Integer.class, account[1]));
     }
 
     @ParameterizedTest

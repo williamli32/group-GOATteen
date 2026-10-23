@@ -384,7 +384,7 @@ describe('DashboardComponent', () => {
         expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
     });
 
-    it('does not let an older dashboard refresh replace a newly selected portfolio range', () => {
+    it('does not let an older history refresh replace a newly selected portfolio range', () => {
         const staleHistory = new Subject<PortfolioHistoryPoint[]>();
         accountServiceMock.getPortfolioHistory
             .mockReturnValueOnce(staleHistory)
@@ -392,7 +392,7 @@ describe('DashboardComponent', () => {
                 { date: '2026-10-22', value: 1800, cashValue: 1800, holdingsValue: 0 }
             ]));
 
-        component.loadDashboard(false);
+        component.refreshPortfolioHistory();
         component.selectPortfolioHistoryRange(-1);
         expect(component.portfolioValueHistory().map(point => point.value)).toEqual([1800]);
 

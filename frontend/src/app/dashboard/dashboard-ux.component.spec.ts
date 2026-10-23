@@ -270,4 +270,51 @@ describe('Dashboard trading recovery', () => {
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('.order-panel .quote-status').textContent).toContain('Stale quote');
   });
+
+  it('values USD holdings in a GBP account and exposes missing valuations without inventing zero', () => {
+    component.account.set({ accountId: 1, accountNumber: 'GBP', firstName: 'Test', lastName: 'User', cashBalance: 2000, currency: 'GBP' });
+    component.holdings.set({ accountId: 1, cashBalance: 2000, currency: 'GBP', positions: [{ instrumentId: 1, symbol: 'AAPL', instrumentName: 'Apple', quantity: 1 }] });
+    fx.quote.mockReturnValue(of({ from: 'USD', to: 'GBP', rate: 0.8, asOf: '2026-10-22', provider: 'TEST' }));
+    component.marketInstruments.set([{ ...instrument, currency: 'USD', latestQuote: { ...instrument.latestQuote!, lastPrice: 100 } }]);
+    fixture.detectChanges();
+    expect(component.portfolioValue()).toBe(2080);
+    component.marketInstruments.set([]); fixture.detectChanges();
+    expect(component.portfolioValue()).toBeNull();
+    expect(component.portfolioValuationNote()).toContain('AAPL');
+  });
+
+  it('keeps the trading dashboard available when only history fails and offers a working range retry', () => {
+    fixture.destroy();
+    account.getPortfolioHistory.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
+    fixture = TestBed.createComponent(DashboardComponent); component = fixture.componentInstance;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.dashboard-tabs')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.history-error').textContent).toContain('Could not load');
+    account.getPortfolioHistory.mockClear();
+    component.selectPortfolioHistoryRange(30);
+    account.getPortfolioHistory.mockReturnValue(of([{ date: '2026-10-22', value: 2080, cashValue: 2000, holdingsValue: 80 }]));
+    component.selectPortfolioHistoryRange(30); fixture.detectChanges();
+    expect(account.getPortfolioHistory).toHaveBeenCalledTimes(2);
+    expect(component.portfolioHistoryRequestFailed()).toBe(false);
+    expect(component.portfolioAppliedDays()).toBe(30);
+  });
+
+  it('keeps the applied range and a visible warning when a new history range fails', () => {
+    component.selectTab('overview');
+    component.portfolioValueHistory.set([{ timestamp: Date.now(), value: 2000 }]);
+    account.getPortfolioHistory.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
+    component.selectPortfolioHistoryRange(30); fixture.detectChanges();
+    expect(component.portfolioAppliedDays()).toBe(5);
+    const panel = fixture.nativeElement.querySelector('.portfolio-value-panel');
+    expect(panel.querySelector('.history-error').textContent).toContain('Still showing 5D');
+    expect(panel.querySelector('.portfolio-range-caption').textContent).toContain('5D');
+    expect(component.portfolioValueHistory()[0].value).toBe(2000);
+  });
+
+  it('preserves a missing historical valuation as a gap rather than coercing null to zero', () => {
+    account.getPortfolioHistory.mockReturnValue(of([{ date: '2026-10-22', value: null, cashValue: 2000, holdingsValue: null, unavailable: ['AAPL'] }]));
+    component.refreshPortfolioHistory();
+    expect(component.portfolioValueHistory()[0].value).toBeNull();
+    expect(component.portfolioValueHistory()[0].unavailable).toEqual(['AAPL']);
+  });
 });

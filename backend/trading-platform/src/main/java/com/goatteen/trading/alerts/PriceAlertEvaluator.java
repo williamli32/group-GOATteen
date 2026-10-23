@@ -3,7 +3,6 @@ package com.goatteen.trading.alerts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,10 +30,9 @@ public class PriceAlertEvaluator {
      * The next crossing can then produce a new notification (new generation).
      * Updating the alert and writing its notice occur in one transaction.
      */
-    @Scheduled(fixedDelayString="${app.price-alerts.check-ms:3000}",
-               initialDelayString="${app.price-alerts.initial-delay-ms:5000}")
     @Transactional
     public void evaluate() {
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
         var transitions = jdbc.query("""
             SELECT a.id,a.user_id,a.generation,a.instrument_id,a.direction,a.threshold,
                    a.armed,i.symbol,i.currency,q.id AS quote_id,q.last_price,q.quoted_at
@@ -44,7 +42,7 @@ public class PriceAlertEvaluator {
                 WHERE instrument_id=a.instrument_id
                 ORDER BY quoted_at DESC,id DESC LIMIT 1
             ) q ON TRUE
-            WHERE a.enabled=TRUE AND q.quoted_at >= ?
+            WHERE a.enabled=TRUE AND i.tradable=TRUE AND q.quoted_at >= ? AND q.quoted_at <= ?
               AND (
                 (a.armed AND (
                     (a.direction='ABOVE' AND q.last_price >= a.threshold) OR
@@ -62,7 +60,7 @@ public class PriceAlertEvaluator {
               r.getString(5),r.getBigDecimal(6),r.getBoolean(7),
               r.getString(8),r.getString(9),r.getLong(10),
               r.getBigDecimal(11),r.getTimestamp(12).toLocalDateTime()),
-              LocalDateTime.now().minusSeconds(maxQuoteAgeSeconds));
+              now.minusSeconds(maxQuoteAgeSeconds), now);
 
         for (Transition transition : transitions) {
             if (!transition.armed) {

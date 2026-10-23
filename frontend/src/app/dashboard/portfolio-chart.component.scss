@@ -1,0 +1,195 @@
+:host {
+  display: block;
+  min-width: 0;
+  margin-bottom: 24px;
+}
+.portfolio-value-panel {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.portfolio-value-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.eyebrow {
+  margin: 0 0 7px;
+  color: var(--emerald);
+  font-size: 10px;
+  letter-spacing: 1.3px;
+}
+h2 {
+  margin: 0;
+  color: var(--ink);
+  font: 500 clamp(20px, 2.4vw, 30px) var(--mono);
+  overflow-wrap: anywhere;
+}
+.portfolio-value-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+button,
+summary {
+  min-height: 44px;
+}
+button {
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+button:hover {
+  color: var(--emerald);
+  border-color: var(--emerald);
+}
+button.active {
+  background: var(--emerald);
+  color: var(--on-accent);
+  border-color: var(--emerald);
+}
+.valuation-note,
+.portfolio-range-caption,
+.history-state,
+.portfolio-value-empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 12px 0 0;
+}
+.history-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  background: var(--negative-soft);
+  color: var(--negative);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-top: 12px;
+}
+.retry {
+  min-height: 36px;
+  font-size: 11px;
+}
+.plot-layout {
+  display: grid;
+  grid-template-columns: minmax(50px, 5rem) minmax(0, 1fr);
+  margin-top: 22px;
+  gap: 0 12px;
+}
+.y-axis {
+  position: relative;
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+.y-axis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+}
+.portfolio-value-chart {
+  min-width: 0;
+  height: 220px;
+  border-radius: 4px;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.gridline {
+  stroke: var(--chart-grid);
+  stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+}
+.value-line {
+  fill: none;
+  stroke: var(--chart-green);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+.value-point {
+  fill: var(--chart-green);
+  stroke: var(--surface);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.value-point.selected {
+  fill: var(--chart-gold);
+  stroke-width: 3;
+}
+.x-axis {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.x-axis span:only-child {
+  margin: 0 auto;
+}
+.point-detail {
+  padding: 10px 12px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-soft);
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.history-table {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 8px;
+}
+summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--emerald);
+  font-size: 12px;
+  cursor: pointer;
+}
+summary::before {
+  content: '+';
+}
+details[open] summary::before {
+  content: '−';
+}
+table {
+  margin-top: 10px;
+}
+@media (max-width: 600px) {
+  .portfolio-value-panel {
+    padding: 18px;
+  }
+  .plot-layout {
+    grid-template-columns: minmax(45px, 4rem) minmax(0, 1fr);
+    gap: 0 8px;
+  }
+  .portfolio-value-chart {
+    height: 200px;
+  }
+  .portfolio-value-controls button {
+    min-width: 44px;
+    padding-inline: 8px;
+  }
+  .x-axis {
+    font-size: 10px;
+  }
+}

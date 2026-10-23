@@ -19,13 +19,13 @@
   </div>
 
   @if (loading()) {
-    <div class="dashboard-state">
-      <div class="state-spinner"></div>
+    <div class="dashboard-state" role="status" aria-live="polite">
+      <div class="state-spinner" aria-hidden="true"></div>
       <p>Loading your trading account...</p>
     </div>
   } @else if (errorMessage()) {
     <div class="dashboard-state">
-      <p class="state-error">{{ errorMessage() }}</p>
+      <p class="state-error" role="alert">{{ errorMessage() }}</p>
       <button type="button" class="retry-btn" (click)="loadDashboard()">Retry</button>
     </div>
   } @else {
@@ -62,64 +62,12 @@
     </div>
 
     @if (activeTab() === 'overview') {
-      <section class="portfolio-value-panel" aria-label="Portfolio value chart">
-        <div class="portfolio-value-heading">
-          <div>
-            <p class="eyebrow">PORTFOLIO VALUE</p>
-            <h2>{{ portfolioValueLabel(portfolioValue()) }}</h2>
-          </div>
-          <div class="portfolio-value-controls" role="group" aria-label="Portfolio graph time range">
-            @for (range of portfolioHistoryRanges; track range.days) {
-              <button type="button" [class.active]="portfolioHistoryDays() === range.days"
-                [attr.aria-pressed]="portfolioHistoryDays() === range.days"
-                (click)="selectPortfolioHistoryRange(range.days)">{{ range.label }}</button>
-            }
-          </div>
-        </div>
-
-        <p class="portfolio-range-caption">
-          {{ portfolioHistoryRangeLabel() }} · account history · {{ portfolioValueHistory().length }} daily values
-        </p>
-
-        @if (portfolioValueHistory().length > 0) {
-          <svg class="portfolio-value-chart" viewBox="-72 0 872 260" preserveAspectRatio="none"
-            role="img" aria-label="Portfolio value over time"
-            (pointermove)="onPortfolioChartPointerMove($event)" (pointerleave)="clearPortfolioChartHover()">
-            @for (label of portfolioValueAxisLabels(); track label; let index = $index) {
-              <text class="portfolio-y-label" x="-10" [attr.y]="22 + index * 42">{{ portfolioValueLabel(label) }}</text>
-              <line class="portfolio-gridline" x1="0" [attr.y1]="22 + index * 42" x2="800" [attr.y2]="22 + index * 42" />
-            }
-            <line class="portfolio-axis" x1="0" y1="190" x2="800" y2="190" />
-            <polyline class="portfolio-value-line" [attr.points]="portfolioValuePoints()" />
-            @for (point of portfolioValueHistory(); track point.timestamp; let index = $index) {
-              <circle class="portfolio-value-point"
-                [attr.cx]="portfolioValuePointX(index)"
-                [attr.cy]="portfolioValuePointY(index)"
-                r="4">
-                <title>{{ portfolioPointLabel(point.timestamp) }} · {{ portfolioValueLabel(point.value) }}</title>
-              </circle>
-              @if (showPortfolioDateLabel(index)) {
-                <text class="portfolio-x-label"
-                  [attr.x]="portfolioValuePointX(index)" y="214">
-                  {{ portfolioPointDateLabel(point.timestamp) }}
-                </text>
-              }
-            }
-          </svg>
-          @if (hoveredPortfolioPoint() !== null) {
-            <div class="portfolio-hover-value" role="status"
-              [style.left.px]="portfolioHoverPosition()?.left"
-              [style.top.px]="portfolioHoverPosition()?.top">
-              {{ portfolioPointLabel(portfolioValueHistory()[hoveredPortfolioPoint()!].timestamp) }}
-              · {{ portfolioValueLabel(portfolioValueHistory()[hoveredPortfolioPoint()!].value) }}
-            </div>
-          }
-        } @else {
-          <p class="portfolio-value-empty">
-            {{ portfolioHistoryRequestFailed() ? 'Portfolio history could not be loaded. Try selecting this range again.' : 'Portfolio value will appear after the first market refresh.' }}
-          </p>
-        }
-      </section>
+      <app-portfolio-chart [value]="portfolioValue()" [currency]="account()?.currency ?? 'GBP'"
+        [valuationLoading]="portfolioFxLoading() || marketLoading()" [valuationNote]="portfolioValuationNote()"
+        [points]="portfolioValueHistory()" [requestedRange]="portfolioHistoryDays()" [appliedRange]="portfolioAppliedDays()"
+        [loading]="portfolioHistoryLoading()" [failed]="portfolioHistoryRequestFailed()"
+        (rangeSelected)="selectPortfolioHistoryRange($event)" (retryHistory)="refreshPortfolioHistory()"
+        (retryValuation)="retryPortfolioValuation()" />
 
       <section class="workspace-intro" aria-label="Welcome to your trading workspace">
         <div class="intro-copy">
@@ -193,9 +141,9 @@
             <span>Updates every 3 seconds</span>
           </div>
           @if (marketLoading()) {
-            <div class="market-state">Loading market data...</div>
+            <div class="market-state" role="status">Loading market data...</div>
           } @else if (marketErrorMessage()) {
-            <div class="market-state market-error">
+            <div class="market-state market-error" role="alert">
               {{ marketErrorMessage() }}
               <button type="button" class="market-retry-btn" (click)="loadMarketData()">
                 Retry

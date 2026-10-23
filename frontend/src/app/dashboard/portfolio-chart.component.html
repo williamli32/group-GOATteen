@@ -1,0 +1,162 @@
+<section
+  class="portfolio-value-panel"
+  aria-label="Portfolio value chart"
+  [attr.aria-busy]="loading()"
+>
+  <div class="portfolio-value-heading">
+    <div>
+      <p class="eyebrow">PORTFOLIO VALUE · {{ currency() }}</p>
+      <h2>{{ valuationLoading() ? 'Calculating…' : money(value()) }}</h2>
+    </div>
+    <div class="portfolio-value-controls" role="group" aria-label="Portfolio graph time range">
+      @for (range of ranges; track range.days) {
+        <button
+          type="button"
+          [class.active]="requestedRange() === range.days"
+          [attr.aria-pressed]="requestedRange() === range.days"
+          (click)="rangeSelected.emit(range.days)"
+        >
+          {{ range.label }}
+        </button>
+      }
+    </div>
+  </div>
+  <p class="valuation-note">{{ valuationNote() }}</p>
+  @if (value() === null && !valuationLoading()) {
+    <button type="button" class="retry" (click)="retryValuation.emit()">
+      Retry current valuation
+    </button>
+  }
+  <p class="portfolio-range-caption">
+    {{ rangeLabel(appliedRange()) }} · daily account values · {{ points().length }} observations ·
+    UTC
+  </p>
+  @if (loading()) {
+    <p role="status" class="history-state">Loading {{ rangeLabel(requestedRange()) }} history…</p>
+  }
+  @if (failed()) {
+    <div role="alert" class="history-error">
+      Could not load {{ rangeLabel(requestedRange()) }} portfolio history.
+      @if (points().length) {
+        Still showing {{ rangeLabel(appliedRange()) }}.
+      }
+      <button type="button" class="retry" (click)="retryHistory.emit()" [disabled]="loading()">
+        Retry history
+      </button>
+    </div>
+  }
+  @if (points().length > 0) {
+    <div class="plot-layout">
+      <div class="y-axis" aria-hidden="true">
+        @for (label of labels(); track $index; let index = $index) {
+          <span [style.top.%]="5 + index * 22.5">{{ money(label, true) }}</span>
+        }
+      </div>
+      <div
+        class="portfolio-value-chart"
+        tabindex="0"
+        role="group"
+        aria-label="Portfolio history. Use Left and Right arrows, Home or End to inspect daily values; Escape dismisses details."
+        [attr.aria-describedby]="detailId"
+        (focus)="focusChart()"
+        (blur)="blurChart()"
+        (keydown)="keydown($event)"
+        (pointermove)="pointer($event)"
+        (pointerdown)="pointer($event)"
+        (pointerleave)="leave()"
+      >
+        <svg viewBox="0 0 800 200" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          @for (label of labels(); track $index; let index = $index) {
+            <line
+              class="gridline"
+              x1="0"
+              x2="800"
+              [attr.y1]="10 + index * 45"
+              [attr.y2]="10 + index * 45"
+            />
+          }
+          @for (segment of segments(); track $index) {
+            <polyline class="value-line" [attr.points]="segment" />
+          }
+          @for (point of points(); track point.timestamp; let index = $index) {
+            @if (point.value !== null) {
+              <circle
+                class="value-point"
+                [class.selected]="selectedIndex() === index"
+                [attr.cx]="x(index)"
+                [attr.cy]="y(point.value)"
+                r="4"
+              />
+            }
+          }
+        </svg>
+      </div>
+      <div class="x-axis" aria-hidden="true">
+        @for (index of dateTicks(); track index) {
+          <span>{{ date(points()[index].timestamp) }}</span>
+        }
+      </div>
+    </div>
+    <p
+      class="point-detail"
+      [id]="detailId"
+      role="status"
+      [attr.aria-live]="focused() ? 'polite' : 'off'"
+    >
+      @if (selectedPoint(); as point) {
+        {{ date(point.timestamp) }} · {{ money(point.value) }} {{ currency() }}
+        @if (point.unavailable?.length) {
+          · Missing price or FX: {{ point.unavailable!.join(', ') }}
+        }
+      } @else {
+        Hover, tap the chart, or focus it and use arrow keys to inspect a day.
+      }
+    </p>
+    @if (valuedPoints().length === 0) {
+      <p class="history-state">
+        No complete valuations are available. Missing prices or FX are shown as gaps, not zero.
+      </p>
+    } @else if (valuedPoints().length === 1) {
+      <p class="history-state">One complete observation; a trend cannot be inferred.</p>
+    }
+    <details class="history-table">
+      <summary>View daily values as a table</summary>
+      <table role="table" class="workspace-table" aria-label="Daily portfolio values">
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col" role="columnheader">Date (UTC)</th>
+            <th scope="col" role="columnheader">Value ({{ currency() }})</th>
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          @for (point of tableRows(); track point.timestamp) {
+            <tr role="row">
+              <td role="cell" data-label="Date (UTC)">{{ date(point.timestamp) }}</td>
+              <td role="cell" data-label="Value">
+                {{ money(point.value) }}
+                @if (point.unavailable?.length) {
+                  <small>Missing price or FX: {{ point.unavailable!.join(', ') }}</small>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <app-result-pagination
+        label="Portfolio history"
+        [total]="points().length"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        (pageChange)="changePage($event)"
+        (pageSizeChange)="changePageSize($event)"
+      />
+    </details>
+  } @else if (!loading() && !failed()) {
+    <p class="portfolio-value-empty">No account history is available for this period.</p>
+  }
+  <p class="valuation-note">
+    Daily estimates use the last available price and reference FX on or before each UTC day. Today's
+    observation is provisional. Missing data breaks the line. Cash transfers affect value; this is
+    not an investment-return chart.
+  </p>
+</section>

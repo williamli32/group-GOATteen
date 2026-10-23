@@ -42,9 +42,10 @@ export interface HoldingsResponse {
 
 export interface PortfolioHistoryPoint {
   date: string;
-  value: number;
+  value: number | null;
   cashValue: number;
-  holdingsValue: number;
+  holdingsValue: number | null;
+  unavailable?: string[];
 }
 
 

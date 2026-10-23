@@ -1,7 +1,10 @@
+import { PortfolioChartComponent, type PortfolioHistoryRange, type PortfolioValuePoint } from './portfolio-chart.component';
+import { buildHoldingsAllocation } from './holdings-allocation';
+import { catchError, map, of } from 'rxjs';
 import { MarketMotionComponent } from '../shared/market-motion.component';
 import { HoldingsAllocationComponent } from './holdings-allocation.component';
 import { ResultPaginationComponent } from '../shared/result-pagination.component';
-import { boundedPage, pageRows } from '../core/utils/reporting-workflow';
+import { boundedPage, pageRows, dateValue } from '../core/utils/reporting-workflow';
 import { PriceAlertPopupListenerComponent } from './price-alert-popup-listener.component';
 import { FxRateService, type FxQuote } from '../core/services/fx-rate';
 import {
@@ -9,6 +12,7 @@ import {
   Component,
 
   computed,
+  effect,
 
   ElementRef,
 
@@ -136,12 +140,6 @@ import {
 } from '../core/services/notification';
 
 type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
-interface PortfolioValuePoint {
-  timestamp: number;
-  value: number;
-}
-type PortfolioHistoryRange = 5 | 30 | -1 | 365 | 0;
-
 @Component({
 
   selector: 'app-dashboard',
@@ -157,7 +155,7 @@ type PortfolioHistoryRange = 5 | 30 | -1 | 365 | 0;
 
     AccountFundingComponent,
     WatchlistComponent,
-    DailyPriceChangeComponent, MarketMotionComponent, ResultPaginationComponent, HoldingsAllocationComponent
+    DailyPriceChangeComponent, MarketMotionComponent, ResultPaginationComponent, HoldingsAllocationComponent, PortfolioChartComponent
 
   ],
 
@@ -175,77 +173,82 @@ export class DashboardComponent implements OnInit, OnDestroy {
     'CRYPTO',
     'COMMODITY'
   ] as const;
-    readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
-    readonly hoveredPortfolioPoint = signal<number | null>(null);
-    readonly portfolioHoverPosition = signal<{ left: number; top: number } | null>(null);
-    readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(5);
-    readonly portfolioHistoryRequestFailed = signal(false);
-    private portfolioHistoryRequest?: Subscription;
+  readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
+  readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(5);
+  readonly portfolioAppliedDays = signal<PortfolioHistoryRange>(5);
+  readonly portfolioHistoryRequestFailed = signal(false);
+  readonly portfolioHistoryLoading = signal(false);
+  readonly portfolioFxLoading = signal(false);
+  readonly portfolioRates = signal<Record<string, FxQuote>>({});
+  private readonly portfolioFxRetry = signal(0);
+  private portfolioHistoryRequest?: Subscription;
+  private portfolioHistoryVersion = 0;
+  private portfolioHistoryInitialized = false;
+  private portfolioHistoryAccountId: number | null = null;
+  private portfolioHistoryInterval: number | null = null;
+  private readonly portfolioCurrencyKey = computed(() => {
+    const ids = new Set((this.holdings()?.positions ?? []).filter(p => p.quantity > 0).map(p => p.instrumentId));
+    const to = this.account()?.currency ?? '';
+    const currencies = [...new Set(this.marketInstruments().filter(i => ids.has(i.instrumentId) && i.currency !== to).map(i => i.currency))].sort();
+    return JSON.stringify([to, currencies]);
+  });
+  readonly portfolioAllocation = computed(() => buildHoldingsAllocation(this.holdings()?.positions ?? [],
+    this.marketInstruments(), this.account()?.currency ?? '', this.portfolioRates(), this.quoteClock()));
 
-    readonly portfolioHistoryRanges: ReadonlyArray<{ days: PortfolioHistoryRange; label: string }> = [
-      { days: 5, label: '5D' },
-      { days: 30, label: '1M' },
-      { days: -1, label: 'YTD' },
-      { days: 365, label: '1Y' },
-      { days: 0, label: 'ALL' }
-    ];
+  portfolioValue(): number | null {
+    if (!this.account() || !this.holdings() || this.portfolioFxLoading() || this.portfolioAllocation().missing.length) return null;
+    return Number(this.account()!.cashBalance) + this.portfolioAllocation().total;
+  }
 
-    onPortfolioChartPointerMove(event: PointerEvent): void {
-      const points = this.portfolioValueHistory();
-      const chart = event.currentTarget;
-      const panel = chart instanceof Element ? chart.closest<HTMLElement>('.portfolio-value-panel') : null;
-      if (!points.length || !chart || !panel) return;
+  portfolioValuationNote(): string {
+    if (this.portfolioFxLoading()) return 'Loading daily reference FX for your holdings.';
+    const missing = this.portfolioAllocation().missing;
+    if (missing.length) return 'A complete value is unavailable. Missing price, instrument details or FX: ' + missing.join(', ') + '.';
+    if (this.marketRefreshFailed() || this.portfolioAllocation().stale) return 'Estimated value uses the last available prices. Some quotes are stale; refresh prices before trading.';
+    return 'Available cash plus holdings, converted to ' + (this.account()?.currency ?? '') + ' using daily reference FX.';
+  }
 
-      const chartBounds = (chart as SVGSVGElement).getBoundingClientRect();
-      const panelBounds = panel.getBoundingClientRect();
-      const viewBoxX = (event.clientX - chartBounds.left) / Math.max(chartBounds.width, 1) * 872 - 72;
-      const pointRatio = Math.min(1, Math.max(0, viewBoxX / 800));
-      const nearestIndex = Math.round(pointRatio * Math.max(points.length - 1, 0));
-      const pointX = this.portfolioValuePointX(nearestIndex);
-      const pointY = this.portfolioValuePointY(nearestIndex);
-      const pointScreenX = chartBounds.left + ((pointX + 72) / 872) * chartBounds.width;
-      const pointScreenY = chartBounds.top + (pointY / 260) * chartBounds.height;
-      if (Math.hypot(event.clientX - pointScreenX, event.clientY - pointScreenY) > 14) {
-        this.clearPortfolioChartHover();
-        return;
-      }
+  retryPortfolioValuation(): void { this.portfolioFxRetry.update(value => value + 1); this.loadMarketData(false); }
 
-      const tooltipWidth = 190;
-      const tooltipHeight = 36;
+  selectPortfolioHistoryRange(days: PortfolioHistoryRange): void {
+    if (this.portfolioHistoryDays() === days && !this.portfolioHistoryRequestFailed()) return;
+    this.portfolioHistoryDays.set(days);
+    this.refreshPortfolioHistory();
+  }
 
-      this.hoveredPortfolioPoint.set(nearestIndex);
-      this.portfolioHoverPosition.set({
-        left: Math.min(Math.max(event.clientX - panelBounds.left + 12, 8), Math.max(panelBounds.width - tooltipWidth - 8, 8)),
-        top: Math.min(Math.max(event.clientY - panelBounds.top - tooltipHeight - 10, 8), Math.max(panelBounds.height - tooltipHeight - 8, 8))
-      });
-    }
-
-    clearPortfolioChartHover(): void {
-      this.hoveredPortfolioPoint.set(null);
-      this.portfolioHoverPosition.set(null);
-    }
-
-    portfolioHistoryRangeLabel(): string {
-      return this.portfolioHistoryRanges.find(range => range.days === this.portfolioHistoryDays())?.label ?? '5D';
-    }
-
-    selectPortfolioHistoryRange(days: PortfolioHistoryRange): void {
-      if (this.portfolioHistoryDays() === days) return;
-      this.portfolioHistoryDays.set(days);
-      this.clearPortfolioChartHover();
-      this.portfolioHistoryRequest?.unsubscribe();
-      this.portfolioHistoryRequestFailed.set(false);
-      this.portfolioHistoryRequest = this.accountService.getPortfolioHistory(days).subscribe({
-        next: history => {
-          this.portfolioValueHistory.set(history.map(point => ({
-            timestamp: new Date(`${point.date}T12:00:00`).getTime(),
-            value: Number(point.value)
-          })));
-        },
-        error: () => this.portfolioHistoryRequestFailed.set(true)
-      });
-    }
-
+  refreshPortfolioHistory(): void {
+    const accountId = this.account()?.accountId;
+    if (!accountId) return;
+    const days = this.portfolioHistoryDays();
+    const version = ++this.portfolioHistoryVersion;
+    this.portfolioHistoryRequest?.unsubscribe();
+    this.portfolioHistoryInitialized = true;
+    this.portfolioHistoryAccountId = accountId;
+    this.portfolioHistoryLoading.set(true);
+    this.portfolioHistoryRequestFailed.set(false);
+    this.portfolioHistoryRequest = this.accountService.getPortfolioHistory(days).pipe(
+      map(history => {
+        const dates = new Set<string>();
+        return history.map(point => {
+          const time = dateValue(point.date);
+          if (time === null || dates.has(point.date)) throw new Error('Invalid daily history');
+          dates.add(point.date);
+          return { timestamp: time + 12 * 60 * 60 * 1000,
+            value: point.value !== null && Number.isFinite(Number(point.value)) ? Number(point.value) : null,
+            unavailable: point.unavailable ?? [] };
+        }).sort((a, b) => a.timestamp - b.timestamp);
+      }),
+      finalize(() => { if (version === this.portfolioHistoryVersion) this.portfolioHistoryLoading.set(false); }),
+    ).subscribe({
+      next: history => {
+        if (version !== this.portfolioHistoryVersion || this.account()?.accountId !== accountId) return;
+        this.portfolioValueHistory.set(history);
+        this.portfolioAppliedDays.set(days);
+        this.portfolioHistoryRequestFailed.set(false);
+      },
+      error: () => { if (version === this.portfolioHistoryVersion) this.portfolioHistoryRequestFailed.set(true); },
+    });
+  }
 
   readonly dashboardTabs: ReadonlyArray<{ id: DashboardTab; label: string }> = [
     { id: 'overview', label: 'Account overview' },
@@ -481,6 +484,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loading.set(false);
     this.errorMessage.set('');
     this.loadDashboard(false);
+    this.refreshPortfolioHistory();
   }
 
 
@@ -504,103 +508,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     private readonly host: ElementRef<HTMLElement>
 
-  ) { }
-
-  portfolioValue(): number {
-    const currentAccount = this.account();
-    const currentHoldings = this.holdings();
-    if (!currentAccount) return 0;
-
-    const holdingsValue = (currentHoldings?.positions ?? []).reduce((total, position) => {
-      const instrument = this.marketInstruments().find(
-        item => item.instrumentId === position.instrumentId
-      );
-      return total + Number(position.quantity) * (instrument?.latestQuote?.lastPrice ?? 0);
-    }, 0);
-
-    return Number(currentAccount.cashBalance) + holdingsValue;
+  ) {
+    effect(onCleanup => {
+      const [to, currencies] = JSON.parse(this.portfolioCurrencyKey()) as [string, string[]];
+      this.portfolioFxRetry();
+      this.portfolioRates.set({});
+      this.portfolioFxLoading.set(false);
+      if (!to || currencies.length === 0) return;
+      let request: Subscription | undefined;
+      const load = () => {
+        request?.unsubscribe(); this.portfolioFxLoading.set(true);
+        request = forkJoin(currencies.map(from => this.fxRateService.quote(from, to).pipe(
+          map(quote => ({ from, quote })), catchError(() => of({ from, quote: null })),
+        ))).subscribe(results => {
+          const rates: Record<string, FxQuote> = {};
+          for (const { from, quote } of results) {
+            if (quote && quote.from === from && quote.to === to && Number.isFinite(quote.rate) && quote.rate > 0) rates[from] = quote;
+          }
+          this.portfolioRates.set(rates); this.portfolioFxLoading.set(false);
+        });
+      };
+      load(); const timer = window.setInterval(load, 60_000);
+      onCleanup(() => { window.clearInterval(timer); request?.unsubscribe(); });
+    });
   }
 
   scrollToDashboardTop(): void {
     this.host.nativeElement.querySelector<HTMLElement>('#dashboard-top')
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-
-  portfolioValuePoints(): string {
-    const points = this.portfolioValueHistory();
-    const maximum = Math.max(...points.map(point => point.value), 1);
-    const minimum = Math.min(...points.map(point => point.value), 0);
-    const range = Math.max(maximum - minimum, 1);
-
-    return points.map((point, index) => {
-      const x = points.length === 1 ? 400 : (index / (points.length - 1)) * 800;
-      const y = 190 - ((point.value - minimum) / range) * 168;
-      return `${x},${y}`;
-    }).join(' ');
-  }
-
-  portfolioValueAxisLabels(): number[] {
-    const values = this.portfolioValueHistory().map(point => point.value);
-    const maximum = Math.max(...values, 1);
-    const minimum = Math.min(...values, 0);
-    const step = (maximum - minimum) / 4;
-    return [maximum, maximum - step, maximum - step * 2, maximum - step * 3, minimum];
-  }
-
-  portfolioValuePointX(index: number): number {
-    const points = this.portfolioValueHistory();
-    return points.length === 1 ? 400 : (index / Math.max(points.length - 1, 1)) * 800;
-  }
-
-  portfolioValuePointY(index: number): number {
-    const points = this.portfolioValueHistory();
-    const maximum = Math.max(...points.map(point => point.value), 1);
-    const minimum = Math.min(...points.map(point => point.value), 0);
-    const range = Math.max(maximum - minimum, 1);
-    return 190 - ((points[index]?.value ?? minimum) - minimum) / range * 168;
-  }
-
-  portfolioValueLabel(value: number): string {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: this.account()?.currency ?? 'GBP',
-      maximumFractionDigits: 2
-    }).format(value);
-  }
-
-  portfolioPointLabel(timestamp: number): string {
-    return new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(timestamp);
-  }
-
-  portfolioPointDateLabel(timestamp: number): string {
-    return new Intl.DateTimeFormat('en-GB', {
-      month: 'short',
-      day: 'numeric'
-    }).format(timestamp);
-  }
-
-  showPortfolioDateLabel(index: number): boolean {
-    const count = this.portfolioValueHistory().length;
-    const labelInterval = Math.max(1, Math.ceil((count - 1) / 7));
-    return count <= 8 || index === 0 || index === count - 1 || index % labelInterval === 0;
-  }
-
-  private recordPortfolioValue(): void {
-    if (!this.account() || !this.holdings() || !this.marketInstruments().length) return;
-    const point = { timestamp: Date.now(), value: this.portfolioValue() };
-    const cutoff = point.timestamp - 7 * 24 * 60 * 60 * 1000;
-    this.portfolioValueHistory.update(history => [
-      ...history.filter(existing => existing.timestamp >= cutoff),
-      point
-    ]);
-  }
-
-
-
-
 
   ngOnInit(): void {
 
@@ -625,6 +561,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
      */
 
     this.loadMarketData();
+    this.portfolioHistoryInterval = window.setInterval(() => {
+      if (!this.portfolioHistoryLoading()) this.refreshPortfolioHistory();
+    }, 60_000);
 
 
 
@@ -705,7 +644,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     const requestVersion = ++this.dashboardRequestVersion;
-    const requestedPortfolioHistoryDays = this.portfolioHistoryDays();
+
 
 
 
@@ -765,9 +704,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.accountService.getHoldings(),
 
-      portfolioHistory:
-
-        this.accountService.getPortfolioHistory(requestedPortfolioHistoryDays),
 
 
 
@@ -848,15 +784,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
           );
 
-          if (this.portfolioHistoryDays() === requestedPortfolioHistoryDays) {
-            this.portfolioValueHistory.set(
-              result.portfolioHistory.map(point => ({
-                timestamp: new Date(`${point.date}T12:00:00`).getTime(),
-                value: Number(point.value)
-              }))
-            );
-            this.portfolioHistoryRequestFailed.set(false);
+          if (!this.portfolioHistoryInitialized || this.portfolioHistoryAccountId !== result.account.accountId) {
+            this.portfolioValueHistory.set([]);
+            this.refreshPortfolioHistory();
           }
+
 
 
 
@@ -1800,7 +1732,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.fxRequest?.unsubscribe();
     this.dashboardRequestVersion++;
     this.dashboardRequest?.unsubscribe();
+    this.portfolioHistoryVersion++;
     this.portfolioHistoryRequest?.unsubscribe();
+    if (this.portfolioHistoryInterval !== null) window.clearInterval(this.portfolioHistoryInterval);
 
 
 
