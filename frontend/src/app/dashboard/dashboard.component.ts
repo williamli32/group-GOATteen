@@ -1,3 +1,4 @@
+import { InstrumentPriceChartComponent } from './instrument-price-chart.component';
 import { PortfolioChartComponent, type PortfolioHistoryRange, type PortfolioValuePoint } from './portfolio-chart.component';
 import { buildHoldingsAllocation } from './holdings-allocation';
 import { catchError, map, of } from 'rxjs';
@@ -155,7 +156,7 @@ type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
 
     AccountFundingComponent,
     WatchlistComponent,
-    DailyPriceChangeComponent, MarketMotionComponent, ResultPaginationComponent, HoldingsAllocationComponent, PortfolioChartComponent
+    DailyPriceChangeComponent, MarketMotionComponent, ResultPaginationComponent, HoldingsAllocationComponent, PortfolioChartComponent, InstrumentPriceChartComponent
 
   ],
 

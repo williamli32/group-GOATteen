@@ -48,6 +48,8 @@ export async function mockWorkspace(page: Page, role: Role) {
   ];
   const state = {
     historyFailed: false,
+    quotePrice: 100,
+    quoteId: 99,
     cash: 10_000,
     watched: [] as number[],
     alerts: [] as Record<string, unknown>[],
@@ -216,6 +218,10 @@ export async function mockWorkspace(page: Page, role: Role) {
       });
     }
     if (path === '/api/market/instruments') {
+      market[0].latestQuote.quoteId = state.quoteId;
+      market[0].latestQuote.lastPrice = state.quotePrice;
+      market[0].latestQuote.askPrice = state.quotePrice;
+      market[0].latestQuote.bidPrice = state.quotePrice - 1;
       market[0].latestQuote.quotedAt = time();
       return reply(market);
     }

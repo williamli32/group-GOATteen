@@ -95,6 +95,8 @@ describe('Dashboard trading recovery', () => {
     expect(component.activeTab()).toBe('orders');
     expect(component.selectedInstrument()?.instrumentId).toBe(2);
     expect(document.activeElement?.id).toBe('dashboard-tab-orders');
+    expect(fixture.nativeElement.querySelector('#dashboard-panel-orders app-instrument-price-chart .instrument-symbol').textContent).toContain('HELD');
+    expect(fixture.nativeElement.querySelector('#dashboard-panel-orders app-instrument-price-chart .live-price').textContent).toContain('GBP');
     component.selectTab('holdings'); fixture.detectChanges();
     const name = fixture.nativeElement.querySelector('.positions-table td[data-label="Instrument"] button') as HTMLButtonElement;
     name.click(); fixture.detectChanges();

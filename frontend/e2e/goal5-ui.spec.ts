@@ -153,3 +153,34 @@ test('light and dark themes retain readable, bounded workspaces after reload', a
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await assertLayout(page);
 });
+
+test('an instrument opens a 24-hour illustration in Orders and appends incoming live quotes', async ({
+  page,
+}) => {
+  const state = await mockWorkspace(page, 'CLIENT');
+  await page.getByRole('button', { name: 'Trade VOD.L on LSE', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Orders', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const chart = page.locator('app-instrument-price-chart');
+  await expect(chart).toBeVisible();
+  await expect(chart.locator('.instrument-symbol')).toHaveText('VOD.L');
+  await expect(chart.locator('.source-note')).toContainText('generated for illustration');
+  await expect(chart.locator('.live-price')).toContainText('100.00');
+  const plot = chart.locator('.instrument-price-plot');
+  await plot.focus();
+  await page.keyboard.press('Home');
+  await expect(chart.locator('.price-inspection')).toContainText('Illustrative price');
+  await page.keyboard.press('End');
+  await expect(chart.locator('.price-inspection')).toContainText('Live quote');
+  state.quotePrice = 101.5;
+  state.quoteId = 100;
+  await expect(chart.locator('.live-price')).toContainText('101.50', { timeout: 15_000 });
+  await expect(chart.locator('.live-change')).toContainText('+1.50%');
+  await chart.getByRole('button', { name: 'Live detail', exact: true }).click();
+  await expect(chart.locator('.preview-line')).toHaveAttribute('d', '');
+  await expect(chart.locator('.live-line')).not.toHaveAttribute('d', '');
+  await expect(chart.locator('.live-price')).toContainText('GBP');
+  await assertLayout(page);
+});

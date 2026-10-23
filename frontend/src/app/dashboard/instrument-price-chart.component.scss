@@ -1,0 +1,370 @@
+:host {
+  display: block;
+  min-width: 0;
+  margin-bottom: 22px;
+}
+.instrument-price-card {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.price-chart-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.instrument-heading {
+  min-width: 0;
+}
+.eyebrow {
+  margin: 0 0 9px;
+  color: var(--emerald);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  font-weight: 600;
+}
+h2 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink);
+}
+.instrument-symbol {
+  font-size: clamp(22px, 2.5vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.8px;
+  overflow-wrap: anywhere;
+}
+.instrument-market {
+  color: var(--muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 8px;
+  font: 11px var(--mono);
+}
+.instrument-name {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+.live-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+.live-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--positive);
+  font-size: 11px;
+}
+.live-state > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.live-state.paused {
+  color: var(--amber);
+}
+.live-price {
+  color: var(--ink);
+  font: 500 clamp(20px, 2.5vw, 28px) var(--mono);
+  overflow-wrap: anywhere;
+}
+.live-change {
+  color: var(--positive);
+  font: 12px var(--mono);
+}
+.live-change.negative {
+  color: var(--negative);
+}
+.live-change small {
+  color: var(--muted);
+  font: 10px var(--font);
+  margin-left: 5px;
+}
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+  margin-top: 24px;
+}
+.range-controls {
+  display: flex;
+  gap: 4px;
+}
+.range-controls button {
+  padding-inline: 12px;
+  min-width: 44px;
+}
+.range-controls [aria-pressed='true'] {
+  color: var(--emerald);
+  background: var(--emerald-soft);
+  border-color: var(--emerald);
+}
+.chart-legend {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.chart-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.legend-line {
+  width: 20px;
+  height: 0;
+  border-top: 2px solid var(--price-live-color);
+}
+.preview-key {
+  border-top-style: dashed;
+  border-color: var(--chart-blue);
+}
+.chart-timezone {
+  margin-left: auto;
+  font: 10px var(--mono);
+}
+.price-plot-layout {
+  display: grid;
+  grid-template-columns: minmax(48px, 5rem) minmax(0, 1fr);
+  gap: 0 12px;
+  margin-top: 18px;
+}
+.price-axis {
+  position: relative;
+  color: var(--muted);
+  font: 10px var(--mono);
+}
+.price-axis > span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+.instrument-price-plot {
+  position: relative;
+  height: 270px;
+  min-width: 0;
+  border-radius: 5px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.gridline {
+  stroke: var(--chart-grid);
+  vector-effect: non-scaling-stroke;
+}
+.gridline.vertical {
+  stroke-dasharray: 2 6;
+}
+.preview-line,
+.live-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.preview-line {
+  stroke: var(--chart-blue);
+  stroke-width: 1.8;
+  stroke-dasharray: 5 5;
+}
+.live-line {
+  stroke: var(--price-live-color);
+  stroke-width: 2.5;
+}
+.crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+.latest-marker,
+.inspection-marker {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--price-live-color);
+  border: 2px solid var(--surface);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.latest-marker::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid var(--price-live-color);
+  opacity: 0.45;
+}
+.latest-marker.pulsing::after {
+  animation: quote-pulse 2.4s ease-out infinite;
+}
+.inspection-marker {
+  width: 10px;
+  height: 10px;
+  background: var(--chart-gold);
+}
+.inspection-marker.preview-point {
+  background: var(--chart-blue);
+}
+@keyframes quote-pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+:host-context([data-motion='reduced']) .latest-marker::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .latest-marker::after {
+    animation: none !important;
+  }
+}
+.price-time-axis {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 7px;
+  margin-top: 12px;
+  color: var(--muted);
+  font: 10px var(--mono);
+}
+.price-inspection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-height: 48px;
+  margin-top: 20px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+.price-inspection strong {
+  color: var(--ink);
+  font: 500 13px var(--mono);
+  overflow-wrap: anywhere;
+}
+.inspection-source {
+  color: var(--positive);
+  font-weight: 600;
+}
+.inspection-source.illustrative {
+  color: var(--blue);
+}
+.chart-hint,
+.source-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.source-note {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.chart-warning {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 14px;
+  border: 1px solid var(--amber-border);
+  border-radius: 8px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 12px;
+}
+button {
+  min-height: 44px;
+  padding: 7px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--emerald);
+  font: 500 12px var(--font);
+}
+button:disabled {
+  opacity: 0.6;
+}
+.chart-empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 150px;
+  padding: 24px 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.chart-empty p {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .instrument-price-card {
+    padding: 18px 16px;
+  }
+  .price-chart-heading {
+    gap: 15px;
+  }
+  .live-summary {
+    align-items: flex-start;
+    width: 100%;
+  }
+  .live-change small {
+    display: block;
+    margin: 3px 0 0;
+  }
+  .chart-legend {
+    gap: 10px 16px;
+  }
+  .chart-timezone {
+    width: 100%;
+    margin-left: 0;
+  }
+  .price-plot-layout {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 0 8px;
+  }
+  .instrument-price-plot {
+    height: 215px;
+  }
+  .price-time-axis {
+    font-size: 9px;
+  }
+}
