@@ -19,6 +19,7 @@ import com.goatteen.trading.auth.dto.LoginRequest;
 import com.goatteen.trading.auth.dto.LoginResponse;
 import com.goatteen.trading.auth.exception.InvalidCredentialsException;
 import com.goatteen.trading.auth.security.JwtService;
+import com.goatteen.trading.auth.security.AuthProperties;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,7 +33,6 @@ public class AuthService {
         private static final String CLIENT_ROLE = "CLIENT";
         private static final String ANALYST_ROLE = "ANALYST";
         private static final String OPERATIONS_ROLE = "OPERATIONS";
-        private static final String ANALYST_ACCESS_CODE = "goatteen14";
 
         private final UserRepository userRepository;
         private final ClientRepository clientRepository;
@@ -41,6 +41,7 @@ public class AuthService {
         private final PasswordEncoder passwordEncoder;
         private final JwtService jwtService;
         private final RefreshTokenService refreshTokenService;
+        private final AuthProperties authProperties;
 
         public AuthService(
                         UserRepository userRepository,
@@ -49,7 +50,8 @@ public class AuthService {
                         RoleRepository roleRepository,
                         PasswordEncoder passwordEncoder,
                         JwtService jwtService,
-                        RefreshTokenService refreshTokenService) {
+                        RefreshTokenService refreshTokenService,
+                        AuthProperties authProperties) {
                 this.userRepository = userRepository;
                 this.clientRepository = clientRepository;
                 this.accountRepository = accountRepository;
@@ -57,6 +59,7 @@ public class AuthService {
                 this.passwordEncoder = passwordEncoder;
                 this.jwtService = jwtService;
                 this.refreshTokenService = refreshTokenService;
+                this.authProperties = authProperties;
         }
 
         @Transactional
@@ -77,7 +80,9 @@ public class AuthService {
                 }
 
                 if ((ANALYST_ROLE.equals(requestedRole) || OPERATIONS_ROLE.equals(requestedRole))
-                                && !ANALYST_ACCESS_CODE.equals(request.getAccessCode())) {
+                                && (authProperties.getInternalAccessCode() == null
+                                                || authProperties.getInternalAccessCode().isBlank()
+                                                || !authProperties.getInternalAccessCode().equals(request.getAccessCode()))) {
                         throw new IllegalArgumentException(
                                         "A valid analyst/operations access code is required");
                 }

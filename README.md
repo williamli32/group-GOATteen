@@ -1,5 +1,12 @@
 # LEAP Trading Platform
 
+## Run the full application with Docker
+
+See [Container deployment](docs/container-deployment.md) for the four-container
+application, Windows-to-Linux access, HTTPS and existing-data migration.
+Use `compose.deploy.yaml` for that stack. The original `docker-compose.yml`
+below continues to start only the development PostgreSQL database.
+
 ## Project Overview
 
 Group GOATteen trading platform, G.O.A.T. Platforms.

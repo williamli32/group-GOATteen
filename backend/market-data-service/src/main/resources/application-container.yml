@@ -1,0 +1,22 @@
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  port: 8081
+  shutdown: graceful
+
+logging:
+  level:
+    com.goatteen.market: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true

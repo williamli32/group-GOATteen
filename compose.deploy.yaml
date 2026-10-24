@@ -1,0 +1,144 @@
+name: leap-app
+
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: ${LEAP_IMAGE_PREFIX:-leap}/postgres:${LEAP_IMAGE_TAG:-local}
+    build:
+      context: ./deploy/postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DEPLOY_DB_NAME:-leap_trading}
+      POSTGRES_USER: postgres
+      APP_DB_USERNAME: ${DEPLOY_DB_USERNAME:-leap_app}
+      APP_DB_PASSWORD: ${DEPLOY_DB_PASSWORD:?Generate .env.deploy with deploy/init-env.py}
+      POSTGRES_PASSWORD: ${DEPLOY_POSTGRES_PASSWORD:?Generate .env.deploy with deploy/init-env.py}
+      TZ: UTC
+    volumes:
+      - app_postgres_data:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging: *bounded-logging
+
+  market-data-service:
+    image: ${LEAP_IMAGE_PREFIX:-leap}/market-data-service:${LEAP_IMAGE_TAG:-local}
+    build:
+      context: ./backend/market-data-service
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: container
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70.0 -Duser.timezone=UTC"
+      TZ: UTC
+    networks:
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=128m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: ${MARKET_MEMORY_LIMIT:-512m}
+    stop_grace_period: 40s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    logging: *bounded-logging
+
+  trading-platform:
+    image: ${LEAP_IMAGE_PREFIX:-leap}/trading-platform:${LEAP_IMAGE_TAG:-local}
+    build:
+      context: ./backend/trading-platform
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: container
+      DB_URL: jdbc:postgresql://postgres:5432/${DEPLOY_DB_NAME:-leap_trading}
+      DB_USERNAME: ${DEPLOY_DB_USERNAME:-leap_app}
+      DB_PASSWORD: ${DEPLOY_DB_PASSWORD:?Generate .env.deploy with deploy/init-env.py}
+      JWT_SECRET: ${DEPLOY_JWT_SECRET:?Generate .env.deploy with deploy/init-env.py}
+      INTERNAL_ACCESS_CODE: ${DEPLOY_INTERNAL_ACCESS_CODE:?Generate .env.deploy with deploy/init-env.py}
+      CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:8082}
+      MARKET_DATA_URL: http://market-data-service:8081
+      REPORTING_BACKFILL_ENABLED: ${REPORTING_BACKFILL_ENABLED:-false}
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70.0 -Duser.timezone=UTC"
+      TZ: UTC
+    depends_on:
+      postgres:
+        condition: service_healthy
+      market-data-service:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=128m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: ${TRADING_MEMORY_LIMIT:-1g}
+    stop_grace_period: 40s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    logging: *bounded-logging
+
+  frontend:
+    image: ${LEAP_IMAGE_PREFIX:-leap}/frontend:${LEAP_IMAGE_TAG:-local}
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${APP_SITE_ADDRESS:-http://:80}
+      TZ: UTC
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_HTTP_PORT:-8082}:80"
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_HTTPS_PORT:-8443}:443"
+    depends_on:
+      trading-platform:
+        condition: service_healthy
+    networks:
+      - edge
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=32m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-256m}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--output-document=-", "http://127.0.0.1:8082/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    logging: *bounded-logging
+
+networks:
+  edge:
+  data:
+    internal: true
+
+volumes:
+  app_postgres_data:
+  caddy_data:
+  caddy_config:
