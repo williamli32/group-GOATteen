@@ -6,6 +6,7 @@ import com.goatteen.trading.account.dto.AddFundsRequest;
 import com.goatteen.trading.account.dto.AddFundsResponse;
 import com.goatteen.trading.account.dto.WithdrawFundsRequest;
 import com.goatteen.trading.auth.dto.RegisterRequest;
+import com.goatteen.trading.auth.security.AuthProperties;
 import com.goatteen.trading.auth.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,6 +34,7 @@ class AccountFundingIntegrationTest extends DatabaseIntegrationTestSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired AccountFundingService funding;
     @Autowired AuthService registration;
+    @Autowired AuthProperties authProperties;
     @Autowired PlatformTransactionManager transactions;
 
     @BeforeEach
@@ -151,7 +152,9 @@ class AccountFundingIntegrationTest extends DatabaseIntegrationTestSupport {
         request.setFirstName("Signup"); request.setLastName("Test");
         request.setEmail(UUID.randomUUID() + "@signup.test"); request.setPassword("Test-password-123!");
         request.setRole(role); request.setCurrency(currency);
-        request.setAccessCode((String) ReflectionTestUtils.getField(AuthService.class, "ANALYST_ACCESS_CODE"));
+        if (!"CLIENT".equals(role)) {
+            request.setAccessCode(authProperties.getInternalAccessCode());
+        }
         var result = registration.register(request);
         fixtures.user(jdbc.queryForObject("SELECT id FROM users WHERE email=?", Long.class, request.getEmail()));
         assertEquals(currency, result.getCurrency());
