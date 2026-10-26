@@ -2,6 +2,8 @@
 
 ## Run the full application with Docker
 
+For an existing container deployment, follow [the security runtime migration](docs/security-remediation.md) before rebuilding PostgreSQL.
+
 See [Container deployment](docs/container-deployment.md) for the four-container
 application, Windows-to-Linux access, HTTPS and existing-data migration.
 Use `compose.deploy.yaml` for that stack. The original `docker-compose.yml`

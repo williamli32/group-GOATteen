@@ -146,5 +146,6 @@ networks:
 
 volumes:
   app_postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-leap-app_app_postgres_data}
   caddy_data:
   caddy_config:

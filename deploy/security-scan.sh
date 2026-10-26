@@ -75,7 +75,7 @@ for component in trading-platform market-data-service frontend postgres; do
         failed=1
     elif ! docker run --rm \
         -v "$PWD/security-reports:/reports:ro" \
-        "$scanner" convert --format table --severity HIGH,CRITICAL \
+        "$scanner" convert --format table --scanners vuln --severity HIGH,CRITICAL \
         --exit-code 0 "/reports/$component.json"; then
         echo "ERROR: Cannot display the scan report for $component." >&2
         failed=1

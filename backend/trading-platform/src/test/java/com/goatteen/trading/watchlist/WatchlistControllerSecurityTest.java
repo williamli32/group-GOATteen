@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -29,10 +29,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 class WatchlistControllerSecurityTest {
     @Autowired MockMvc mvc;
-    @MockBean JwtService jwt;
-    @MockBean UserRepository users;
-    @MockBean CurrentUserService currentUser;
-    @MockBean WatchlistService watchlists;
+    @MockitoBean JwtService jwt;
+    @MockitoBean UserRepository users;
+    @MockitoBean CurrentUserService currentUser;
+    @MockitoBean WatchlistService watchlists;
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "PUT", "DELETE"})

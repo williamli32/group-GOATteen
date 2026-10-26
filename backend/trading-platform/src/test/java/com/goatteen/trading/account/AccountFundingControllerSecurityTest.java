@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -32,10 +32,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 class AccountFundingControllerSecurityTest {
     @Autowired MockMvc mvc;
-    @MockBean JwtService jwt;
-    @MockBean UserRepository users;
-    @MockBean AccountFundingService funding;
-    @MockBean CurrentUserService currentUser;
+    @MockitoBean JwtService jwt;
+    @MockitoBean UserRepository users;
+    @MockitoBean AccountFundingService funding;
+    @MockitoBean CurrentUserService currentUser;
 
     private String body(String amount) {
         return "{\"amount\":\"" + amount + "\",\"idempotencyKey\":\"" + UUID.randomUUID() + "\"}";

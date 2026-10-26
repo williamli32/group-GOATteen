@@ -43,5 +43,6 @@ scripts/
 docs/sprint-7-goal5-validation.md
 # Full-stack deployment credentials and backups
 .env.deploy
+.env.deploy.migration-tmp
 deploy/backups/
-deploy/__pycache__/
+__pycache__/

@@ -6,13 +6,13 @@ import com.goatteen.trading.auth.security.*;
 import com.goatteen.trading.auth.service.*;
 import com.goatteen.trading.config.SecurityConfig;
 import com.goatteen.trading.user.UserRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
@@ -29,10 +29,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthCsrfSecurityTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @MockBean AuthService auth;
-    @MockBean RefreshTokenService refresh;
-    @MockBean JwtService jwt;
-    @MockBean UserRepository users;
+    @MockitoBean AuthService auth;
+    @MockitoBean RefreshTokenService refresh;
+    @MockitoBean JwtService jwt;
+    @MockitoBean UserRepository users;
 
     @ParameterizedTest @ValueSource(strings = {"login", "register", "refresh", "logout"})
     void cookieAndCredentialEndpointsRejectMissingCsrf(String path) throws Exception {

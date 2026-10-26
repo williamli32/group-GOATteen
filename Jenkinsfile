@@ -45,6 +45,19 @@ pipeline {
             }
         }
 
+        stage('Deployment Tooling Tests') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        -u "$(id -u):$(id -g)" \
+                        -e PYTHONDONTWRITEBYTECODE=1 \
+                        -v "$PWD:/app" -w /app \
+                        python:3.12-slim \
+                        python -m unittest discover -s deploy/tests -p 'test_*.py'
+                '''
+            }
+        }
+
         stage('Frontend Test & Build') {
             steps {
                 dir('frontend') {
@@ -135,13 +148,14 @@ pipeline {
                         -e POSTGRES_DB=${CI_TEST_DB} \
                         -e POSTGRES_USER=${TEST_DB_USERNAME} \
                         -e POSTGRES_PASSWORD="${TEST_DB_PASSWORD}" \
-                        postgres:17
+                        postgres:17.11-alpine3.24
 
                     echo "Waiting for PostgreSQL (up to 60 readiness attempts)..."
 
                     attempt=1
                     until docker exec "$CI_DB_CONTAINER" \
                         pg_isready \
+                        -h 127.0.0.1 \
                         -U ${TEST_DB_USERNAME} \
                         -d ${CI_TEST_DB}
                     do
@@ -245,6 +259,35 @@ pipeline {
                 }
             }
         }
+        stage('Market Data Build & Test') {
+            steps {
+                dir('backend/market-data-service') {
+                    dir('target/surefire-reports') { deleteDir() }
+                    sh '''
+                        set -eu
+                        maven_cache_dir="${WORKSPACE}@maven-cache"
+                        mkdir -p "$maven_cache_dir/.m2/repository" "$maven_cache_dir/.m2/wrapper"
+                        docker run --rm \
+                            -u "$(id -u):$(id -g)" \
+                            -e HOME=/var/maven \
+                            -e MAVEN_CONFIG=/var/maven/.m2 \
+                            -e MAVEN_USER_HOME=/var/maven/.m2 \
+                            -v "$PWD:/app" -v "$maven_cache_dir:/var/maven" -w /app \
+                            maven:3.9.9-eclipse-temurin-21 \
+                            bash ./mvnw -B -ntp -Duser.home=/var/maven \
+                            -Dmaven.repo.local=/var/maven/.m2/repository clean verify
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts(artifacts: 'backend/market-data-service/target/surefire-reports/*.txt', allowEmptyArchive: true)
+                    junit(testResults: 'backend/market-data-service/target/surefire-reports/TEST-*.xml',
+                          allowEmptyResults: currentBuild.currentResult != 'SUCCESS')
+                }
+            }
+        }
+
         stage('Security Image Checks') {
             options { timeout(time: 30, unit: 'MINUTES') }
             steps { sh 'bash deploy/security-scan.sh' }

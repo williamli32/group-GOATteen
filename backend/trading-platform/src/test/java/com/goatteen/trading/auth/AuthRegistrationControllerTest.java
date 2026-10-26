@@ -9,8 +9,8 @@ import com.goatteen.trading.config.SecurityConfig;
 import com.goatteen.trading.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,10 +24,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 class AuthRegistrationControllerTest {
     @Autowired MockMvc mvc;
-    @MockBean JwtService jwt;
-    @MockBean UserRepository users;
-    @MockBean AuthService auth;
-    @MockBean RefreshTokenService refresh;
+    @MockitoBean JwtService jwt;
+    @MockitoBean UserRepository users;
+    @MockitoBean AuthService auth;
+    @MockitoBean RefreshTokenService refresh;
 
     @Test
     void currenciesCanBeLoadedBeforeSigningIn() throws Exception {

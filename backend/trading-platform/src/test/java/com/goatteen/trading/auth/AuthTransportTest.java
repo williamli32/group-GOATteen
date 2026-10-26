@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -44,10 +44,10 @@ class AuthTransportTest {
 
     @Autowired MockMvc mvc;
     @Autowired com.goatteen.trading.auth.security.AuthRateLimiter limiter;
-    @MockBean JwtService jwt;
-    @MockBean UserRepository users;
-    @MockBean AuthService auth;
-    @MockBean RefreshTokenService refresh;
+    @MockitoBean JwtService jwt;
+    @MockitoBean UserRepository users;
+    @MockitoBean AuthService auth;
+    @MockitoBean RefreshTokenService refresh;
 
     private void stubLogin() {
         var response = new LoginResponse(1L, "customer@example.com", Set.of("CLIENT"), "access-token");
