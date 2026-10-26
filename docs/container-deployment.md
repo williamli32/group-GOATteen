@@ -1,5 +1,7 @@
 # Full-stack container deployment
 
+**Existing deployments:** apply the [security runtime migration](security-remediation.md) before rebuilding the PostgreSQL image. The image now uses Alpine; existing Debian clusters require a verified dump/restore into a new volume.
+
 Baseline: `feature/more-graphs`, commit `dc32f91380fb43d8dea4ddcac21dd33700db3173`.
 
 This setup runs the application on one Linux Docker host, including an EC2 VM.
@@ -39,10 +41,10 @@ docker version
 docker compose version
 ```
 
-From the repository root on Linux, after applying and pushing this patch:
+For a new installation, from the repository root:
 
 ```bash
-git switch feature/more-graphs
+git switch feature/sprint-8-goal1
 git pull --ff-only
 python deploy/init-env.py
 docker-compose --env-file .env.deploy -f compose.deploy.yaml config --quiet
@@ -51,7 +53,7 @@ docker-compose --env-file .env.deploy -f compose.deploy.yaml ps
 python deploy/smoke-check.py http://localhost:8082
 ```
 
-Commands above are for Windows
+On Linux, use `python3` if the `python` command is unavailable.
 
 The generator creates `.env.deploy` with a distinct database password,
 PostgreSQL administrator password, a Base64 JWT secret and a shared
@@ -66,7 +68,7 @@ initialization file creates that login and gives it ownership of this database.
 `deploy/postgres/Dockerfile` copies the initialization SQL into a small image
 based on the official PostgreSQL 17 image. No repository file is bind-mounted
 at runtime, so Windows builds do not pass a Windows filesystem path to the
-Linux Docker daemon. The database continues to use its original named volume.
+Linux Docker daemon. New installations use a named volume; the runtime migration selects a new verified volume for existing installations.
 Initialization runs only on an empty PostgreSQL volume. Editing the password
 in `.env.deploy` later does not change an existing database role's password.
 
