@@ -45,6 +45,12 @@
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
+        <!-- Outbound HTTP client auto-configuration is separate from MVC in Boot 4. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
+        </dependency>
+
 
         <dependency>
             <groupId>org.springdoc</groupId>
