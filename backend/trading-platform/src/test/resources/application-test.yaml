@@ -36,6 +36,8 @@ app:
 
   auth:
     internal-access-code: integration-test-staff-code
+    rate-limit:
+      enabled: false
     refresh-token-expiration-days: 7
 
   market-simulator:

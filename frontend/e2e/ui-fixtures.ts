@@ -159,6 +159,7 @@ export async function mockWorkspace(page: Page, role: Role) {
     const reply = (json: unknown, status = 200) => route.fulfill({ status, headers, json });
     const empty = () => route.fulfill({ status: 204, headers });
     if (method === 'OPTIONS') return empty();
+    if (path === '/api/auth/csrf') return reply({ headerName: 'X-XSRF-TOKEN', token: 'test-csrf' });
     if (path === '/api/auth/login' || path === '/api/auth/refresh')
       return reply({ accessToken: token });
     if (path === '/api/auth/logout') return empty();

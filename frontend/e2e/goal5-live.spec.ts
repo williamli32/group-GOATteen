@@ -15,10 +15,16 @@ test.beforeAll(() => {
     throw new Error('Set GOAL5_ACCESS_CODE to your configured analyst/operations signup code.');
 });
 
+async function authPost(request: APIRequestContext, path: string, data: unknown) {
+  const response = await request.get(api + '/auth/csrf');
+  expect(response.ok()).toBe(true);
+  const csrf = await response.json();
+  return request.post(api + path, { data, headers: { [csrf.headerName]: csrf.token } });
+}
+
 async function actor(request: APIRequestContext, role: Role): Promise<Actor> {
   const email = `goal5-${randomUUID()}@example.test`;
-  const registered = await request.post(api + '/auth/register', {
-    data: {
+  const registered = await authPost(request, '/auth/register', {
       firstName: 'GoalFive',
       lastName: role,
       email,
@@ -26,13 +32,12 @@ async function actor(request: APIRequestContext, role: Role): Promise<Actor> {
       role,
       currency: 'GBP',
       accessCode: role === 'CLIENT' ? undefined : process.env['GOAL5_ACCESS_CODE'],
-    },
   });
   expect(
     registered.status(),
     'Test-account registration must succeed against the real backend',
   ).toBe(201);
-  const login = await request.post(api + '/auth/login', { data: { email, password } });
+  const login = await authPost(request, '/auth/login', { email, password });
   expect(login.ok()).toBe(true);
   const token = (await login.json()).accessToken as string;
   const account = await request.get(api + '/accounts/me', {

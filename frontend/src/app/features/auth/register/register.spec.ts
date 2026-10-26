@@ -174,6 +174,7 @@ describe('Register', () => {
     expect(component.validationMessage()).toBe('An operations access code is required.');
     component.accessCode = 'staff-code-from-user';
     component.register();
+    TestBed.inject(HttpTestingController).expectOne(environment.apiUrl + '/auth/csrf').flush({ headerName: 'X-XSRF-TOKEN', token: 'csrf' });
     const request = TestBed.inject(HttpTestingController).expectOne(environment.apiUrl + '/auth/register');
     expect(request.request.body).toMatchObject({ role: 'OPERATIONS', currency: 'USD', accessCode: 'staff-code-from-user' });
     request.flush({}, { status: 400, statusText: 'Bad Request' });
@@ -192,6 +193,7 @@ describe('Register', () => {
     component.accessCode = 'previous-staff-code';
     component.register();
     component.register();
+    TestBed.inject(HttpTestingController).expectOne(environment.apiUrl + '/auth/csrf').flush({ headerName: 'X-XSRF-TOKEN', token: 'csrf' });
     const requests = TestBed.inject(HttpTestingController).match(environment.apiUrl + '/auth/register');
     expect(requests.length).toBe(1);
     expect(requests[0].request.body.currency).toBe('USD');

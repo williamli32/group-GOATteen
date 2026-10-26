@@ -1,3 +1,4 @@
+import { accessToken } from '../core/auth/session-token';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -335,7 +336,7 @@ describe('OperationsComponent', () => {
     });
 
     it('restores the user search and selected order by fetching fresh evidence rather than caching it', () => {
-        localStorage.setItem('accessToken', 'test.' + btoa(JSON.stringify({ sub: 'david-goal4' })) + '.signature');
+        accessToken.set('test.' + btoa(JSON.stringify({ sub: 'david-goal4' })) + '.signature');
         try {
             operationsService.searchOrders.mockReturnValue(of(Array.from({ length: 23 }, (_, i) => order(i + 1))));
             operationsService.inspectOrder.mockImplementation(id => of(audit(id)));
@@ -356,7 +357,7 @@ describe('OperationsComponent', () => {
             const key = Object.keys(sessionStorage).find(key => key.includes('david-goal4'))!;
             expect(sessionStorage.getItem(key)).not.toContain('executionPrice');
         } finally {
-            localStorage.removeItem('accessToken');
+            accessToken.set(null);
             sessionStorage.clear();
         }
     });

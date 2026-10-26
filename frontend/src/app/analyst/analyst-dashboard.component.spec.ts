@@ -1,3 +1,4 @@
+import { accessToken } from '../core/auth/session-token';
 import {
     ComponentFixture,
     TestBed
@@ -1589,7 +1590,7 @@ describe('AnalystDashboardComponent', () => {
     });
 
     it('restores applied filters and table pages for the same user without saving draft edits or result rows', () => {
-        localStorage.setItem('accessToken', 'test.' + btoa(JSON.stringify({ sub: 'priya-goal4' })) + '.signature');
+        accessToken.set('test.' + btoa(JSON.stringify({ sub: 'priya-goal4' })) + '.signature');
         try {
             const instruments = Array.from({ length: 21 }, (_, i) => ({ instrumentId: i + 1, instrumentSymbol: 'PrivateStock' + i, currency: 'INR', fillCount: 1, executedQuantity: 1, tradedValue: 10 }));
             reportingService.getInstruments.mockReturnValue(of(instruments));
@@ -1607,12 +1608,12 @@ describe('AnalystDashboardComponent', () => {
             expect(component.activeView()).toBe('data');
             const key = Object.keys(sessionStorage).find(key => key.includes('priya-goal4'))!;
             expect(sessionStorage.getItem(key)).not.toContain('PrivateStock');
-            localStorage.setItem('accessToken', 'test.' + btoa(JSON.stringify({ sub: 'different-user' })) + '.signature');
+            accessToken.set('test.' + btoa(JSON.stringify({ sub: 'different-user' })) + '.signature');
             const other = TestBed.createComponent(AnalystDashboardComponent);
             expect(other.componentInstance.currency()).toBe('GBP');
             other.destroy();
         } finally {
-            localStorage.removeItem('accessToken');
+            accessToken.set(null);
             sessionStorage.clear();
         }
     });

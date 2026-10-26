@@ -71,6 +71,7 @@ describe('Login', () => {
     expect(component.loading()).toBe(true);
     expect(component.errorMessage()).toBe('');
     expect(fixture.nativeElement.querySelector('.submit-button').disabled).toBe(true);
+    http.expectOne(environment.apiUrl + '/auth/csrf').flush({ headerName: 'X-XSRF-TOKEN', token: 'csrf' });
     const requests = http.match(environment.apiUrl + '/auth/login');
     expect(requests.length).toBe(1);
     requests[0].flush({}, { status: 401, statusText: 'Unauthorized' });
@@ -85,6 +86,7 @@ describe('Login', () => {
     component.email = 'operations@example.com';
     component.password = 'Password123!';
     component.login(new Event('submit'));
+    TestBed.inject(HttpTestingController).expectOne(environment.apiUrl + '/auth/csrf').flush({ headerName: 'X-XSRF-TOKEN', token: 'csrf' });
     TestBed.inject(HttpTestingController).expectOne(environment.apiUrl + '/auth/login').flush({
       accessToken: 'header.' + btoa(JSON.stringify({ roles: ['OPERATIONS'] })) + '.signature'
     });

@@ -20,6 +20,12 @@ public class AuthSession {
     @Column(name = "refresh_token_hash", nullable = false, unique = true)
     private String refreshTokenHash;
 
+    @Column(name = "refresh_family_hash", length = 44)
+    private String refreshFamilyHash;
+
+    public String getRefreshFamilyHash() { return refreshFamilyHash; }
+    public void setRefreshFamilyHash(String value) { refreshFamilyHash = value; }
+
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 

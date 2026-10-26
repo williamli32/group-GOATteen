@@ -13,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import com.goatteen.trading.auth.security.JwtProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import com.goatteen.trading.auth.security.JwtAuthenticationFilter;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.goatteen.trading.auth.security.AuthProperties;
 import org.springframework.web.cors.CorsConfiguration;
@@ -21,6 +20,11 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.time.Clock;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import com.goatteen.trading.auth.security.AuthRateLimiter;
+import com.goatteen.trading.auth.security.AuthRateLimitFilter;
 
 @Configuration
 @EnableMethodSecurity
@@ -76,12 +80,25 @@ public class SecurityConfig {
         }
 
         @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http)
+        public AuthRateLimiter authRateLimiter(AuthProperties properties) {
+                return new AuthRateLimiter(properties, Clock.systemUTC());
+        }
+
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthRateLimiter limiter)
                         throws Exception {
+
+                CookieCsrfTokenRepository csrfTokens = new CookieCsrfTokenRepository();
+                csrfTokens.setCookiePath("/api/auth");
+                csrfTokens.setCookieCustomizer(cookie -> cookie.sameSite("Lax"));
 
                 http
                                 .cors(cors -> {}) 
-                                .csrf(csrf -> csrf.disable())
+                                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens)
+                                        .requireCsrfProtectionMatcher(request ->
+                                                !List.of("GET", "HEAD", "OPTIONS", "TRACE").contains(request.getMethod())
+                                                && request.getRequestURI().substring(request.getContextPath().length())
+                                                        .startsWith("/api/auth/")))
 
                                 .sessionManagement(session -> session.sessionCreationPolicy(
                                                 SessionCreationPolicy.STATELESS))
@@ -127,6 +144,9 @@ public class SecurityConfig {
                 http.addFilterBefore(
                                 jwtAuthenticationFilter,
                                 UsernamePasswordAuthenticationFilter.class);
+
+                http.addFilterBefore(new AuthRateLimitFilter(limiter),
+                                CsrfFilter.class);
 
                 return http.build();
         }

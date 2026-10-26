@@ -59,7 +59,7 @@ pipeline {
                             -v "$PWD:/app" \
                             -w /app \
                             node:24-bookworm \
-                            sh -lc 'npm ci && npm test -- --watch=false && npm run build'
+                            sh -lc 'npm ci && npm test -- --watch=false && npm run build && npm audit --audit-level=high'
                     '''
                 }
             }
@@ -245,6 +245,15 @@ pipeline {
                 }
             }
         }
+        stage('Security Image Checks') {
+            options { timeout(time: 30, unit: 'MINUTES') }
+            steps { sh 'bash deploy/security-scan.sh' }
+            post {
+                always {
+                    archiveArtifacts(artifacts: 'security-reports/*.json', allowEmptyArchive: true)
+                }
+            }
+        }
     }
 
     post {
@@ -264,6 +273,7 @@ pipeline {
             Frontend tests:       PASSED
             Frontend build:       PASSED
             Browser UI checks:    PASSED
+            Security scans:       PASSED
             Backend tests:        PASSED
             Backend build:        PASSED
             PostgreSQL tests:     PASSED

@@ -31,12 +31,13 @@ public class RefreshTokenService {
     @Transactional
     public RefreshTokenResult createSession(User user) {
 
-        String rawToken = generateToken();
+        String family = generateToken();
+        String rawToken = family + "." + generateToken();
         String tokenHash = hash(rawToken);
 
         LocalDateTime expiresAt =
                 LocalDateTime.now().plusDays(
-                        authProperties.getRefreshTokenExpirationDays()
+                        Math.min(authProperties.getRefreshTokenExpirationDays(), authProperties.getMaximumSessionDays())
                 );
 
         AuthSession session = new AuthSession(
@@ -45,6 +46,7 @@ public class RefreshTokenService {
                 expiresAt
         );
 
+        session.setRefreshFamilyHash(hash(family));
         authSessionRepository.save(session);
 
         return new RefreshTokenResult(
@@ -53,7 +55,7 @@ public class RefreshTokenService {
         );
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RefreshTokenResult rotateSession(
             String rawToken
     ) {
@@ -62,22 +64,34 @@ public class RefreshTokenService {
 
         AuthSession session =
                 authSessionRepository
-                        .findByRefreshTokenHash(currentHash)
+                        .findForUpdate(currentHash)
                         .orElseThrow(
                                 InvalidRefreshTokenException::new
                         );
 
-        if (!session.isActive()) {
+        LocalDateTime absoluteExpiry = session.getCreatedAt().plusDays(authProperties.getMaximumSessionDays());
+        if (!session.isActive() || !session.getUser().isEnabled()
+                || !absoluteExpiry.isAfter(LocalDateTime.now())) {
+            session.revoke();
+            authSessionRepository.save(session);
             throw new InvalidRefreshTokenException();
         }
 
-        String newRawToken = generateToken();
+        String family = familyOf(rawToken);
+        if (family == null || session.getRefreshFamilyHash() == null) {
+            // Migrate an existing, opaque legacy token when it is first rotated.
+            family = family == null ? rawToken : family;
+            session.setRefreshFamilyHash(hash(family));
+        }
+        String newRawToken = family + "." + generateToken();
         String newHash = hash(newRawToken);
 
         LocalDateTime newExpiresAt =
                 LocalDateTime.now().plusDays(
                         authProperties.getRefreshTokenExpirationDays()
                 );
+
+        if (newExpiresAt.isAfter(absoluteExpiry)) newExpiresAt = absoluteExpiry;
 
         session.rotate(
                 newHash,
@@ -98,8 +112,13 @@ public class RefreshTokenService {
 
         String hash = hash(rawToken);
 
-        authSessionRepository
-                .findByRefreshTokenHash(hash)
+        String family = familyOf(rawToken);
+        // A stale cookie may reach logout after a concurrent rotation committed.
+        // The unpredictable family secret proves ownership without accepting the stale token for refresh.
+        var found = family == null
+                ? authSessionRepository.findForUpdate(hash).or(() -> authSessionRepository.findFamilyForUpdate(hash))
+                : authSessionRepository.findFamilyForUpdate(hash(family));
+        found
                 .ifPresent(session -> {
                     session.revoke();
                     authSessionRepository.save(session);
@@ -109,6 +128,12 @@ public class RefreshTokenService {
     private String generateToken() {
         return UUID.randomUUID().toString()
                 + UUID.randomUUID();
+    }
+
+    private String familyOf(String token) {
+        int separator = token.indexOf('.');
+        return separator > 0 && separator < token.length() - 1 && separator == token.lastIndexOf('.')
+                ? token.substring(0, separator) : null;
     }
 
     private String hash(String rawToken) {

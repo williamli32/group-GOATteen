@@ -16,6 +16,16 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+        @ExceptionHandler(com.goatteen.trading.auth.security.AuthRateLimiter.Limited.class)
+        public ResponseEntity<ApiError> handleRateLimit(
+                        com.goatteen.trading.auth.security.AuthRateLimiter.Limited exception,
+                        HttpServletRequest request) {
+                return ResponseEntity.status(429)
+                        .header("Retry-After", Long.toString(exception.retryAfter()))
+                        .body(new ApiError(429, "Too Many Requests", exception.getMessage(),
+                                        request.getRequestURI(), null));
+        }
+
         @ExceptionHandler(DuplicateEmailException.class)
         public ResponseEntity<ApiError> handleDuplicateEmail(
                         DuplicateEmailException exception,

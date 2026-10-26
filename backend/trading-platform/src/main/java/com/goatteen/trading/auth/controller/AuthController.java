@@ -21,6 +21,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.Duration;
 import java.util.List;
+import org.springframework.security.web.csrf.CsrfToken;
+import com.goatteen.trading.auth.security.AuthRateLimiter;
+import com.goatteen.trading.auth.exception.InvalidCredentialsException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -30,13 +33,23 @@ public class AuthController {
     private static final String REFRESH_COOKIE = "leap_refresh_token";
 
     private final RefreshTokenService refreshTokenService;
+    private final AuthRateLimiter limiter;
 
     public AuthController(
             AuthService authService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            AuthRateLimiter limiter) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
+        this.limiter = limiter;
     }
+
+    @GetMapping("/csrf")
+    public CsrfResponse csrf(CsrfToken token) {
+        return new CsrfResponse(token.getHeaderName(), token.getToken());
+    }
+
+    public record CsrfResponse(String headerName, String token) { }
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(
@@ -66,7 +79,15 @@ public class AuthController {
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
 
-        AuthService.LoginResult result = authService.login(request);
+        limiter.checkLogin(request.getEmail());
+        AuthService.LoginResult result;
+        try {
+            result = authService.login(request);
+            limiter.successfulLogin(request.getEmail());
+        } catch (InvalidCredentialsException invalid) {
+            limiter.failedLogin(request.getEmail());
+            throw invalid;
+        }
 
         addRefreshCookie(
                 servletResponse,

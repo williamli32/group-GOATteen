@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -37,7 +38,7 @@ class AuthRegistrationControllerTest {
 
     @Test
     void registrationRequiresCurrency() throws Exception {
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
+        mvc.perform(post("/api/auth/register").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("""
                 {"firstName":"Test","lastName":"User","email":"test@example.com",
                  "password":"Password123!","role":"CLIENT"}
                 """))
@@ -47,7 +48,7 @@ class AuthRegistrationControllerTest {
 
     @Test
     void administratorIsNotASignupOption() throws Exception {
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
+        mvc.perform(post("/api/auth/register").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("""
                 {"firstName":"Test","lastName":"User","email":"test@example.com",
                  "password":"Password123!","role":"ADMIN","currency":"USD"}
                 """))

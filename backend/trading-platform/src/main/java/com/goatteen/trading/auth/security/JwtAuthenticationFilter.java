@@ -70,8 +70,18 @@ public class JwtAuthenticationFilter
         }
 
 
-        Long userId =
-                jwtService.extractUserId(token);
+        Long userId;
+        try {
+            userId = jwtService.extractUserId(token);
+            if (userId == null || userId <= 0) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+        } catch (RuntimeException invalidClaims) {
+            // The token can expire between validation and claims extraction.
+            filterChain.doFilter(request, response);
+            return;
+        }
 
 
         User user =
@@ -79,7 +89,7 @@ public class JwtAuthenticationFilter
                         .orElse(null);
 
 
-        if (user != null &&
+        if (user != null && user.isEnabled() &&
                 SecurityContextHolder
                         .getContext()
                         .getAuthentication() == null) {

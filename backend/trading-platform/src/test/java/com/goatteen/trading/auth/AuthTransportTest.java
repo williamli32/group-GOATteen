@@ -28,6 +28,7 @@ import java.util.Set;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -42,6 +43,7 @@ class AuthTransportTest {
             """;
 
     @Autowired MockMvc mvc;
+    @Autowired com.goatteen.trading.auth.security.AuthRateLimiter limiter;
     @MockBean JwtService jwt;
     @MockBean UserRepository users;
     @MockBean AuthService auth;
@@ -57,7 +59,7 @@ class AuthTransportTest {
     @ValueSource(booleans = {false, true})
     void loginCookieFollowsTheRequestTransport(boolean secure) throws Exception {
         stubLogin();
-        mvc.perform(post("/api/auth/login").secure(secure)
+        mvc.perform(post("/api/auth/login").with(csrf()).secure(secure)
                         .contentType(MediaType.APPLICATION_JSON).content(LOGIN))
                 .andExpect(status().isOk())
                 .andExpect(cookie().value(COOKIE, "refresh-token"))
@@ -74,7 +76,7 @@ class AuthTransportTest {
         when(refresh.rotateSession("previous-token")).thenReturn(
                 new RefreshTokenService.RefreshTokenResult("rotated-token", LocalDateTime.now().plusDays(7), user));
         when(auth.generateAccessToken(user)).thenReturn("access-token");
-        mvc.perform(post("/api/auth/refresh").secure(secure)
+        mvc.perform(post("/api/auth/refresh").with(csrf()).secure(secure)
                         .cookie(new Cookie(COOKIE, "previous-token")))
                 .andExpect(status().isOk())
                 .andExpect(cookie().value(COOKIE, "rotated-token"))
@@ -86,7 +88,7 @@ class AuthTransportTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void logoutClearsTheCookieWithMatchingTransportAndPath(boolean secure) throws Exception {
-        mvc.perform(post("/api/auth/logout").secure(secure)
+        mvc.perform(post("/api/auth/logout").with(csrf()).secure(secure)
                         .cookie(new Cookie(COOKIE, "refresh-token")))
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge(COOKIE, 0))
@@ -99,9 +101,9 @@ class AuthTransportTest {
     @Test
     void httpsTerminatedAtTheProxyStillProducesASecureCookie() throws Exception {
         stubLogin();
-        MockMvc behindProxy = MockMvcBuilders.standaloneSetup(new AuthController(auth, refresh))
+        MockMvc behindProxy = MockMvcBuilders.standaloneSetup(new AuthController(auth, refresh, limiter))
                 .addFilters(new ForwardedHeaderFilter()).build();
-        behindProxy.perform(post("/api/auth/login")
+        behindProxy.perform(post("/api/auth/login").with(csrf())
                         .header("X-Forwarded-Proto", "https")
                         .header("X-Forwarded-Host", "trading.example.com")
                         .contentType(MediaType.APPLICATION_JSON).content(LOGIN))

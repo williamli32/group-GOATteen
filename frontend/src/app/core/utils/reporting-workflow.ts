@@ -1,3 +1,5 @@
+import { accessToken } from '../auth/session-token';
+
 const DAY_MS = 86_400_000;
 
 export function dateValue(value: unknown): number | null {
@@ -47,7 +49,7 @@ export function pageRows<T>(rows: T[], page: number, size: number): T[] {
 // JWT subject scopes browser-session preferences to the signed-in user.
 function preferenceKey(view: string): string | null {
   try {
-    const token = localStorage.getItem('accessToken');
+    const token = accessToken();
     if (!token) return null;
     const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const subject = JSON.parse(atob(payload)).sub;

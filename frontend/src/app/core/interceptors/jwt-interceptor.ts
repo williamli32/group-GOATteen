@@ -1,4 +1,5 @@
 import { inject } from '@angular/core';
+import { isApiRequest } from './api-request';
 import {
   HttpErrorResponse,
   HttpInterceptorFn
@@ -10,7 +11,6 @@ import {
   finalize,
   shareReplay,
   switchMap,
-  tap,
   throwError
 } from 'rxjs';
 
@@ -24,6 +24,8 @@ let refreshRequest$: Observable<RefreshResponse> | null = null;
 
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
+
+  if (!isApiRequest(req.url)) return next(req);
 
   const auth = inject(Auth);
 
@@ -70,24 +72,6 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
       if (!refreshRequest$) {
 
         refreshRequest$ = auth.refresh().pipe(
-
-          tap(refreshResponse => {
-
-            auth.saveToken(
-              refreshResponse.accessToken
-            );
-
-          }),
-
-          catchError(refreshError => {
-
-            auth.clearToken();
-
-            return throwError(
-              () => refreshError
-            );
-
-          }),
 
           finalize(() => {
 

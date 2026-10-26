@@ -28,9 +28,15 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET}
-    access-token-expiration-minutes: ${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES:60}
+    access-token-expiration-minutes: ${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES:15}
   auth:
     internal-access-code: ${INTERNAL_ACCESS_CODE:goatteen14}
     refresh-token-expiration-days: ${REFRESH_TOKEN_EXPIRATION_DAYS:7}
+    maximum-session-days: ${MAXIMUM_SESSION_DAYS:30}
+    rate-limit:
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+      requests-per-minute: ${AUTH_REQUESTS_PER_MINUTE:60}
+      failed-logins: ${AUTH_FAILED_LOGINS:10}
+      failure-window-seconds: ${AUTH_FAILURE_WINDOW_SECONDS:300}
   reporting:
     backfill-enabled: ${REPORTING_BACKFILL_ENABLED:false}
