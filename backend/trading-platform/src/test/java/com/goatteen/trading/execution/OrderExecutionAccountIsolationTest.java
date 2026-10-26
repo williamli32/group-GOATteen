@@ -2,6 +2,8 @@ package com.goatteen.trading.execution;
 
 import com.goatteen.trading.support.DatabaseIntegrationTestSupport;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +32,9 @@ class OrderExecutionAccountIsolationTest extends DatabaseIntegrationTestSupport 
 
     @Autowired
     private OrderExecutionService executionService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /*
      * Goal 5:
@@ -159,6 +164,9 @@ class OrderExecutionAccountIsolationTest extends DatabaseIntegrationTestSupport 
                 order1Id,
                 order1Key);
 
+        // JDBC reads database rows directly; synchronize this test's open JPA transaction first.
+        entityManager.flush();
+
         BigDecimal expectedCost1 = new BigDecimal("150.05")
                 .multiply(
                         new BigDecimal("10"));
@@ -237,6 +245,8 @@ class OrderExecutionAccountIsolationTest extends DatabaseIntegrationTestSupport 
         executionService.executeOrder(
                 order2Id,
                 order2Key);
+
+        entityManager.flush();
 
         BigDecimal expectedCost2 = new BigDecimal("150.05")
                 .multiply(
@@ -479,6 +489,8 @@ class OrderExecutionAccountIsolationTest extends DatabaseIntegrationTestSupport 
         assertEquals(
                 0,
                 expected.compareTo(
-                        actual));
+                        actual),
+                () -> "Expected amount " + expected.toPlainString()
+                        + " but was " + actual.toPlainString());
     }
 }
