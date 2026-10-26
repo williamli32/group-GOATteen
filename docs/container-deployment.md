@@ -44,12 +44,14 @@ From the repository root on Linux, after applying and pushing this patch:
 ```bash
 git switch feature/more-graphs
 git pull --ff-only
-python3 deploy/init-env.py
-docker compose --env-file .env.deploy -f compose.deploy.yaml config --quiet
-docker compose --env-file .env.deploy -f compose.deploy.yaml up -d --build --wait --wait-timeout 240
-docker compose --env-file .env.deploy -f compose.deploy.yaml ps
-python3 deploy/smoke-check.py http://localhost:8082
+python deploy/init-env.py
+docker-compose --env-file .env.deploy -f compose.deploy.yaml config --quiet
+docker-compose --env-file .env.deploy -f compose.deploy.yaml up -d --build --wait --wait-timeout 240
+docker-compose --env-file .env.deploy -f compose.deploy.yaml ps
+python deploy/smoke-check.py http://localhost:8082
 ```
+
+Commands above are for Windows
 
 The generator creates `.env.deploy` with a distinct database password,
 PostgreSQL administrator password, a Base64 JWT secret and a shared
@@ -80,7 +82,7 @@ alongside the existing `leap-postgres` container without opening a web port.
 Open a PowerShell terminal on Windows:
 
 ```powershell
-ssh -N -L 8082:127.0.0.1:8082 ec2-user@10.14.137.224
+ssh -N -L 8082:127.0.0.1:8082 ec2-user@<linux-ip>
 ```
 
 Leave that terminal open and visit `http://localhost:8082` in Windows.
