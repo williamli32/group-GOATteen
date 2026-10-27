@@ -1,13 +1,60 @@
 :host {
   display: block;
-  margin: 22px 0;
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 70;
+  max-width: calc(100vw - 32px);
 }
 .chatbot {
-  border: 1px solid var(--tint-border);
-  border-radius: 14px;
-  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+.chat-panel {
+  width: min(420px, calc(100vw - 32px));
+  height: min(640px, calc(100dvh - 112px - env(safe-area-inset-bottom)));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
   background: var(--surface);
   color: var(--ink);
+  box-shadow: 0 16px 64px var(--shadow-color);
+}
+.chat-heading {
+  flex: 0 0 auto;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+.chat-heading-copy {
+  flex: 1;
+  min-width: 0;
+}
+.chat-mark {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--emerald-soft);
+  color: var(--emerald);
+}
+.chat-mark svg {
+  width: 24px;
+  height: 24px;
+}
+.chat-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 16px;
 }
 .chat-heading,
 .trade-actions {
@@ -17,7 +64,7 @@
   gap: 12px;
 }
 h2 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 650;
   margin: 2px 0 4px;
   letter-spacing: -0.4px;
@@ -57,19 +104,18 @@ button:hover:not(:disabled) {
   background: var(--emerald-hover);
 }
 .secondary,
-.toggle,
 .chat-examples button {
   background: var(--surface);
   color: var(--emerald);
   border-color: var(--line-strong);
 }
 .secondary:hover:not(:disabled),
-.toggle:hover:not(:disabled),
 .chat-examples button:hover:not(:disabled) {
   background: var(--hover);
 }
 .simulation-note {
-  margin: 16px 0 8px;
+  margin: 0 0 10px;
+  font-size: 11px;
 }
 .chat-examples {
   display: flex;
@@ -78,7 +124,7 @@ button:hover:not(:disabled) {
   margin-bottom: 12px;
 }
 .conversation {
-  max-height: 380px;
+  max-height: 300px;
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--line);
@@ -173,7 +219,11 @@ dd {
   flex-wrap: wrap;
 }
 .chat-composer {
-  margin-top: 16px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
 }
 .chat-composer label {
   display: block;
@@ -204,19 +254,54 @@ input {
   color: var(--emerald);
   margin-top: 12px;
 }
+.chat-launcher {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow: 0 8px 28px var(--shadow-color);
+}
+.chat-launcher svg {
+  width: 27px;
+  height: 27px;
+}
+.chat-launcher:hover {
+  transform: translateY(-2px);
+}
+.close-chat {
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  flex-shrink: 0;
+}
+.close-chat svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
 @media (max-width: 600px) {
-  .chatbot {
-    padding: 16px;
+  :host {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
   }
-  .chat-heading {
-    align-items: flex-start;
+  .chat-panel {
+    width: calc(100vw - 24px);
+    height: min(640px, calc(100dvh - 100px - env(safe-area-inset-bottom)));
   }
-  h2 {
-    font-size: 16px;
+  .chat-heading,
+  .chat-body,
+  .chat-composer {
+    padding: 12px;
   }
-  .toggle {
+  .chat-examples {
+    gap: 6px;
+  }
+  .chat-examples button {
     padding-inline: 10px;
-    flex-shrink: 0;
   }
   .chat-message {
     max-width: 100%;

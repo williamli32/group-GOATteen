@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import {
+  afterRenderEffect,
   Component,
   DestroyRef,
   effect,
@@ -77,8 +78,28 @@ export class TradingChatbotComponent {
   private readonly orders = inject(OrderService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly conversation = viewChild<ElementRef<HTMLElement>>('conversation');
+  private readonly launcher = viewChild<ElementRef<HTMLButtonElement>>('chatLauncher');
+  private readonly composer = viewChild<ElementRef<HTMLInputElement>>('chatInput');
+  private readonly panel = viewChild<ElementRef<HTMLElement>>('chatPanel');
+  private readonly orderPreview = viewChild<ElementRef<HTMLElement>>('orderPreview');
 
   constructor() {
+    afterRenderEffect({
+      write: () => {
+        const input = this.composer()?.nativeElement;
+        if (!this.isOpen() || !input) return;
+        const target = input.disabled ? this.panel()?.nativeElement : input;
+        target?.focus({ preventScroll: true });
+      },
+    });
+    afterRenderEffect({
+      write: () => {
+        this.preview();
+        this.pending();
+        if (this.isOpen())
+          this.orderPreview()?.nativeElement.scrollIntoView?.({ block: 'nearest' });
+      },
+    });
     effect(() => {
       this.messages();
       const log = this.conversation();
@@ -104,6 +125,23 @@ export class TradingChatbotComponent {
         this.restorePending(accountId);
       });
     });
+  }
+
+  toggleChat(): void {
+    if (this.isOpen()) this.closeChat();
+    else this.isOpen.set(true);
+  }
+
+  closeChat(): void {
+    this.isOpen.set(false);
+    this.launcher()?.nativeElement.focus({ preventScroll: true });
+  }
+
+  onChatKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || !this.isOpen()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeChat();
   }
 
   sendExample(message: string): void {

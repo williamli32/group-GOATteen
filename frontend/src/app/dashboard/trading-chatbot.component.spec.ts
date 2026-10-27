@@ -333,4 +333,67 @@ describe('TradingChatbotComponent', () => {
     expect(root.querySelector('img')).toBeNull();
     expect(root.textContent).toContain('<img src=x onerror=alert(1)>');
   });
+
+  it('opens from the icon button, focuses the composer and returns focus when closed', async () => {
+    component.closeChat();
+    fixture.detectChanges();
+    const launcher = fixture.nativeElement.querySelector('.chat-launcher') as HTMLButtonElement;
+    expect(launcher.getAttribute('aria-label')).toBe('Open chat');
+    expect(launcher.getAttribute('aria-expanded')).toBe('false');
+    expect(launcher.querySelector('svg')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+    launcher.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog.getAttribute('aria-labelledby')).toBe('trading-chat-title');
+    expect(launcher.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(dialog.querySelector('input'));
+    (dialog.querySelector('.close-chat') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(launcher);
+  });
+
+  it('minimizes with Escape and retains the conversation, draft order and unsent message', () => {
+    send('buy 5 AAPL');
+    component.message = 'an unsent message';
+    const count = component.messages().length;
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    fixture.detectChanges();
+    expect(component.isOpen()).toBe(false);
+    expect(component.preview()?.request.quantity).toBe(5);
+    component.toggleChat();
+    fixture.detectChanges();
+    expect(component.messages()).toHaveLength(count);
+    expect(component.message).toBe('an unsent message');
+    expect(fixture.nativeElement.querySelector('.trade-preview').textContent).toContain('AAPL');
+    expect(orders.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it('lets a confirmed order finish while minimized without resubmitting it on reopen', () => {
+    const request = new Subject<OrderResponse>();
+    orders.placeOrder.mockReturnValue(request);
+    const changed = vi.fn();
+    component.orderChanged.subscribe(changed);
+    send('buy 5 AAPL');
+    component.confirmOrder();
+    const key = component.pending()!.key;
+    component.closeChat();
+    fixture.detectChanges();
+    expect(component.pending()?.key).toBe(key);
+    request.next(order);
+    request.complete();
+    fixture.detectChanges();
+    expect(component.isOpen()).toBe(false);
+    expect(component.pending()).toBeNull();
+    expect(changed).toHaveBeenCalledWith(order);
+    component.toggleChat();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Order #77 filled');
+    expect(orders.placeOrder).toHaveBeenCalledTimes(1);
+  });
 });
