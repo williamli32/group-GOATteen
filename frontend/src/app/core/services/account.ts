@@ -40,6 +40,14 @@ export interface HoldingsResponse {
   positions: PositionResponse[];
 }
 
+export interface PortfolioHistoryPoint {
+  date: string;
+  value: number | null;
+  cashValue: number;
+  holdingsValue: number | null;
+  unavailable?: string[];
+}
+
 
 export interface OrderResponse {
   id: number;
@@ -48,6 +56,10 @@ export interface OrderResponse {
   status: string;
   rejectionReason: string | null;
   fillPrice: number | null;
+  fillCurrency: string;
+  accountCurrency: string;
+  fxRate: number | null;
+  settlementAmount: number | null;
   submittedAt: string;
   filledAt: string | null;
 }
@@ -79,6 +91,10 @@ export class AccountService {
     return this.http.post<AddFundsResponse>(`${this.apiUrl}/me/funds`, { amount, idempotencyKey });
   }
 
+  withdrawFunds(amount: string, idempotencyKey: string): Observable<AddFundsResponse> {
+    return this.http.post<AddFundsResponse>(`${this.apiUrl}/me/funds/withdraw`, { amount, idempotencyKey });
+  }
+
 
   getHoldings(): Observable<HoldingsResponse> {
 
@@ -86,6 +102,12 @@ export class AccountService {
       `${this.apiUrl}/me/holdings`
     );
 
+  }
+
+  getPortfolioHistory(days = 7): Observable<PortfolioHistoryPoint[]> {
+    return this.http.get<PortfolioHistoryPoint[]>(
+      `${this.apiUrl}/me/portfolio-history`, { params: { days } }
+    );
   }
 
 

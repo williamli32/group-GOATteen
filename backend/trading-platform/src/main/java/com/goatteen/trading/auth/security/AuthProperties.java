@@ -6,6 +6,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AuthProperties {
 
     private long refreshTokenExpirationDays;
+    private String internalAccessCode;
+
+    public String getInternalAccessCode() {
+        return internalAccessCode;
+    }
+
+    public void setInternalAccessCode(String internalAccessCode) {
+        this.internalAccessCode = internalAccessCode;
+    }
 
     public long getRefreshTokenExpirationDays() {
         return refreshTokenExpirationDays;

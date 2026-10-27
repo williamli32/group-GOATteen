@@ -39,6 +39,12 @@ public class TradeAuditTrail {
     private final BigDecimal fillPrice;
     private final BigDecimal fillQuantity;
     private final LocalDateTime executedAt;
+    private final String fxSourceCurrency;
+    private final String fxTargetCurrency;
+    private final BigDecimal fxRate;
+    private final java.time.LocalDate fxRateDate;
+    private final String fxProvider;
+    private final BigDecimal cashSettlementAmount;
 
     // Quote
     private final Long quoteId;
@@ -88,6 +94,12 @@ public class TradeAuditTrail {
             this.fillPrice = fill.getFillPrice();
             this.fillQuantity = fill.getFillQuantity();
             this.executedAt = fill.getExecutedAt();
+            this.fxSourceCurrency = fill.getFxSourceCurrency();
+            this.fxTargetCurrency = fill.getFxTargetCurrency();
+            this.fxRate = fill.getFxRate();
+            this.fxRateDate = fill.getFxRateDate();
+            this.fxProvider = fill.getFxProvider();
+            this.cashSettlementAmount = fill.getCashSettlementAmount();
 
             if (fill.getQuote() != null) {
                 this.quoteId = fill.getQuote().getId();
@@ -107,6 +119,12 @@ public class TradeAuditTrail {
             this.fillPrice = null;
             this.fillQuantity = null;
             this.executedAt = null;
+            this.fxSourceCurrency = null;
+            this.fxTargetCurrency = null;
+            this.fxRate = null;
+            this.fxRateDate = null;
+            this.fxProvider = null;
+            this.cashSettlementAmount = null;
 
             this.quoteId = null;
             this.bidPrice = null;
@@ -224,6 +242,13 @@ public class TradeAuditTrail {
         return fillQuantity;
     }
 
+    public String getFxSourceCurrency() { return fxSourceCurrency; }
+    public String getFxTargetCurrency() { return fxTargetCurrency; }
+    public BigDecimal getFxRate() { return fxRate; }
+    public java.time.LocalDate getFxRateDate() { return fxRateDate; }
+    public String getFxProvider() { return fxProvider; }
+    public BigDecimal getCashSettlementAmount() { return cashSettlementAmount; }
+
     public LocalDateTime getExecutedAt() {
         return executedAt;
     }
@@ -283,6 +308,12 @@ public class TradeAuditTrail {
                     && fillPrice != null
                     && fillQuantity != null
                     && executedAt != null
+                    && fxSourceCurrency != null
+                    && fxTargetCurrency != null
+                    && fxRate != null
+                    && fxRateDate != null
+                    && fxProvider != null
+                    && cashSettlementAmount != null
                     && quoteId != null
                     && bidPrice != null
                     && askPrice != null

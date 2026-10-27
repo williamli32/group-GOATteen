@@ -11,5 +11,14 @@ public record MarketInstrumentResponse(
                 String countryCode,
                 String currency,
                 boolean tradable,
-                LatestQuoteResponse latestQuote) {
+                LatestQuoteResponse latestQuote,
+                DailyPriceChange dayChange) {
+
+    public MarketInstrumentResponse(
+            Long instrumentId, String symbol, String name, InstrumentClass instrumentClass,
+            String exchange, String countryCode, String currency, boolean tradable,
+            LatestQuoteResponse latestQuote) {
+        this(instrumentId, symbol, name, instrumentClass, exchange, countryCode,
+                currency, tradable, latestQuote, null);
+    }
 }

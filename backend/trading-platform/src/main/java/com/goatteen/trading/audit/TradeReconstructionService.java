@@ -303,9 +303,9 @@ public class TradeReconstructionService {
 
         } else if (order.getStatus() == OrderStatus.REJECTED) {
 
-            expectedStatuses = List.of(
-                    OrderStatus.SUBMITTED,
-                    OrderStatus.REJECTED);
+            expectedStatuses = actualStatuses.contains(OrderStatus.ACCEPTED)
+                    ? List.of(OrderStatus.SUBMITTED, OrderStatus.ACCEPTED, OrderStatus.REJECTED)
+                    : List.of(OrderStatus.SUBMITTED, OrderStatus.REJECTED);
 
         } else {
 
@@ -514,12 +514,27 @@ public class TradeReconstructionService {
                             + transaction.getId());
         }
 
-        BigDecimal expectedCashMovement = fill.getFillPrice()
-                .multiply(fill.getFillQuantity())
-                .setScale(2, RoundingMode.HALF_UP);
-        if (order.getSide() == OrderSide.BUY) {
-            expectedCashMovement = expectedCashMovement.negate();
+        // Reconstruct from the IMMUTABLE execution-time FX snapshot, never from today's rate.
+        if (fill.getFxSourceCurrency() == null || fill.getFxTargetCurrency() == null ||
+                fill.getFxRate() == null || fill.getFxRate().signum() <= 0 ||
+                fill.getFxRateDate() == null || fill.getFxProvider() == null ||
+                fill.getFxProvider().isBlank() || fill.getCashSettlementAmount() == null ||
+                !order.getInstrument().getCurrency().equalsIgnoreCase(fill.getFxSourceCurrency()) ||
+                !order.getAccount().getCurrency().equalsIgnoreCase(fill.getFxTargetCurrency())) {
+            throw new TradeReconstructionException("Missing or invalid persisted FX decision");
         }
+        int scale = java.util.Currency.getInstance(fill.getFxTargetCurrency())
+                .getDefaultFractionDigits();
+        boolean sameCurrency = fill.getFxSourceCurrency().equalsIgnoreCase(fill.getFxTargetCurrency());
+        BigDecimal unsignedSettlement = fill.getFillPrice()
+                .multiply(fill.getFillQuantity()).multiply(fill.getFxRate())
+                .setScale(scale, sameCurrency ? RoundingMode.HALF_UP
+                        : order.getSide() == OrderSide.BUY ? RoundingMode.CEILING : RoundingMode.FLOOR);
+        if (unsignedSettlement.compareTo(fill.getCashSettlementAmount()) != 0) {
+            throw new TradeReconstructionException("FX settlement amount does not match execution");
+        }
+        BigDecimal expectedCashMovement = order.getSide() == OrderSide.BUY
+                ? unsignedSettlement.negate() : unsignedSettlement;
 
         if (transaction.getAmount()
                 .compareTo(expectedCashMovement) != 0) {

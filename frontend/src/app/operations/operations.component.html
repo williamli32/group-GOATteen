@@ -1,101 +1,608 @@
-<main class="operations-shell">
-    <header class="operations-header">
-        <div><p class="eyebrow">INTERNAL OPERATIONS</p><h1>Trade investigation</h1></div>
-        <span class="access-badge">PERSISTED RECORDS</span>
-    </header>
+<section aria-label="Operations investigation" class="operations-shell">
+  <header class="operations-header">
+    <div>
+      <p class="eyebrow">INTERNAL OPERATIONS</p>
+      <h1>Trade investigation</h1>
+      <p>
+        Find an order, verify its identity, then review the lifecycle, execution and settlement
+        evidence.
+      </p>
+      <span class="access-badge">READ-ONLY EVIDENCE</span>
+    </div>
+    <app-market-motion [framed]="true" />
+  </header>
 
-    <section class="search-panel">
-        <div class="panel-title"><div><p class="eyebrow">ORDER SEARCH</p><h2>Find an order</h2></div><div class="search-actions"><button type="button" class="reset-button" (click)="resetFilters()">Reset filters</button><span>OPERATIONS ACCESS</span></div></div>
-        <div class="search-grid">
-            <label><span>Order ID</span><input type="number" placeholder="Any order" [ngModel]="orderId() ?? ''" (ngModelChange)="setNumber('orderId', $event)"></label>
-            <label><span>Client first name</span><input type="text" placeholder="Any first name" [ngModel]="clientFirstName()" (ngModelChange)="setClientFirstName($event)"></label>
-            <label><span>Client last name</span><input type="text" placeholder="Any last name" [ngModel]="clientLastName()" (ngModelChange)="setClientLastName($event)"></label>
-            <label><span>Account ID</span><input type="number" placeholder="Any account" [ngModel]="accountId() ?? ''" (ngModelChange)="setNumber('accountId', $event)"></label>
-            <label><span>Symbol</span><input type="text" placeholder="Any symbol" [ngModel]="instrumentSymbol()" (ngModelChange)="setInstrumentSymbol($event)"></label>
-            <label><span>Side</span><select [ngModel]="side() ?? ''" (ngModelChange)="setSide($event)"><option value="">BUY and SELL</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
-            <label><span>Status</span><select [ngModel]="status() ?? ''" (ngModelChange)="setStatus($event)"><option value="">All statuses</option><option value="FILLED">FILLED</option><option value="REJECTED">REJECTED</option></select></label>
-            <label><span>From</span><input type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" [max]="toDate()"></label>
-            <label><span>To</span><input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" [min]="fromDate()"></label>
-            <button class="search-button" type="button" (click)="search()" [disabled]="loading()">{{ loading() ? 'Searching...' : 'Search orders' }}</button>
+  <section class="search-panel" aria-label="Order search filters">
+    <div class="panel-title">
+      <div>
+        <p class="eyebrow">ORDER SEARCH</p>
+        <h2>Find an order</h2>
+      </div>
+      <div class="search-actions">
+        <button type="button" class="reset-button" (click)="resetFilters()" [disabled]="loading()">
+          Reset filters</button
+        ><span>OPERATIONS ACCESS</span>
+      </div>
+    </div>
+    <div class="quick-lookup">
+      <label
+        ><span>Order ID</span
+        ><input
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Any order"
+          [ngModel]="orderId() ?? ''"
+          (ngModelChange)="setNumber('orderId', $event)"
+      /></label>
+      <button
+        type="button"
+        class="reset-button"
+        (click)="findOrderAcrossDates()"
+        [disabled]="loading() || orderId() === undefined"
+      >
+        Find ID across all dates
+      </button>
+      <p>Have an order ID?<br />Go straight to its recorded evidence.</p>
+    </div>
+    <details class="search-options">
+      <summary>
+        Filter by client, account, instrument or date <span>Refine your search</span>
+      </summary>
+      <div class="search-grid">
+        <label
+          ><span>Client first name</span
+          ><input
+            type="text"
+            placeholder="Any first name"
+            [ngModel]="clientFirstName()"
+            (ngModelChange)="setClientFirstName($event)"
+        /></label>
+        <label
+          ><span>Client last name</span
+          ><input
+            type="text"
+            placeholder="Any last name"
+            [ngModel]="clientLastName()"
+            (ngModelChange)="setClientLastName($event)"
+        /></label>
+        <label
+          ><span>Account ID</span
+          ><input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="Any account"
+            [ngModel]="accountId() ?? ''"
+            (ngModelChange)="setNumber('accountId', $event)"
+        /></label>
+        <label
+          ><span>Symbol</span
+          ><input
+            type="text"
+            placeholder="Any symbol"
+            [ngModel]="instrumentSymbol()"
+            (ngModelChange)="setInstrumentSymbol($event)"
+        /></label>
+        <label
+          ><span>Side</span
+          ><select [ngModel]="side() ?? ''" (ngModelChange)="setSide($event)">
+            <option value="">BUY and SELL</option>
+            <option value="BUY">BUY</option>
+            <option value="SELL">SELL</option>
+          </select></label
+        >
+        <label
+          ><span>Status</span
+          ><select [ngModel]="status() ?? ''" (ngModelChange)="setStatus($event)">
+            <option value="">All statuses</option>
+            <option value="FILLED">FILLED</option>
+            <option value="REJECTED">REJECTED</option>
+          </select></label
+        >
+        <label
+          ><span>From (optional)</span
+          ><input
+            type="date"
+            [ngModel]="fromDate()"
+            (ngModelChange)="fromDate.set($event)"
+            [max]="toDate()"
+        /></label>
+        <label
+          ><span>To (optional)</span
+          ><input
+            type="date"
+            [ngModel]="toDate()"
+            (ngModelChange)="toDate.set($event)"
+            [min]="fromDate()"
+        /></label>
+      </div>
+      <div class="search-form-actions">
+        <button class="search-button" type="button" (click)="search()" [disabled]="loading()">
+          {{ loading() ? 'Searching...' : 'Search orders' }}
+        </button>
+      </div>
+    </details>
+    <div class="search-help">
+      <span
+        >Filter search combines all selected criteria. “Find ID across all dates” clears the other
+        filters.</span
+      >
+    </div>
+    @if (draftChanged()) {
+      <div class="draft-notice" role="status">
+        Draft changes are not applied to the results.
+        <button type="button" class="reset-button" (click)="discardDraft()">Discard edits</button>
+      </div>
+    }
+    @if (filterError()) {
+      <p class="filter-error" role="alert">{{ filterError() }}</p>
+    }
+  </section>
+
+  @if (hasSearched()) {
+    <section class="applied-scope" aria-label="Applied operations filters">
+      <div>
+        <strong>Applied filters</strong>
+        <p>{{ appliedScope() }}</p>
+      </div>
+      <button type="button" class="reset-button" (click)="refreshApplied()" [disabled]="loading()">
+        Refresh applied results
+      </button>
+    </section>
+  }
+  @if (errorMessage()) {
+    <div class="error-banner" role="alert">
+      {{ errorMessage() }}
+      <button type="button" class="reset-button" (click)="retrySearch()" [disabled]="loading()">
+        Retry search
+      </button>
+    </div>
+  }
+
+  <div class="operations-layout" [class.investigating]="selectedOrder() !== null">
+    <section class="blotter-panel" [attr.aria-busy]="loading()">
+      <div class="panel-title">
+        <div>
+          <p class="eyebrow">ORDERS LIST</p>
+          <h2>{{ loading() ? 'Searching orders' : orders().length + ' matching orders' }}</h2>
         </div>
+        <span>SELECT TO INVESTIGATE</span>
+      </div>
+      <div class="table-scroll">
+        <table role="table" class="workspace-table">
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">Order</th>
+              <th scope="col" role="columnheader">Client / Account</th>
+              <th scope="col" role="columnheader">Instrument</th>
+              <th scope="col" role="columnheader">Side</th>
+              <th scope="col" role="columnheader">Status</th>
+              <th scope="col" role="columnheader">Submitted (recorded time)</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            @if (loading()) {
+              <tr role="row">
+                <td role="cell" colspan="6" class="empty">
+                  <span role="status">Loading orders...
+                  {{ orders().length ? 'Previous applied results remain below.' : '' }}</span>
+                </td>
+              </tr>
+            }
+            @for (order of visibleOrders(); track order.orderId) {
+              <tr
+                role="row"
+                [class.selected-row]="selectedOrder()?.orderId === order.orderId"
+                (click)="inspect(order)"
+              >
+                <td role="cell" data-label="Order">
+                  <button
+                    type="button"
+                    class="inspect-button"
+                    [attr.data-order-id]="order.orderId"
+                    (click)="inspect(order); $event.stopPropagation()"
+                    [attr.aria-label]="
+                      'Inspect order ' + order.orderId + ', ' + order.instrumentSymbol
+                    "
+                    aria-controls="investigation-panel"
+                  >
+                    #{{ order.orderId }}
+                  </button>
+                  <small>{{ formatNumber(order.quantity) }} units</small>
+                </td>
+                <td role="cell" data-label="Client / Account">
+                  <strong>{{ order.clientName }}</strong
+                  ><small>Client #{{ order.clientId }} · {{ order.accountNumber }}</small
+                  ><small>Account #{{ order.accountId }}</small>
+                </td>
+                <td role="cell" data-label="Instrument">{{ order.instrumentSymbol }}</td>
+                <td role="cell" data-label="Side">
+                  <span
+                    class="side-pill"
+                    [class.buy]="order.side === 'BUY'"
+                    [class.sell]="order.side === 'SELL'"
+                    >{{ order.side }}</span
+                  >
+                </td>
+                <td role="cell" data-label="Status">
+                  <span class="status-pill" [class]="'status-' + order.status.toLowerCase()">{{
+                    order.status
+                  }}</span>
+                </td>
+                <td role="cell" data-label="Submitted (recorded time)">
+                  {{ timestamp(order.submittedAt) }}
+                </td>
+              </tr>
+            } @empty {
+              @if (!loading() && !errorMessage()) {
+                <tr role="row">
+                  <td role="cell" colspan="6" class="empty">
+                    No orders match the applied filters. Widen the dates, clear filters, or enter an
+                    order ID and choose “Find ID across all dates”.
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-result-pagination
+        label="Orders"
+        [total]="orders().length"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        [disabled]="loading()"
+        (pageChange)="changePage($event)"
+        (pageSizeChange)="changePageSize($event)"
+      />
     </section>
 
-    @if (errorMessage()) { <div class="error-banner" role="alert">{{ errorMessage() }}</div> }
-
-    <div class="operations-layout">
-        <section class="blotter-panel" [attr.aria-busy]="loading()">
-            <div class="panel-title"><div><p class="eyebrow">ORDERS LIST</p><h2>{{ loading() ? 'Searching orders' : orders().length + ' matching orders' }}</h2></div><span>SELECT TO INVESTIGATE</span></div>
-            <div class="table-scroll"><table><thead><tr><th>Order</th><th>Client / Account</th><th>Instrument</th><th>Side</th><th>Status</th><th>Submitted</th></tr></thead><tbody>
-                @if (loading()) {
-                    <tr><td colspan="6" class="empty" role="status">Loading orders...</td></tr>
-                } @else {
-                    @for (order of orders(); track order.orderId) {
-                        <tr [class.selected-row]="selectedOrder()?.orderId === order.orderId" (click)="inspect(order)">
-                            <td><button type="button" class="inspect-button" (click)="inspect(order); $event.stopPropagation()"
-                                [attr.aria-label]="'Inspect order ' + order.orderId + ', ' + order.instrumentSymbol"
-                                aria-controls="investigation-panel">#{{ order.orderId }}</button><small>{{ formatNumber(order.quantity) }} units</small></td>
-                            <td><strong>{{ order.clientName }}</strong><small>{{ order.accountNumber }}</small></td>
-                            <td>{{ order.instrumentSymbol }}</td>
-                            <td><span class="side-pill" [class.buy]="order.side === 'BUY'" [class.sell]="order.side === 'SELL'">{{ order.side }}</span></td>
-                            <td><span class="status-pill" [class]="'status-' + order.status.toLowerCase()">{{ order.status }}</span></td>
-                            <td>{{ order.submittedAt | date:'MMM d, HH:mm' }}</td>
-                        </tr>
-                    } @empty {
-                        @if (!errorMessage()) { <tr><td colspan="6" class="empty">No orders match the selected filters.</td></tr> }
-                    }
-                }
-            </tbody></table></div>
-        </section>
-
-        <aside id="investigation-panel" class="detail-panel" [attr.aria-busy]="detailLoading()">
-            @if (selectedOrder(); as order) {
-                <div class="detail-heading">
-                    <div><p class="eyebrow">ORDER #{{ audit()?.evidence?.order?.orderId ?? order.orderId }}</p>
-                        <h2>{{ audit()?.evidence?.instrument?.symbol ?? order.instrumentSymbol }} · {{ audit()?.evidence?.currentStatus ?? order.status }}</h2></div>
-                    <button type="button" class="close-button" aria-label="Close investigation" (click)="clearSelection()">×</button>
+    <aside
+      #investigationPanel
+      id="investigation-panel"
+      class="detail-panel"
+      tabindex="-1"
+      aria-label="Order investigation"
+      [attr.aria-busy]="detailLoading()"
+    >
+      @if (selectedOrder(); as order) {
+        <div class="detail-heading">
+          <div>
+            <p class="eyebrow">ORDER #{{ order.orderId }}</p>
+            <h2>
+              {{ order.instrumentSymbol }} · {{ audit()?.evidence?.currentStatus ?? order.status }}
+            </h2>
+            <p>
+              {{ order.clientName }} · Client #{{ order.clientId }}<br />Account #{{
+                order.accountId
+              }}
+              · {{ order.accountNumber }}<br />{{ order.side }} ·
+              {{ formatNumber(order.quantity) }} units
+            </p>
+          </div>
+          <button
+            type="button"
+            class="close-button"
+            aria-label="Close investigation"
+            (click)="returnToResults()"
+          >
+            ×
+          </button>
+        </div>
+        <nav class="investigation-actions" aria-label="Investigation navigation">
+          <button type="button" class="reset-button" (click)="returnToResults()">
+            Back to results
+          </button>
+          <button
+            type="button"
+            class="reset-button"
+            (click)="inspectAdjacent(-1)"
+            [disabled]="loading() || selectedIndex() <= 0"
+          >
+            Previous order
+          </button>
+          <button
+            type="button"
+            class="reset-button"
+            (click)="inspectAdjacent(1)"
+            [disabled]="loading() || selectedIndex() < 0 || selectedIndex() >= orders().length - 1"
+          >
+            Next order
+          </button>
+          <button
+            type="button"
+            class="reset-button"
+            (click)="retryInspection()"
+            [disabled]="detailLoading()"
+          >
+            Refresh evidence
+          </button>
+        </nav>
+      }
+      @if (!selectedOrder()) {
+        <div class="detail-empty">
+          <p class="eyebrow">INVESTIGATION PANEL</p>
+          <h2>Select an order</h2>
+          <p>
+            Choose an order to inspect its persisted lifecycle, quote, cash ledger and holdings
+            evidence.
+          </p>
+        </div>
+      } @else if (detailLoading()) {
+        <div class="detail-empty" role="status">
+          <span class="loader"></span>
+          <p>Loading persisted evidence...</p>
+        </div>
+      } @else if (detailError()) {
+        <div class="detail-empty detail-error">
+          <p role="alert">{{ detailError() }}</p>
+          <button type="button" class="reset-button" (click)="retryInspection()">
+            Retry investigation
+          </button>
+        </div>
+      } @else if (audit(); as result) {
+        <div
+          class="integrity-banner"
+          [class.integrity-ok]="
+            !result.pending && result.integrity.valid && result.evidence.fullyReconstructable
+          "
+        >
+          <strong>{{ investigationTitle(result) }}</strong
+          ><span>{{ investigationGuidance(result) }}</span>
+          <details>
+            <summary>Recorded verification result</summary>
+            <p>{{ result.integrity.message }}</p>
+          </details>
+        </div>
+        <p class="evidence-note">
+          Instrument currency: {{ result.evidence.instrument.currency }} · Account currency:
+          {{ result.evidence.account.currency }}.<br />
+          Dates include the year. Times without an offset retain the source clock; explicit offsets
+          are shown in UTC.
+        </p>
+        <nav class="evidence-navigation" aria-label="Evidence sections">
+          <button
+            type="button"
+            [attr.aria-pressed]="evidenceSection() === 'lifecycle'"
+            aria-controls="lifecycle-evidence"
+            (click)="evidenceSection.set('lifecycle')"
+          >
+            1. Lifecycle
+          </button>
+          <button
+            type="button"
+            [attr.aria-pressed]="evidenceSection() === 'execution'"
+            aria-controls="execution-evidence"
+            (click)="evidenceSection.set('execution')"
+          >
+            2. Execution &amp; quote
+          </button>
+          <button
+            type="button"
+            [attr.aria-pressed]="evidenceSection() === 'settlement'"
+            aria-controls="settlement-evidence"
+            (click)="evidenceSection.set('settlement')"
+          >
+            3. Cash &amp; holdings
+          </button>
+        </nav>
+        <section
+          id="lifecycle-evidence"
+          class="detail-section"
+          [hidden]="evidenceSection() !== 'lifecycle'"
+        >
+          <h3>Lifecycle timeline</h3>
+          <div class="detail-fact">
+            <span>Submitted</span
+            ><strong>{{ timestamp(result.evidence.order.submittedAt) }}</strong>
+          </div>
+          <div class="timeline">
+            @for (entry of result.evidence.statusHistory; track entry.historyId) {
+              <div class="timeline-entry">
+                <i></i>
+                <div>
+                  <strong>{{ entry.status }}</strong
+                  ><span>{{ timestamp(entry.changedAt) }} · History #{{ entry.historyId }}</span>
+                  @if (entry.note) {
+                    <small>{{ entry.note }}</small>
+                  }
                 </div>
+              </div>
+            } @empty {
+              <p class="muted">
+                No status history was recorded. Refresh the evidence; the lifecycle cannot be
+                verified from an empty history.
+              </p>
             }
-            @if (!selectedOrder()) {
-                <div class="detail-empty"><p class="eyebrow">INVESTIGATION PANEL</p><h2>Select an order</h2><p>Choose a blotter row to inspect its persisted lifecycle and settlement evidence.</p></div>
-            } @else if (detailLoading()) {
-                <div class="detail-empty" role="status"><span class="loader"></span><p>Loading persisted evidence...</p></div>
-            } @else if (detailError()) {
-                <div class="detail-empty detail-error"><p role="alert">{{ detailError() }}</p><button type="button" class="reset-button" (click)="retryInspection()">Retry investigation</button></div>
-            } @else if (audit(); as result) {
-                <div class="integrity-banner" [class.integrity-ok]="result.integrity.valid"><strong>{{ result.pending ? 'AWAITING EXECUTION' : result.integrity.valid ? 'INTEGRITY VERIFIED' : 'AUDIT EXCEPTION' }}</strong><span>{{ result.integrity.message }}</span></div>
-                <section class="detail-section">
-                    <h3>Lifecycle timeline</h3>
-                    <div class="timeline">@for (entry of result.evidence.statusHistory; track entry.historyId) {
-                        <div class="timeline-entry"><i></i><div><strong>{{ entry.status }}</strong><span>{{ entry.changedAt | date:'MMM d, y · HH:mm:ss' }}</span>@if (entry.note) { <small>{{ entry.note }}</small> }</div></div>
-                    } @empty { <p class="muted">No status history persisted.</p> }</div>
-                    <div class="detail-fact"><span>Rejection reason</span><strong>{{ result.evidence.rejectionReason || 'None recorded' }}</strong></div>
-                </section>
-                <section class="detail-section">
-                    <h3>Pricing and execution</h3>
-                    @if (result.evidence.execution; as execution) {
-                        <div class="fact-grid">
-                            <div><span>Fill ID</span><strong>{{ execution.fillId }}</strong></div>
-                            <div><span>Execution price</span><strong>{{ formatMoney(execution.executionPrice, result.evidence.instrument.currency, true) }}</strong></div>
-                            <div><span>Quantity</span><strong>{{ formatNumber(execution.fillQuantity) }}</strong></div>
-                            <div><span>Quote</span><strong>#{{ execution.quoteId }}</strong></div>
-                            <div><span>Bid / Ask</span><strong>{{ formatMoney(execution.bidPrice, result.evidence.instrument.currency, true) }} / {{ formatMoney(execution.askPrice, result.evidence.instrument.currency, true) }}</strong></div>
-                            <div><span>Quoted at</span><strong>{{ execution.quotedAt | date:'MMM d, HH:mm:ss' }}</strong></div>
-                        </div>
-                    } @else { <p class="muted">No execution or quote is persisted for this order.</p> }
-                </section>
-                <section class="detail-section">
-                    <h3>Cash and holdings impact</h3>
-                    <div class="fact-grid">
-                        <div><span>Cash movement</span><strong>{{ formatMoney(result.evidence.cashImpact.totalMovement, result.evidence.account.currency) }}</strong></div>
-                        <div><span>Balance after</span><strong>{{ formatMoney(result.evidence.cashImpact.balanceAfter, result.evidence.account.currency) }}</strong></div>
-                        @if (result.evidence.positionImpact; as position) {
-                            <div><span>Holdings before</span><strong>{{ formatNumber(position.quantityBefore) }}</strong></div>
-                            <div><span>Holdings after</span><strong>{{ formatNumber(position.quantityAfter) }}</strong></div>
-                            <div><span>Change</span><strong>{{ formatNumber(position.quantityChange) }}</strong></div>
-                        } @else { <div><span>Holdings</span><strong>Not available</strong></div> }
-                    </div>
-                </section>
+          </div>
+          <div class="detail-fact">
+            <span>Completed</span><strong>{{ timestamp(result.evidence.completedAt) }}</strong>
+          </div>
+          <div class="detail-fact">
+            <span>Rejection reason</span
+            ><strong>{{
+              result.evidence.rejectionReason ||
+                (result.evidence.currentStatus === 'REJECTED'
+                  ? 'No rejection explanation was recorded.'
+                  : 'Not rejected')
+            }}</strong>
+          </div>
+        </section>
+        <section
+          id="execution-evidence"
+          class="detail-section"
+          [hidden]="evidenceSection() !== 'execution'"
+        >
+          <h3>Pricing and execution</h3>
+          @if (result.evidence.execution; as execution) {
+            <div class="fact-grid">
+              <div>
+                <span>Fill ID</span><strong>#{{ execution.fillId }}</strong>
+              </div>
+              <div>
+                <span>Execution price (instrument currency)</span
+                ><strong>{{
+                  formatMoney(execution.executionPrice, result.evidence.instrument.currency, true)
+                }}</strong>
+              </div>
+              <div>
+                <span>Filled quantity (units)</span
+                ><strong>{{ formatNumber(execution.fillQuantity) }}</strong>
+              </div>
+              <div>
+                <span>Executed at</span><strong>{{ timestamp(execution.executedAt) }}</strong>
+              </div>
+              <div>
+                <span>Quote ID</span><strong>#{{ execution.quoteId }}</strong>
+              </div>
+              <div>
+                <span>Bid / Ask (instrument currency)</span
+                ><strong
+                  >{{ formatMoney(execution.bidPrice, result.evidence.instrument.currency, true) }}
+                  /
+                  {{
+                    formatMoney(execution.askPrice, result.evidence.instrument.currency, true)
+                  }}</strong
+                >
+              </div>
+              <div>
+                <span>Quoted at</span><strong>{{ timestamp(execution.quotedAt) }}</strong>
+              </div>
+            </div>
+          } @else {
+            <p class="muted">
+              {{
+                result.pending
+                  ? 'Execution has not been recorded yet. Refresh after the order reaches a final outcome.'
+                  : result.evidence.currentStatus === 'REJECTED'
+                    ? 'A rejected order has no execution or execution quote.'
+                    : 'No execution or quote was recorded. Refresh the evidence and review the verification result.'
+              }}
+            </p>
+          }
+        </section>
+        <section
+          id="settlement-evidence"
+          class="detail-section"
+          [hidden]="evidenceSection() !== 'settlement'"
+        >
+          <h3>Cash and holdings impact</h3>
+          <p class="evidence-note">
+            Historical amounts recorded for this order. Negative cash movement is a debit; positive
+            movement is a credit. Balances and holdings after the trade are not current account
+            totals.
+          </p>
+          <div class="fact-grid">
+            <div>
+              <span>Net cash movement (account currency)</span
+              ><strong>{{
+                formatMoney(
+                  result.evidence.cashImpact.totalMovement,
+                  result.evidence.account.currency
+                )
+              }}</strong>
+            </div>
+            <div>
+              <span>Recorded balance after settlement</span
+              ><strong>{{
+                formatMoney(
+                  result.evidence.cashImpact.balanceAfter,
+                  result.evidence.account.currency
+                )
+              }}</strong>
+            </div>
+            @if (result.evidence.execution; as execution) {
+              <div>
+                <span>Recorded cash settlement amount</span
+                ><strong>{{
+                  formatMoney(execution.cashSettlementAmount, result.evidence.account.currency)
+                }}</strong>
+              </div>
+              <div>
+                <span>Recorded FX rate</span
+                ><strong>{{
+                  execution.fxRate == null ? 'Not recorded' : formatNumber(execution.fxRate)
+                }}</strong>
+                @if (execution.fxRate != null) {
+                  <small
+                    >{{ execution.fxSourceCurrency || 'Currency not recorded' }} →
+                    {{ execution.fxTargetCurrency || 'Currency not recorded' }} ·
+                    {{ execution.fxRateDate || 'Date not recorded' }} ·
+                    {{ execution.fxProvider || 'Provider not recorded' }}</small
+                  >
+                }
+              </div>
             }
-        </aside>
-    </div>
-</main>
+            @if (result.evidence.positionImpact; as position) {
+              <div>
+                <span>Holdings before (units)</span
+                ><strong>{{ formatNumber(position.quantityBefore) }}</strong>
+              </div>
+              <div>
+                <span>Holdings after (units)</span
+                ><strong>{{ formatNumber(position.quantityAfter) }}</strong>
+              </div>
+              <div>
+                <span>Holdings change (units)</span
+                ><strong>{{ formatNumber(position.quantityChange) }}</strong>
+              </div>
+              <div>
+                <span>Holdings recorded at</span
+                ><strong>{{ timestamp(position.recordedAt) }}</strong>
+              </div>
+            } @else {
+              <div>
+                <span>Holdings evidence</span
+                ><strong>{{
+                  result.evidence.currentStatus === 'REJECTED'
+                    ? 'No trade holdings movement expected'
+                    : result.pending
+                      ? 'Not yet recorded'
+                      : 'Not recorded — review verification result'
+                }}</strong>
+              </div>
+            }
+          </div>
+          <h3 class="ledger-title">Cash ledger entries</h3>
+          <div class="cash-ledger">
+            @for (entry of result.evidence.cashImpact.transactions; track entry.transactionId) {
+              <article>
+                <strong>Transaction #{{ entry.transactionId }}</strong
+                ><span>{{ formatMoney(entry.amount, result.evidence.account.currency) }}</span>
+                @if (entry.accountId != null || entry.fillId != null) {
+                  <small>
+                    @if (entry.accountId != null) {
+                      Account #{{ entry.accountId }}
+                    }
+                    @if (entry.fillId != null) {
+                      · Fill #{{ entry.fillId }}
+                    }
+                  </small>
+                }
+                <small
+                  >Balance after:
+                  {{ formatMoney(entry.balanceAfter, result.evidence.account.currency) }} ·
+                  {{ timestamp(entry.createdAt) }}</small
+                >
+                @if (entry.description) {
+                  <p>{{ entry.description }}</p>
+                }
+              </article>
+            } @empty {
+              <p class="muted">
+                {{
+                  result.evidence.currentStatus === 'REJECTED'
+                    ? 'No trade cash settlement is expected for a rejected order.'
+                    : result.pending
+                      ? 'No cash settlement has been recorded yet.'
+                      : 'No cash ledger entries were recorded. Review the verification result and refresh the evidence.'
+                }}
+              </p>
+            }
+          </div>
+        </section>
+      }
+    </aside>
+  </div>
+</section>

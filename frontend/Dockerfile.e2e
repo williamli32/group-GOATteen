@@ -1,0 +1,15 @@
+FROM node:24-bookworm
+
+ENV CI=true \
+    NG_CLI_ANALYTICS=false \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci && node node_modules/playwright/cli.js install --with-deps chromium
+COPY . .
+# Jenkins runs the image with its own UID, including the dev server and reports.
+RUN mkdir -p .angular test-results playwright-report && \
+    chmod -R a+rwX .angular test-results playwright-report
+
+CMD ["npm", "run", "test:e2e"]

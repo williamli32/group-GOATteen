@@ -1,807 +1,733 @@
 <div class="dashboard-container">
-
-  <!-- ========================= -->
-  <!-- NOTIFICATION POPUP        -->
-  <!-- ========================= -->
-
+  <app-price-alert-popup-listener [accountId]="account()?.accountId ?? null" />
   <div class="notification-container">
     @for (notification of notificationService.notifications(); track notification.id) {
-    <div class="notification" [class]="'notification-' + notification.type" [class.fade-out]="false">
-      <div class="notification-content">
-        <span class="notification-message">{{ notification.message }}</span>
-        <button type="button" class="notification-close" (click)="notificationService.dismiss(notification.id)">
-          ×
-        </button>
+      <div class="notification" [class]="'notification-' + notification.type" role="status">
+        <div class="notification-content">
+          <span class="notification-message">{{ notification.message }}</span>
+          <button
+            type="button"
+            class="notification-close"
+            aria-label="Dismiss notification"
+            (click)="notificationService.dismiss(notification.id)"
+          >
+            ×
+          </button>
+        </div>
       </div>
-    </div>
     }
   </div>
 
   @if (loading()) {
-
-  <div class="dashboard-state">
-
-    <div class="state-spinner"></div>
-
-    <p>Loading your trading account...</p>
-
-  </div>
-
+    <div class="dashboard-state" role="status" aria-live="polite">
+      <div class="state-spinner" aria-hidden="true"></div>
+      <p>Loading your trading account...</p>
+    </div>
   } @else if (errorMessage()) {
-
-  <div class="dashboard-state">
-
-    <p class="state-error">
-      {{ errorMessage() }}
-    </p>
-
-    <button type="button" class="retry-btn" (click)="loadDashboard()">
-      Retry
-    </button>
-
-  </div>
-
+    <div class="dashboard-state">
+      <p class="state-error" role="alert">{{ errorMessage() }}</p>
+      <button type="button" class="retry-btn" (click)="loadDashboard()">Retry</button>
+    </div>
   } @else {
+    <header id="dashboard-top" class="topbar">
+      <div class="account-identity">
+        <span class="brand-name">Your workspace <span aria-hidden="true">/</span></span>
+        <span class="account-name">{{ account()?.firstName }} {{ account()?.lastName }}</span>
+        <span class="account-number">{{ account()?.accountNumber }}</span>
+      </div>
+      <div class="topbar-right">
+        <span class="label">CURRENCY</span>
+        <span class="volume">{{ account()?.currency }}</span>
+        <span class="live-indicator"><span class="live-dot"></span>ACCOUNT CONNECTED</span>
+      </div>
+    </header>
 
-  <!-- ========================= -->
-  <!-- TOP BAR                   -->
-  <!-- ========================= -->
-
-  <div class="topbar">
-
-    <div class="account-identity">
-
-      <span class="brand-name">
-        G.O.A.T. Platforms
-      </span>
-
-      <div class="divider"></div>
-
-      <span class="account-name">
-
-        {{ account()?.firstName }}
-        {{ account()?.lastName }}
-
-      </span>
-
-      <span class="account-number">
-
-        {{ account()?.accountNumber }}
-
-      </span>
-
+    <div class="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+      @for (tab of dashboardTabs; track tab.id; let index = $index) {
+        <button
+          type="button"
+          role="tab"
+          class="dashboard-tab"
+          [id]="'dashboard-tab-' + tab.id"
+          [class.active]="activeTab() === tab.id"
+          [attr.aria-selected]="activeTab() === tab.id"
+          [attr.aria-controls]="'dashboard-panel-' + tab.id"
+          [tabIndex]="activeTab() === tab.id ? 0 : -1"
+          (click)="selectTab(tab.id)"
+          (keydown)="onTabKeydown($event, index)"
+        >
+          {{ tab.label }}
+        </button>
+      }
     </div>
 
+    @if (activeTab() === 'overview') {
+      <app-portfolio-chart [value]="portfolioValue()" [currency]="account()?.currency ?? 'GBP'"
+        [liveEnabled]="true" [livePoints]="portfolioLiveHistory()?.points ?? []" [now]="quoteClock()"
+        [valuationLoading]="portfolioFxLoading() || marketLoading()" [valuationNote]="portfolioValuationNote()"
+        [points]="portfolioValueHistory()" [requestedRange]="portfolioHistoryDays()" [appliedRange]="portfolioAppliedDays()"
+        [loading]="portfolioHistoryLoading()" [failed]="portfolioHistoryRequestFailed()"
+        (rangeSelected)="selectPortfolioHistoryRange($event)" (retryHistory)="refreshPortfolioHistory()"
+        (retryValuation)="retryPortfolioValuation()" />
 
-    <div class="topbar-right">
+      <section class="workspace-intro" aria-label="Welcome to your trading workspace">
+        <div class="intro-copy">
+          <p class="eyebrow">A LITTLE MORE PERSPECTIVE</p>
+          <h1>Your capital,<br /><em>in focus.</em></h1>
+          <p>
+            Welcome back, {{ account()?.firstName }}.<br />Your markets. Your insights. Your next
+            move.
+          </p>
+        </div>
+        <app-market-motion [framed]="true" />
+        <span class="intro-detail" aria-hidden="true">G.O.A.T. / YOUR TRADING WORKSPACE</span>
+      </section>
+    }
 
-      <span class="label">
-        CASH
-      </span>
+    <div class="dashboard-content">
+      <!-- Keep panels mounted so tab changes preserve forms and pending requests. -->
+      <section
+        id="dashboard-panel-overview"
+        class="dashboard-tab-panel"
+        role="tabpanel"
+        tabindex="0"
+        aria-labelledby="dashboard-tab-overview"
+        [hidden]="activeTab() !== 'overview'"
+      >
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">Account overview</h2>
+            <p>
+              Manage your funds and browse live market prices. Select a symbol to open its order
+              ticket.
+            </p>
+          </div>
+        </div>
+        <div class="account-summary-grid">
+          <button type="button" class="summary-card cash-summary-card"
+            (click)="scrollToDashboardTop()"
+            aria-label="Available cash. Return to the top of the dashboard">
+            <span class="summary-label">Available cash · {{ account()?.currency }}</span>
+            <span class="summary-card-icon" aria-hidden="true">↗</span>
+            <strong class="summary-value">{{
+              account()?.cashBalance ?? 0
+                | currency: account()?.currency ?? 'GBP' : 'symbol' : '1.2-2'
+            }}</strong>
+          </button>
+          <div class="summary-card">
+            <span class="summary-label">Holdings</span>
+            <strong class="summary-value"
+              >{{ openPositions().length }} instruments</strong
+            >
+            <button type="button" class="text-button" (click)="selectTab('holdings')">
+              View holdings →
+            </button>
+          </div>
+          <div class="summary-card">
+            <span class="summary-label">Orders</span>
+            <strong class="summary-value">{{ orders().length }} orders</strong>
+            <button type="button" class="text-button" (click)="selectTab('orders')">
+              View orders →
+            </button>
+          </div>
+        </div>
 
-      <span class="price">
-
-        {{
-        (account()?.cashBalance ?? 0)
-        |
-        currency:
-        (account()?.currency ?? 'GBP'):
-        'symbol':
-        '1.2-2'
-        }}
-
-      </span>
-
-
-      <div class="divider"></div>
-
-
-      <span class="label">
-        CURRENCY
-      </span>
-
-      <span class="volume">
-
-        {{ account()?.currency }}
-
-      </span>
-
-
-      <div class="live-indicator">
-
-        <div class="live-dot"></div>
-
-        <span class="live-text">
-          SECURE
-        </span>
-
-      </div>
-
-
-      <button type="button" class="logout-btn" [disabled]="loggingOut()" (click)="logout()">
-
-        @if (loggingOut()) {
-        LOGGING OUT...
-        } @else {
-        LOG OUT
+        @if (account(); as currentAccount) {
+          <app-account-funding [account]="currentAccount" (funded)="onAccountFunded($event)" />
         }
 
-      </button>
-
-    </div>
-
-  </div>
-
-
-  <!-- ========================= -->
-  <!-- MAIN DASHBOARD            -->
-  <!-- ========================= -->
-
-  @if (account(); as currentAccount) {
-    <app-account-funding [account]="currentAccount" (funded)="onAccountFunded($event)" />
-  }
-
-  <div class="main-content">
-
-
-    <!-- LEFT / MAIN AREA -->
-
-    <div appResizable [resizeEdges]="{ right: true }" [minWidth]="200" [maxWidth]="800"
-      [ngStyle]="{ width: chartAreaWidth() + 'px' }" (resizeEnd)="onResizeEnd($event)"
-      class="chart-area resizable-panel">
-
-
-      <!-- Account / market area -->
-
-      <div class="chart-section">
-
-        <div class="chart-header">
-
-          <span class="ticker-name">
-            ACCOUNT OVERVIEW
-          </span>
-
-          <span class="exchange">
-            {{ account()?.accountNumber }}
-          </span>
-
-        </div>
-
-
         <div class="market-terminal">
-
+          <div class="panel-heading">
+            <h2>Market prices</h2>
+            <span>Updates every 3 seconds</span>
+          </div>
           @if (marketLoading()) {
-
-          <div class="market-state">
-            Loading market data...
-          </div>
-
+            <div class="market-state" role="status">Loading market data...</div>
           } @else if (marketErrorMessage()) {
-
-          <div class="market-state market-error">
-
-            {{ marketErrorMessage() }}
-
-            <button type="button" class="market-retry-btn" (click)="loadMarketData()">
-              RETRY
-            </button>
-
-          </div>
-
-          } @else if (
-          marketInstruments().length === 0
-          ) {
-
-          <div class="market-state">
-            No tradable instruments available.
-          </div>
-
+            <div class="market-state market-error" role="alert">
+              {{ marketErrorMessage() }}
+              <button type="button" class="market-retry-btn" (click)="loadMarketData()">
+                Retry
+              </button>
+            </div>
+          } @else if (marketInstruments().length === 0) {
+            <div class="market-state">No tradable instruments available.</div>
           } @else {
-
-          @if (selectedInstrument(); as selected) {
-
-          <div class="selected-market">
-
-            <div>
-
-              <div class="selected-symbol">
-                {{ selected.symbol }}
+            @if (selectedInstrument(); as selected) {
+              <div class="selected-market">
+                <div>
+                  <div class="selected-symbol">{{ selected.symbol }}</div>
+                  <div class="selected-name">{{ selected.name }}</div>
+                </div>
+                @if (selected.latestQuote) {
+                  <div class="selected-price">
+                    <span>LAST</span
+                    ><strong>{{ selected.latestQuote.lastPrice | number: '1.2-6' }}</strong
+                    ><span>{{ selected.currency }}</span>
+                  </div>
+                }
               </div>
-
-              <div class="selected-name">
-                {{ selected.name }}
-              </div>
-
-            </div>
-
-
-            @if (selected.latestQuote) {
-
-            <div class="selected-price">
-
-              <span class="price-label">
-                LAST
-              </span>
-
-              <strong>
-                {{
-                selected.latestQuote.lastPrice
-                | number:'1.2-6'
-                }}
-              </strong>
-
-              <span class="currency-label">
-                {{ selected.currency }}
-              </span>
-
-            </div>
 
             }
 
-          </div>
+            <div class="market-filters" aria-label="Instrument filters">
+              <div class="market-filter-field market-search-field">
+                <label for="market-search">Search instruments</label>
+                <input
+                  id="market-search"
+                  type="search"
+                  [value]="marketSearch()"
+                  (input)="setMarketSearch($any($event.target).value)"
+                  placeholder="Search symbol or name"
+                  autocomplete="off"
+                />
+              </div>
 
-          }
-
-
-          <div class="market-table-wrapper">
-
-            <table class="market-table">
-
-              <thead>
-
-                <tr>
-                  <th>Symbol</th>
-                  <th>Market</th>
-                  <th>Bid</th>
-                  <th>Ask</th>
-                  <th>Last</th>
-                  <th>Currency</th>
-                </tr>
-
-              </thead>
-
-
-              <tbody>
-
-                @for (
-                instrument of marketInstruments();
-                track instrument.instrumentId
-                ) {
-
-                <tr class="market-row" [class.selected]="
-                selectedInstrument()?.instrumentId
-                ===
-                instrument.instrumentId
-              " (click)="
-                selectInstrument(instrument)
-              ">
-
-                  <td class="market-symbol">
-                    {{ instrument.symbol }}
-                  </td>
-
-                  <td>
-                    {{ instrument.exchange }}
-                  </td>
-
-                  @if (instrument.latestQuote) {
-
-                  <td>
-                    {{
-                    instrument.latestQuote.bidPrice
-                    | number:'1.2-6'
-                    }}
-                  </td>
-
-                  <td>
-                    {{
-                    instrument.latestQuote.askPrice
-                    | number:'1.2-6'
-                    }}
-                  </td>
-
-                  <td class="market-last">
-                    {{
-                    instrument.latestQuote.lastPrice
-                    | number:'1.2-6'
-                    }}
-                  </td>
-
-                  } @else {
-
-                  <td>—</td>
-                  <td>—</td>
-                  <td>—</td>
-
+              <div class="market-filter-field">
+                <label for="market-class-filter">Asset class</label>
+                <select
+                  id="market-class-filter"
+                  [value]="marketClassFilter()"
+                  (change)="setMarketClass($any($event.target).value)"
+                >
+                  @for (assetClass of marketClasses; track assetClass) {
+                    <option [value]="assetClass">
+                      {{ assetClass === 'ALL' ? 'All asset classes' : assetClass }}
+                    </option>
                   }
-
-                  <td>
-                    {{ instrument.currency }}
-                  </td>
-
-                </tr>
-
-                }
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-          }
-
-        </div>
-
-      </div>
-
-
-      <!-- ========================= -->
-      <!-- REAL POSITIONS            -->
-      <!-- ========================= -->
-
-      <div appResizable [resizeEdges]="{ top: true }" [minHeight]="150" [maxHeight]="400"
-        [ngStyle]="{ height: positionsPanelHeight() + 'px' }" (resizeEnd)="onResizePositionsPanel($event)"
-        class="positions-section resizable-panel">
-
-        <p class="section-title">
-          POSITIONS
-        </p>
-
-
-        <div class="table-wrapper">
-
-          <table class="positions-table">
-
-            <thead>
-
-              <tr>
-
-                <th>
-                  Symbol
-                </th>
-
-                <th>
-                  Instrument
-                </th>
-
-                <th>
-                  Quantity
-                </th>
-
-              </tr>
-
-            </thead>
-
-
-            <tbody>
-
-              @for (
-              position of holdings()?.positions ?? [];
-              track position.instrumentId
-              ) {
-
-              <tr class="position-row">
-
-                <td class="symbol-cell">
-
-                  {{ position.symbol }}
-
-                </td>
-
-
-                <td>
-
-                  {{ position.instrumentName }}
-
-                </td>
-
-
-                <td class="number-cell">
-
-                  {{ position.quantity }}
-
-                </td>
-
-              </tr>
-
-              } @empty {
-
-              <tr>
-
-                <td colspan="3" class="empty-state">
-
-                  No positions currently held.
-
-                </td>
-
-              </tr>
-
-              }
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <!-- ========================= -->
-    <!-- RIGHT PANEL               -->
-    <!-- ========================= -->
-
-    <div class="right-panel resizable-panel">
-
-
-      <!-- ORDER PANEL -->
-
-      <div appResizable [resizeEdges]="{ bottom: true }" [minHeight]="150" [maxHeight]="600"
-        [ngStyle]="{ height: orderPanelHeight() + 'px' }" (resizeEnd)="onResizeOrderPanel($event)" class="order-panel">
-
-        <p class="section-title">
-          ORDER TICKET
-        </p>
-
-        <div class="order-form">
-
-          @if (selectedInstrument(); as selected) {
-
-          <div class="order-summary">
-
-            <div class="summary-row">
-
-              <span>
-                INSTRUMENT
-              </span>
-
-              <span class="mono">
-                {{ selected.name }}
-              </span>
-
+                </select>
+              </div>
             </div>
 
-
-            <div class="summary-row">
-
-              <span>
-                MARKET
-              </span>
-
-              <span class="mono">
-                {{ marketName(selected.exchange) }}
-              </span>
-
-            </div>
-
-
-            <div class="summary-row">
-
-              <span>
-                CURRENCY
-              </span>
-
-              <span class="mono">
-                {{ currencyName(selected.currency) }}
-              </span>
-
-            </div>
-
-          </div>
-
-
-          <div class="side-buttons">
-
-            <button type="button" class="side-btn buy-btn" [class.active]="
-          orderSide === 'BUY'
-        " [disabled]="orderSubmitting()" (click)="setOrderSide('BUY')">
-              BUY
-            </button>
-
-
-            <button type="button" class="side-btn sell-btn" [class.active]="
-          orderSide === 'SELL'
-        " [disabled]="orderSubmitting()" (click)="setOrderSide('SELL')">
-              SELL
-            </button>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="orderQuantity">
-              Quantity
-            </label>
-
-            <input id="orderQuantity" name="orderQuantity" type="number" class="form-input" min="0" step="any"
-              placeholder="0" [(ngModel)]="orderQuantity" [disabled]="orderSubmitting()" (change)="validateQuantity()"
-              [attr.aria-invalid]="quantityError() ? 'true' : 'false'" aria-describedby="quantityErrorMessage" />
-
-            @if (quantityError()) {
-            <p id="quantityErrorMessage" class="quantity-error">
-              {{ quantityError() }}
-            </p>
+            @if (marketRefreshFailed()) {
+              <p class="market-state market-warning" role="status">
+                Market refresh failed. Prices below may be stale.
+              </p>
             }
-
-          </div>
-
-
-          <div class="order-summary">
-
-            <div class="summary-row">
-
-              <span>
-                {{
-                orderSide === 'BUY'
-                ? 'ASK'
-                : 'BID'
-                }}
-              </span>
-
-              <span class="mono">
-
-                @if (
-                currentOrderPrice() !== null
-                ) {
-
-                {{
-                currentOrderPrice()
-                | number:'1.2-6'
-                }}
-
-                {{ selected.currency }}
-
-                } @else {
-
-                —
-
-                }
-
-              </span>
-
-            </div>
-
-
-            <div class="summary-row">
-
-              <span>
-                EST. VALUE
-              </span>
-
-              <span class="mono">
-
-                @if (
-                estimatedNotional() !== null
-                ) {
-
-                {{
-                estimatedNotional()
-                | number:'1.2-6'
-                }}
-
-                {{ selected.currency }}
-
-                } @else {
-
-                —
-
-                }
-
-              </span>
-
-            </div>
-
-
-            <div class="summary-row">
-
-              <span>
-                ACCOUNT CASH
-              </span>
-
-              <span class="mono">
-
-                {{
-                account()?.cashBalance
-                ?? 0
-                | number:'1.2-2'
-                }}
-
-                {{ account()?.currency }}
-
-              </span>
-
-            </div>
-
-          </div>
-
-
-          <button type="button" class="submit-btn" [class.buy]="
-        orderSide === 'BUY'
-      " [class.sell]="
-        orderSide === 'SELL'
-      " [disabled]="
-        orderSubmitting() ||
-        !selected.latestQuote
-      " (click)="submitOrder()">
-
-            @if (orderSubmitting()) {
-
-            SUBMITTING...
-
+            @if (filteredMarketInstruments().length === 0) {
+              <div class="market-state">No instruments match your search and filter.</div>
             } @else {
+              <div class="market-table-wrapper">
+                <table
+                  role="table"
+                  class="workspace-table market-table"
+                  aria-label="Live market prices"
+                >
+                  <thead role="rowgroup">
+                    <tr role="row">
+                      <th role="columnheader" scope="col">Symbol</th>
+                      <th role="columnheader" scope="col">Instrument</th>
+                      <th role="columnheader" scope="col">Market</th>
+                      <th role="columnheader" scope="col">Bid</th>
+                      <th role="columnheader" scope="col">Ask</th>
+                      <th role="columnheader" scope="col">Last</th>
+                      <th role="columnheader" scope="col">Quote age</th>
+                      <th role="columnheader" scope="col">Currency</th>
+                      <th role="columnheader" scope="col">Day % (UTC)</th>
+                    </tr>
+                  </thead>
+                  <tbody role="rowgroup">
+                    @for (instrument of visibleMarketInstruments(); track instrument.instrumentId) {
+                      <tr
+                        role="row"
+                        class="market-row"
+                        [class.selected]="
+                          selectedInstrument()?.instrumentId === instrument.instrumentId
+                        "
+                      >
+                        <td role="cell" class="market-symbol" data-label="Symbol">
+                          <button
+                            type="button"
+                            class="instrument-link"
+                            [disabled]="orderControlsLocked()"
+                            [attr.aria-label]="
+                              'Trade ' + instrument.symbol + ' on ' + instrument.exchange
+                            "
+                            (click)="selectInstrument(instrument)"
+                          >
+                            <span class="symbol-avatar" aria-hidden="true">{{
+                              instrument.symbol.slice(0, 1)
+                            }}</span
+                            >{{ instrument.symbol }}
+                          </button>
+                        </td>
+                        <td role="cell" data-label="Instrument">{{ instrument.name }}</td>
+                        <td role="cell" data-label="Market">{{ instrument.exchange }}</td>
+                        @if (instrument.latestQuote) {
+                          <td role="cell" data-label="Bid">
+                            {{ instrument.latestQuote.bidPrice | number: '1.2-6' }}
+                          </td>
+                          <td role="cell" data-label="Ask">
+                            {{ instrument.latestQuote.askPrice | number: '1.2-6' }}
+                          </td>
+                          <td role="cell" class="market-last" data-label="Last">
+                            {{ instrument.latestQuote.lastPrice | number: '1.2-6' }}
+                          </td>
+                          <td role="cell" class="quote-age" data-label="Quote age">
+                            @if (isQuoteStale(instrument.latestQuote.quotedAt)) {
+                              <span class="stale-quote">Stale</span>
+                            } @else if (quoteAgeSeconds(instrument.latestQuote.quotedAt) !== null) {
+                              <span>
+                                {{ displayedQuoteAgeSeconds(instrument.latestQuote.quotedAt) }}s ago
+                              </span>
+                            } @else {
+                              <span>Unavailable</span>
+                            }
+                          </td>
+                        } @else {
+                          <td role="cell" data-label="Bid">—</td>
+                          <td role="cell" data-label="Ask">—</td>
+                          <td role="cell" data-label="Last">Quote unavailable</td>
+                          <td role="cell" data-label="Quote age">Unavailable</td>
+                        }
+                        <td role="cell" data-label="Currency">{{ instrument.currency }}</td>
 
-            SUBMIT {{ orderSide }}
-
+                        <td role="cell" data-label="Day % (UTC)">
+                          <app-daily-price-change
+                            [change]="instrument.dayChange ?? null"
+                            [currency]="instrument.currency"
+                          />
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             }
-
-          </button>
-
-          } @else {
-
-          <div class="empty-orders">
-
-            Select a market instrument
-            to create an order.
-
-          </div>
-
-          }
-
-        </div>
-
-      </div>
-
-
-      <!-- ========================= -->
-      <!-- REAL ACCOUNT ORDERS       -->
-      <!-- ========================= -->
-
-      <div class="recent-orders">
-
-        <p class="section-title">
-          RECENT ORDERS
-        </p>
-
-
-        <div class="orders-list">
-
-          @for (
-          order of orders().slice(0, 6);
-          track order.id
-          ) {
-
-          <div class="order-item" [class]="
-                  'order-item status-' +
-                  order.status.toLowerCase()
-                ">
-
-            <div class="order-header">
-
-              <span class="order-symbol">
-
-                ORDER #{{ order.id }}
-
-              </span>
-
-
-              <span class="order-status">
-
-                {{ order.status }}
-
-              </span>
-
+            <div class="market-pagination">
+              <app-result-pagination
+                label="Market instruments"
+                [total]="filteredMarketInstruments().length"
+                [page]="currentMarketPage()"
+                [pageSize]="marketPageSize()"
+                (pageChange)="marketPage.set($event)"
+                (pageSizeChange)="setMarketPageSize($event)"
+              />
             </div>
+            <p class="market-day-note">
+              Day % compares the latest price with today's first recorded price (UTC).
+            </p>
+          }
+        </div>
+      </section>
 
+      <section
+        id="dashboard-panel-watchlist"
+        class="dashboard-tab-panel"
+        role="tabpanel"
+        tabindex="0"
+        aria-labelledby="dashboard-tab-watchlist"
+        [hidden]="activeTab() !== 'watchlist'"
+      >
+        <div class="section-heading">
+          <div>
+            <h1>Watchlist</h1>
+            <p>Keep your saved instruments together. Select one to open Orders.</p>
+          </div>
+        </div>
+        <app-watchlist
+          [instruments]="marketInstruments()"
+          [marketLoading]="marketLoading()"
+          [marketError]="marketErrorMessage()"
+          [selectedInstrumentId]="selectedInstrument()?.instrumentId ?? null"
+          [selectionDisabled]="orderControlsLocked()"
+          (instrumentSelected)="selectInstrument($event)"
+        />
+      </section>
 
-            <div class="order-details">
-
-              <span [class]="
-                      'side-' +
-                      order.side.toLowerCase()
-                    ">
-
-                {{ order.side }}
-
-              </span>
-
-
-              @if (order.fillPrice !== null) {
-
-              <span>
-
-                {{ order.quantity }}
-
-                @
-
-                {{
-                order.fillPrice
-                |
-                currency:
-                (account()?.currency ?? 'GBP')
-                }}
-
-              </span>
-
+      <section
+        id="dashboard-panel-orders"
+        class="dashboard-tab-panel"
+        role="tabpanel"
+        tabindex="0"
+        aria-labelledby="dashboard-tab-orders"
+        [hidden]="activeTab() !== 'orders'"
+      >
+        <div class="section-heading">
+          <div>
+            <h1>Orders</h1>
+            <p>Place an order and follow its status in your order history.</p>
+          </div>
+          <div class="section-actions">
+            <button type="button" class="secondary-button" (click)="selectTab('overview')">
+              Browse market
+            </button>
+            <button type="button" class="secondary-button" (click)="selectTab('watchlist')">
+              Open watchlist
+            </button>
+          </div>
+        </div>
+        <app-instrument-price-chart
+          [instrument]="selectedInstrument()"
+          [active]="activeTab() === 'orders'"
+          [now]="quoteClock()"
+          [marketLoading]="marketLoading()"
+          [refreshFailed]="marketRefreshFailed()"
+          (refreshPrices)="loadMarketData(false)"
+        />
+        <div class="orders-layout">
+          <section class="order-panel" aria-labelledby="order-ticket-title">
+            <div class="panel-heading"><h2 id="order-ticket-title">Order ticket</h2></div>
+            <div class="order-form">
+              @if (selectedInstrument(); as selected) {
+                <div class="ticket-instrument">
+                  <strong>{{ selected.symbol }}</strong
+                  ><span>{{ selected.name }}</span>
+                </div>
+                <div
+                  class="quote-status"
+                  [class.quote-warning]="
+                    marketRefreshFailed() || isQuoteStale(selected.latestQuote?.quotedAt)
+                  "
+                  role="status"
+                >
+                  @if (selected.latestQuote; as quote) {
+                    <p>
+                      Quote updated {{ quote.quotedAt | date: 'medium' }} ·
+                      {{ displayedQuoteAgeSeconds(quote.quotedAt) ?? '—' }}s ago.
+                    </p>
+                    @if (isQuoteStale(quote.quotedAt)) {
+                      <p>Stale quote. Refresh prices before relying on this estimate.</p>
+                    }
+                  } @else {
+                    <p>A current market quote is unavailable.</p>
+                  }
+                  @if (marketRefreshFailed()) {
+                    <p>Market refresh failed. The last available prices are still shown.</p>
+                  }
+                  @if (marketRefreshFailed() || isQuoteStale(selected.latestQuote?.quotedAt)) {
+                    <button
+                      type="button"
+                      class="text-button"
+                      [disabled]="marketLoading()"
+                      (click)="loadMarketData(false)"
+                    >
+                      Refresh prices
+                    </button>
+                  }
+                </div>
+                <div class="order-summary">
+                  <div class="summary-row">
+                    <span>MARKET</span><span class="mono">{{ marketName(selected.exchange) }}</span>
+                  </div>
+                  <div class="summary-row">
+                    <span>CURRENCY</span
+                    ><span class="mono">{{ currencyName(selected.currency) }}</span>
+                  </div>
+                </div>
+                <div class="side-buttons">
+                  <button
+                    type="button"
+                    class="side-btn buy-btn"
+                    [class.active]="orderSide === 'BUY'"
+                    [attr.aria-pressed]="orderSide === 'BUY'"
+                    [disabled]="orderControlsLocked()"
+                    (click)="setOrderSide('BUY')"
+                  >
+                    BUY
+                  </button>
+                  <button
+                    type="button"
+                    class="side-btn sell-btn"
+                    [class.active]="orderSide === 'SELL'"
+                    [attr.aria-pressed]="orderSide === 'SELL'"
+                    [disabled]="orderControlsLocked()"
+                    (click)="setOrderSide('SELL')"
+                  >
+                    SELL
+                  </button>
+                </div>
+                <div class="form-group">
+                  <label for="orderQuantity">Quantity</label>
+                  <input
+                    id="orderQuantity"
+                    name="orderQuantity"
+                    type="number"
+                    class="form-input"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    [(ngModel)]="orderQuantity"
+                    [disabled]="orderControlsLocked()"
+                    (change)="validateQuantity()"
+                    [attr.aria-invalid]="quantityError() ? 'true' : 'false'"
+                    [attr.aria-describedby]="quantityError() ? 'quantityErrorMessage' : null"
+                  />
+                  @if (quantityError()) {
+                    <p id="quantityErrorMessage" class="quantity-error" role="alert">
+                      {{ quantityError() }}
+                    </p>
+                  }
+                </div>
+                <div class="order-summary">
+                  <div class="summary-row">
+                    <span>INDICATIVE {{ orderSide === 'BUY' ? 'ASK' : 'BID' }}</span>
+                    <span class="mono">
+                      @if (currentOrderPrice() !== null) {
+                        {{ currentOrderPrice() | number: '1.2-6' }} {{ selected.currency }}
+                      } @else {
+                        —
+                      }
+                    </span>
+                  </div>
+                  <div class="summary-row">
+                    <span>ESTIMATED VALUE · {{ selected.currency }}</span>
+                    <span class="mono">
+                      @if (estimatedNotional() !== null) {
+                        {{ estimatedNotional() | number: '1.2-6' }} {{ selected.currency }}
+                      } @else {
+                        —
+                      }
+                    </span>
+                  </div>
+                  <div class="summary-row">
+                    <span
+                      >ESTIMATED ACCOUNT {{ orderSide === 'BUY' ? 'DEBIT' : 'CREDIT' }} ·
+                      {{ account()?.currency }}</span
+                    >
+                    <span class="mono">
+                      @if (estimatedAccountSettlement() !== null) {
+                        {{ estimatedAccountSettlement() | currency: account()?.currency ?? 'GBP' }}
+                      } @else {
+                        —
+                      }
+                    </span>
+                  </div>
+                  @if (fxLoading()) {
+                    <p class="estimate-note" role="status">
+                      Calculating the account currency estimate...
+                    </p>
+                  } @else if (fxErrorMessage()) {
+                    <div class="estimate-warning" role="status">
+                      <p>{{ fxErrorMessage() }}</p>
+                      <button type="button" class="text-button" (click)="refreshFxQuote(true)">
+                        Retry estimate
+                      </button>
+                    </div>
+                  }
+                  @if (fxQuote(); as fx) {
+                    <div class="summary-row">
+                      <span>INDICATIVE FX ({{ fx.asOf }})</span
+                      ><span class="mono"
+                        >1 {{ fx.from }} = {{ fx.rate | number: '1.2-8' }} {{ fx.to }}</span
+                      >
+                    </div>
+                  }
+                  <div class="summary-row">
+                    <span>ACCOUNT CASH</span
+                    ><span class="mono"
+                      >{{ account()?.cashBalance ?? 0 | number: '1.2-2' }}
+                      {{ account()?.currency }}</span
+                    >
+                  </div>
+                  <p class="estimate-note">
+                    Indicative estimates only. Final price and currency conversion are confirmed
+                    when the order executes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="submit-btn"
+                  [class.buy]="orderSide === 'BUY'"
+                  [class.sell]="orderSide === 'SELL'"
+                  [disabled]="
+                    orderSubmitting() || (!orderOutcomeUnconfirmed() && !selected.latestQuote)
+                  "
+                  (click)="submitOrder()"
+                >
+                  {{
+                    orderSubmitting()
+                      ? orderOutcomeUnconfirmed()
+                        ? 'CONFIRMING...'
+                        : 'SUBMITTING...'
+                      : orderOutcomeUnconfirmed()
+                        ? 'Confirm previous order'
+                        : 'SUBMIT ' + orderSide
+                  }}
+                </button>
               } @else {
-
-              <span>
-
-                Qty {{ order.quantity }}
-
-              </span>
-
+                <div class="empty-orders">
+                  Select a market instrument from Account overview or Watchlist to create an order.
+                </div>
               }
-
+              @if (orderMessage()) {
+                <p
+                  class="order-feedback"
+                  [class.order-success]="!orderSubmitting() && !orderOutcomeUnconfirmed()"
+                  role="status"
+                >
+                  {{ orderMessage() }}
+                </p>
+              }
+              @if (orderErrorMessage()) {
+                <p class="order-feedback order-error" role="alert">{{ orderErrorMessage() }}</p>
+              }
+              @if (orderOutcomeUnconfirmed()) {
+                <p class="estimate-note">
+                  Your order details are kept here. Confirm the previous order before changing them.
+                </p>
+              }
             </div>
-
-
-            <p class="order-time">
-
-              Submitted:
-
-              {{
-              order.submittedAt
-              |
-              date:'medium'
-              }}
-
-            </p>
-
-
-            @if (
-            order.status === 'FILLED' &&
-            order.filledAt
-            ) {
-
-            <p class="order-time">
-
-              Filled:
-
-              {{
-              order.filledAt
-              |
-              date:'medium'
-              }}
-
-            </p>
-
-            }
-
-
-            @if (order.rejectionReason) {
-
-            <p class="rejection-reason">
-
-              {{ order.rejectionReason }}
-
-            </p>
-
-            }
-
-          </div>
-
-          } @empty {
-
-          <div class="empty-orders">
-
-            No orders have been submitted yet.
-
-          </div>
-
-          }
-
+          </section>
+          <section class="recent-orders" aria-labelledby="order-history-title">
+            <div class="panel-heading">
+              <h2 id="order-history-title">Order history</h2>
+              <span>{{ orders().length }} orders</span>
+            </div>
+            <div class="orders-list">
+              @for (order of orders(); track order.id) {
+                <article
+                  class="order-item"
+                  [class]="'order-item status-' + order.status.toLowerCase()"
+                >
+                  <div class="order-header">
+                    <span class="order-symbol">ORDER #{{ order.id }}</span
+                    ><span class="order-status">{{ order.status }}</span>
+                  </div>
+                  <div class="order-details">
+                    <span [class]="'side-' + order.side.toLowerCase()">{{ order.side }}</span>
+                    @if (order.fillPrice !== null) {
+                      <span
+                        >{{ order.quantity }} @
+                        {{ order.fillPrice | currency: order.fillCurrency }}</span
+                      >
+                      @if (order.settlementAmount !== null) {
+                        <span
+                          >Cash:
+                          {{
+                            (order.side === 'BUY'
+                              ? -order.settlementAmount
+                              : order.settlementAmount
+                            ) | currency: order.accountCurrency
+                          }}</span
+                        >
+                      }
+                    } @else {
+                      <span>Qty {{ order.quantity }}</span>
+                    }
+                  </div>
+                  <p class="order-time">Submitted: {{ order.submittedAt | date: 'medium' }}</p>
+                  @if (order.status === 'FILLED' && order.filledAt) {
+                    <p class="order-time">Filled: {{ order.filledAt | date: 'medium' }}</p>
+                  }
+                  @if (order.rejectionReason) {
+                    <p class="rejection-reason">{{ order.rejectionReason }}</p>
+                  }
+                </article>
+              } @empty {
+                <div class="empty-orders">No orders have been submitted yet.</div>
+              }
+            </div>
+          </section>
         </div>
+      </section>
 
-      </div>
-
+      <section
+        id="dashboard-panel-holdings"
+        class="dashboard-tab-panel"
+        role="tabpanel"
+        tabindex="0"
+        aria-labelledby="dashboard-tab-holdings"
+        [hidden]="activeTab() !== 'holdings'"
+      >
+        <div class="section-heading">
+          <div>
+            <h1>Holdings</h1>
+            <p>Your current positions update automatically after trades.</p>
+          </div>
+          <button type="button" class="secondary-button" (click)="selectTab('overview')">
+            Browse market
+          </button>
+        </div>
+        @if (activeTab() === 'holdings') {
+          <app-holdings-allocation
+            [positions]="openPositions()"
+            [instruments]="marketInstruments()"
+            [accountCurrency]="account()?.currency ?? holdings()?.currency ?? ''"
+            [marketLoading]="marketLoading()"
+            [marketRefreshFailed]="marketRefreshFailed() || !!marketErrorMessage()"
+            [selectionDisabled]="orderControlsLocked()"
+            [now]="quoteClock()"
+            (instrumentSelected)="openHolding($event)"
+            (refreshPrices)="loadMarketData()"
+          />
+        }
+        <section class="positions-section" aria-labelledby="positions-title">
+          <div class="panel-heading">
+            <h2 id="positions-title">Positions</h2>
+            <span>{{ openPositions().length }} instruments</span>
+          </div>
+          <div class="table-wrapper">
+            <table
+              role="table"
+              class="workspace-table positions-table"
+              aria-label="Account holdings"
+            >
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th role="columnheader" scope="col">Symbol</th>
+                  <th role="columnheader" scope="col">Instrument</th>
+                  <th role="columnheader" scope="col" class="quantity-heading">Quantity</th>
+                </tr>
+              </thead>
+              <tbody role="rowgroup">
+                @for (position of openPositions(); track position.instrumentId) {
+                  <tr role="row" class="position-row">
+                    <td role="cell" class="symbol-cell" data-label="Symbol">
+                      <button
+                        type="button"
+                        class="instrument-link holding-link holding-symbol"
+                        [disabled]="orderControlsLocked() || !holdingInstrument(position)"
+                        [attr.aria-label]="'Open Orders for ' + position.symbol"
+                        (click)="openHolding(position)"
+                      >
+                        {{ position.symbol }}
+                      </button>
+                      @if (!holdingInstrument(position)) {
+                        <small>Market details unavailable</small>
+                      }
+                    </td>
+                    <td role="cell" data-label="Instrument">
+                      <button
+                        type="button"
+                        class="instrument-link holding-link"
+                        [disabled]="orderControlsLocked() || !holdingInstrument(position)"
+                        [attr.aria-label]="
+                          'Open Orders for ' +
+                          position.instrumentName +
+                          ' (' +
+                          position.symbol +
+                          ')'
+                        "
+                        (click)="openHolding(position)"
+                      >
+                        {{ position.instrumentName }}
+                      </button>
+                    </td>
+                    <td role="cell" class="number-cell" data-label="Quantity">
+                      {{ position.quantity }}
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr role="row">
+                    <td role="cell" colspan="3" class="empty-state">
+                      No positions currently held.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (orderControlsLocked()) {
+            <p class="market-day-note">
+              Wait for the current order outcome before opening another instrument.
+            </p>
+          }
+        </section>
+      </section>
     </div>
-
-  </div>
-
+    @if (account(); as chatAccount) {
+      <app-trading-chatbot [account]="chatAccount" (orderChanged)="onChatOrderChanged($event)" />
+    }
   }
-
 </div>

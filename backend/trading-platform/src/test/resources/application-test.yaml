@@ -27,11 +27,15 @@ spring:
         await-termination-period: 10s
 
 app:
+  price-alerts:
+    enabled: false
+
   jwt:
     secret: ${JWT_SECRET}
     access-token-expiration-minutes: 15
 
   auth:
+    internal-access-code: integration-test-staff-code
     refresh-token-expiration-days: 7
 
   market-simulator:

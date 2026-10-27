@@ -130,7 +130,9 @@ class OrderExecutionServiceTest {
                                 cashTransactionRepository,
                                 historyRepository,
                                 positionHistoryRepository,
-                                applicationEventPublisher);
+                                applicationEventPublisher,
+                                new com.goatteen.trading.fx.FxRateService(
+                                                org.springframework.web.client.RestClient.builder()));
 
                 Client client = new Client(new User("execution-unit@example.test", "test-hash"),
                                 "Execution", "Test");

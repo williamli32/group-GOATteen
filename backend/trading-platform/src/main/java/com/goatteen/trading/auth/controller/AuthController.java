@@ -6,6 +6,8 @@ import com.goatteen.trading.auth.service.AuthService;
 import com.goatteen.trading.account.AccountCurrency;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.goatteen.trading.auth.dto.LoginRequest;
@@ -61,6 +63,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(
             @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
 
         AuthService.LoginResult result = authService.login(request);
@@ -68,6 +71,7 @@ public class AuthController {
         addRefreshCookie(
                 servletResponse,
                 result.refreshToken(),
+                servletRequest.isSecure(),
                 Duration.between(
                         java.time.LocalDateTime.now(),
                         result.refreshTokenExpiresAt()).toSeconds());
@@ -96,6 +100,7 @@ public class AuthController {
         addRefreshCookie(
                 response,
                 result.token(),
+                request.isSecure(),
                 Duration.between(
                         java.time.LocalDateTime.now(),
                         result.expiresAt()).toSeconds());
@@ -115,7 +120,7 @@ public class AuthController {
             refreshTokenService.revoke(refreshToken);
         }
 
-        clearRefreshCookie(response);
+        clearRefreshCookie(response, request.isSecure());
 
         return ResponseEntity.noContent().build();
     }
@@ -123,19 +128,18 @@ public class AuthController {
     private void addRefreshCookie(
             HttpServletResponse response,
             String token,
+            boolean secure,
             long maxAgeSeconds) {
 
-        Cookie cookie = new Cookie(
-                REFRESH_COOKIE,
-                token);
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE, token)
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite("Lax")
+                .path("/api/auth")
+                .maxAge(Math.max(maxAgeSeconds, 0))
+                .build();
 
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // local HTTP development only
-        cookie.setPath("/api/auth");
-        cookie.setMaxAge(
-                (int) Math.max(maxAgeSeconds, 0));
-
-        response.addCookie(cookie);
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private String getRefreshTokenFromCookie(
@@ -157,17 +161,9 @@ public class AuthController {
     }
 
     private void clearRefreshCookie(
-            HttpServletResponse response) {
+            HttpServletResponse response,
+            boolean secure) {
 
-        Cookie cookie = new Cookie(
-                REFRESH_COOKIE,
-                "");
-
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false);
-        cookie.setPath("/api/auth");
-        cookie.setMaxAge(0);
-
-        response.addCookie(cookie);
+        addRefreshCookie(response, "", secure, 0);
     }
 }

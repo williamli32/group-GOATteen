@@ -1,0 +1,80 @@
+// Short entrances and ambient light complement the artwork; data values stay steady.
+// Global pause and system reduced-motion rules in styles.scss override every effect.
+@keyframes workspace-card-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes workspace-panel-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes workspace-light-drift {
+  0%,
+  100% {
+    transform: translate3d(-7%, 0, 0) scale(0.98);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate3d(8%, -4%, 0) scale(1.08);
+    opacity: 1;
+  }
+}
+app-root {
+  .account-summary-grid > .summary-card,
+  .metric-grid > .metric-card,
+  .insight-cards > .insight-card {
+    animation: workspace-card-arrive 0.65s var(--ease) backwards;
+    @for $i from 1 through 7 {
+      &:nth-child(#{$i}) {
+        animation-delay: ($i - 1) * 0.065s;
+      }
+    }
+  }
+  .auth-main > .auth-card {
+    animation: workspace-panel-arrive 0.8s var(--ease) 0.08s backwards;
+  }
+  .trend-grid > .chart-panel,
+  .analysis-grid > .table-panel {
+    animation: workspace-panel-arrive 0.65s var(--ease) backwards;
+    @for $i from 1 through 5 {
+      &:nth-child(#{$i}) {
+        animation-delay: ($i - 1) * 0.06s;
+      }
+    }
+  }
+  .operations-layout > .detail-panel {
+    animation: workspace-panel-arrive 0.45s var(--ease) backwards;
+  }
+  .auth-story::before,
+  .workspace-intro::before {
+    content: '';
+    position: absolute;
+    inset: -35%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 65% 70%, #b8d8a92a, transparent 48%);
+    animation: workspace-light-drift 13s ease-in-out infinite;
+  }
+  .workspace-intro::before {
+    background: radial-gradient(ellipse at 72% 45%, var(--hero-glow), transparent 42%);
+  }
+}
+@media (max-width: 650px) {
+  app-root .account-summary-grid > .summary-card,
+  app-root .metric-grid > .metric-card,
+  app-root .insight-cards > .insight-card {
+    animation-duration: 0.5s;
+  }
+}

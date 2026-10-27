@@ -48,9 +48,15 @@ public final class ReportingLoadFixture {
             FROM generate_series(1,:count)
             """,
             """
-            INSERT INTO fills(order_id,quote_id,fill_price,fill_quantity,executed_at)
-            SELECT o.id,:quote,q.ask_price,o.quantity,:at
+            INSERT INTO fills(order_id,quote_id,fill_price,fill_quantity,executed_at,
+                              fx_source_currency,fx_target_currency,fx_rate,fx_rate_date,
+                              fx_provider,cash_settlement_amount)
+            SELECT o.id,:quote,q.ask_price,o.quantity,:at,
+                   i.currency,a.currency,1.0,CAST(:at AS DATE),
+                   'TEST_SAME_CURRENCY',ROUND(q.ask_price*o.quantity,2)
             FROM orders o JOIN market_quotes q ON q.id=:quote
+            JOIN instruments i ON i.id=o.instrument_id
+            JOIN accounts a ON a.id=o.account_id
             WHERE o.account_id=:account AND q.instrument_id=o.instrument_id
             """,
             """

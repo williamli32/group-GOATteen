@@ -10,6 +10,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -257,7 +259,8 @@ class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport 
                 assertTrue(
                                 error.getMessage()
                                                 .contains(
-                                                                "position history"));
+                                                                "position history"),
+                                error::getMessage);
         }
 
         @Test
@@ -309,7 +312,8 @@ class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport 
                 assertTrue(
                                 report.getMessage()
                                                 .contains(
-                                                                "Cash transaction balance is inconsistent"));
+                                                                "Cash transaction balance is inconsistent"),
+                                report::getMessage);
         }
 
         @Test
@@ -354,7 +358,8 @@ class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport 
                 assertTrue(
                                 report.getMessage()
                                                 .contains(
-                                                                "Current account cash balance does not match latest cash transaction"));
+                                                                "Current account cash balance does not match latest cash transaction"),
+                                report::getMessage);
         }
 
         @Test
@@ -401,7 +406,8 @@ class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport 
                 assertTrue(
                                 report.getMessage()
                                                 .contains(
-                                                                "Current position does not match latest position history"));
+                                                                "Current position does not match latest position history"),
+                                report::getMessage);
         }
 
         private Long createAccount(
@@ -500,6 +506,11 @@ class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport 
                         Long accountId,
                         Long instrumentId) {
 
+                // Execution timestamps use the application clock. The database may
+                // run on another host, so CURRENT_TIMESTAMP can put SUBMITTED later
+                // than ACCEPTED/REJECTED. Truncate to PostgreSQL's microsecond precision.
+                LocalDateTime submittedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
                 Long orderId = jdbc.queryForObject(
                                 """
                                                 INSERT INTO orders
@@ -512,12 +523,13 @@ class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport 
                                                 VALUES
                                                     (?, ?, 'BUY', 2,
                                                      'SUBMITTED',
-                                                     CURRENT_TIMESTAMP)
+                                                     ?)
                                                 RETURNING id
                                                 """,
                                 Long.class,
                                 accountId,
-                                instrumentId);
+                                instrumentId,
+                                submittedAt);
 
                 jdbc.update(
                                 """
@@ -526,10 +538,9 @@ class TradeReconstructionIntegrationTest extends DatabaseIntegrationTestSupport 
                                                      status,
                                                      changed_at,
                                                      note)
-                                                VALUES
-                                                    (?, 'SUBMITTED',
-                                                     CURRENT_TIMESTAMP,
-                                                     'Order submitted')
+                                                SELECT id, 'SUBMITTED', submitted_at, 'Order submitted'
+                                                FROM orders
+                                                WHERE id = ?
                                                 """,
                                 orderId);
 

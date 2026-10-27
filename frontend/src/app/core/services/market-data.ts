@@ -26,6 +26,13 @@ export interface LatestQuoteResponse {
 }
 
 
+export interface DailyPriceChange {
+    tradingDay: string;
+    referencePrice: number;
+    referenceTime: string;
+    percent: number;
+}
+
 export interface MarketInstrumentResponse {
     instrumentId: number;
     symbol: string;
@@ -36,6 +43,7 @@ export interface MarketInstrumentResponse {
     currency: string;
     tradable: boolean;
     latestQuote: LatestQuoteResponse | null;
+    dayChange?: DailyPriceChange | null;
 }
 
 

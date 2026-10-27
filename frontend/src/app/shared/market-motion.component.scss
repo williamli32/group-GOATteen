@@ -1,0 +1,207 @@
+:host {
+  --art-float: -22px;
+  --art-turn: 6deg;
+  --art-duration: 6.6s;
+  display: block;
+  width: 100%;
+  color: #92b8a1;
+  pointer-events: none;
+  isolation: isolate;
+}
+svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: inherit;
+  overflow: visible;
+}
+:host.compact {
+  --art-float: -17px;
+  --art-turn: 5deg;
+  --art-duration: 7.2s;
+  svg {
+    max-height: 230px;
+  }
+}
+:host.framed {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 60 / 47;
+  overflow: hidden;
+  border: 1px solid #42614d;
+  border-radius: 20px;
+  background: radial-gradient(ellipse at 35% 25%, #294a37, #1c352a 75%);
+  box-shadow: inset 0 1px 0 #fbffe214;
+  svg {
+    max-height: none;
+  }
+}
+.ambient-glow {
+  transform-origin: 300px 237px;
+  animation: art-illuminate 6.6s ease-in-out infinite;
+}
+.grid-rotor {
+  transform-origin: 300px 237px;
+  animation: art-grid-orbit 42s linear infinite;
+}
+.flow-sculpture {
+  transform-origin: 300px 235px;
+  animation: art-levitate var(--art-duration) ease-in-out infinite;
+}
+.sculpture-shadow {
+  transform-origin: 303px 407px;
+  animation: art-shadow var(--art-duration) ease-in-out infinite;
+}
+.gold-ring {
+  transform-origin: 301px 237px;
+  animation: art-ring-turn 11s ease-in-out infinite;
+}
+.orbit-comet {
+  --trail-start: -11;
+  stroke-dashoffset: -11;
+  animation: art-orbit-trace 12s linear infinite;
+}
+.orbit-comet-gold {
+  --trail-start: -66;
+  stroke-dashoffset: -66;
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+.orbit-satellite {
+  --orbit-start: 20%;
+  offset-distance: 20%;
+  offset-rotate: 0deg;
+  offset-anchor: center;
+  animation: art-satellite-travel 12s linear infinite;
+}
+.orbit-satellite-gold {
+  --orbit-start: 66%;
+  offset-distance: 66%;
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+.core-sheen {
+  opacity: 0;
+  animation: art-sheen 6.6s ease-in-out infinite;
+}
+.core-bar {
+  transform-origin: 300px 250px;
+  animation: art-mark-rise 4.8s ease-in-out infinite;
+}
+.core-bar-middle {
+  animation-delay: -0.65s;
+}
+.core-bar-high {
+  animation-delay: -1.3s;
+}
+.floating-pearl {
+  transform-origin: 444px 166px;
+  animation: art-pearl-drift 5.6s ease-in-out infinite;
+}
+@keyframes art-levitate {
+  0%,
+  100% {
+    transform: translateY(0) rotate(calc(0deg - var(--art-turn)));
+  }
+  50% {
+    transform: translateY(var(--art-float)) rotate(var(--art-turn));
+  }
+}
+@keyframes art-shadow {
+  0%,
+  100% {
+    transform: scaleX(1.06);
+    opacity: 0.18;
+  }
+  50% {
+    transform: scaleX(0.8) scaleY(0.8);
+    opacity: 0.08;
+  }
+}
+@keyframes art-illuminate {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.09);
+    opacity: 1;
+  }
+}
+@keyframes art-grid-orbit {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes art-ring-turn {
+  0%,
+  100% {
+    transform: rotate(-10deg) scaleY(0.94);
+  }
+  50% {
+    transform: rotate(10deg) scaleY(1.08);
+  }
+}
+@keyframes art-orbit-trace {
+  from {
+    stroke-dashoffset: var(--trail-start);
+  }
+  to {
+    stroke-dashoffset: calc(var(--trail-start) - 100);
+  }
+}
+@keyframes art-satellite-travel {
+  from {
+    offset-distance: var(--orbit-start);
+  }
+  to {
+    offset-distance: calc(var(--orbit-start) + 100%);
+  }
+}
+@keyframes art-sheen {
+  0%,
+  14% {
+    transform: translateX(-140px);
+    opacity: 0;
+  }
+  36%,
+  44% {
+    opacity: 0.75;
+  }
+  68%,
+  100% {
+    transform: translateX(140px);
+    opacity: 0;
+  }
+}
+@keyframes art-mark-rise {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.73);
+  }
+}
+@keyframes art-pearl-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(8px, -12px);
+  }
+}
+@supports not (offset-path: path('M0 0L1 1')) {
+  .orbit-satellite {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+  }
+}

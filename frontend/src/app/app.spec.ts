@@ -1,8 +1,16 @@
 import { Component } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import {
+  Router,
+  provideRouter,
+  NavigationStart,
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+} from '@angular/router';
+import { of, Subject } from 'rxjs';
+import { vi } from 'vitest';
 
 import { App } from './app';
 import { Auth } from './core/auth/auth';
@@ -72,7 +80,7 @@ describe('App', () => {
     const fixture = await renderAt('/dashboard');
     const renderedLabels = Array.from(
       fixture.nativeElement.querySelectorAll('.nav-label') as NodeListOf<HTMLElement>,
-      label => label.textContent?.trim(),
+      (label) => label.textContent?.trim(),
     );
     expect(renderedLabels).toEqual(labels);
   });
@@ -80,18 +88,67 @@ describe('App', () => {
   it('lets an operations user open Reports from the sidebar', async () => {
     signIn('OPERATIONS');
     const fixture = await renderAt('/operations');
-    const reportsLink = fixture.nativeElement.querySelector('a[href="/analyst"]') as HTMLAnchorElement;
+    const reportsLink = fixture.nativeElement.querySelector(
+      'a[href="/analyst"]',
+    ) as HTMLAnchorElement;
     expect(reportsLink).toBeTruthy();
     reportsLink.click();
     await fixture.whenStable();
     expect(router.url).toBe('/analyst');
   });
 
-  it.each(['/analyst', '/operations'])('redirects a customer opening %s to Dashboard', async url => {
+  it('completes the customer journey with Dashboard as the only workspace route', async () => {
     signIn('CLIENT');
-    await renderAt(url);
+    const fixture = await renderAt('/dashboard');
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a.nav-item'),
+      (link: HTMLAnchorElement) => link.getAttribute('href'));
+
+    expect(router.url).toBe('/dashboard');
+    expect(links).toEqual(['/dashboard']);
+    fixture.nativeElement.querySelector('a[href="/dashboard"]').click();
+    await fixture.whenStable();
     expect(router.url).toBe('/dashboard');
   });
+
+  it('completes the analyst journey between Dashboard and Reports only', async () => {
+    signIn('ANALYST');
+    const fixture = await renderAt('/dashboard');
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a.nav-item'),
+      (link: HTMLAnchorElement) => link.getAttribute('href'));
+    expect(links).toEqual(['/dashboard', '/analyst']);
+
+    fixture.nativeElement.querySelector('a[href="/analyst"]').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(router.url).toBe('/analyst');
+    fixture.nativeElement.querySelector('a[href="/dashboard"]').click();
+    await fixture.whenStable();
+    expect(router.url).toBe('/dashboard');
+  });
+
+  it('completes the operations journey across Dashboard, Reports, and Operations', async () => {
+    signIn('OPERATIONS');
+    const fixture = await renderAt('/dashboard');
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a.nav-item'),
+      (link: HTMLAnchorElement) => link.getAttribute('href'));
+    expect(links).toEqual(['/dashboard', '/analyst', '/operations']);
+
+    for (const path of ['/analyst', '/operations', '/dashboard']) {
+      fixture.nativeElement.querySelector(`a[href="${path}"]`).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(router.url).toBe(path);
+    }
+  });
+
+  it.each(['/analyst', '/operations'])(
+    'redirects a customer opening %s to Dashboard',
+    async (url) => {
+      signIn('CLIENT');
+      await renderAt(url);
+      expect(router.url).toBe('/dashboard');
+    },
+  );
 
   it('redirects an analyst opening Operations to Dashboard', async () => {
     signIn('ANALYST');
@@ -100,10 +157,43 @@ describe('App', () => {
   });
 
   it.each(['/login', '/register', '/login?returnUrl=%2Fdashboard', '/register?role=CLIENT'])(
-    'keeps the sidebar off the public page %s', async url => {
+    'keeps the sidebar off the public page %s',
+    async (url) => {
       signIn('OPERATIONS');
       const fixture = await renderAt(url);
       expect(fixture.nativeElement.querySelector('app-sidebar')).toBeNull();
     },
   );
+  it('shows page-loading feedback and clears it after navigation or cancellation', () => {
+    const events = new Subject<NavigationStart | NavigationEnd | NavigationCancel>();
+    vi.spyOn(router, 'events', 'get').mockReturnValue(events);
+    const fixture = TestBed.createComponent(App);
+    events.next(new NavigationStart(1, '/login'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Opening page"]')).not.toBeNull();
+    events.next(new NavigationEnd(1, '/login', '/login'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Opening page"]')).toBeNull();
+    events.next(new NavigationStart(2, '/register'));
+    events.next(new NavigationCancel(2, '/register', 'Cancelled'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Opening page"]')).toBeNull();
+  });
+
+  it('lets the user retry a failed page download without exposing technical errors', () => {
+    const events = new Subject<NavigationStart | NavigationError>();
+    vi.spyOn(router, 'events', 'get').mockReturnValue(events);
+    const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(App);
+    events.next(new NavigationError(1, '/analyst', new Error('Chunk download failed')));
+    fixture.detectChanges();
+    const banner = fixture.nativeElement.querySelector('.route-error') as HTMLElement;
+    expect(banner.textContent).toContain('Check your connection');
+    expect(banner.textContent).not.toContain('Chunk');
+    banner.querySelector('button')!.click();
+    expect(navigate).toHaveBeenCalledWith('/analyst');
+    events.next(new NavigationStart(2, '/analyst'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.route-error')).toBeNull();
+  });
 });

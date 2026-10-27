@@ -13,8 +13,6 @@ pipeline {
          * Ephemeral PostgreSQL container used only by CI.
          */
         CI_DB_CONTAINER = 'leap-postgres-ci'
-        CI_TEST_DB = 'leap_trading_test'
-        TEST_DB_USERNAME = 'leap_test'
 
         /*
          * All backend integration tests now share one
@@ -31,9 +29,7 @@ pipeline {
         TEST_DB_USERNAME = 'leap_test'
 
         /*
-         * Keep the Maven repository and wrapper distributions beside the
-         * workspace so Maven clean and checkout cleanup do not remove them.
-         * Builds on another Jenkins agent will populate that agent's cache.
+         * Password for the disposable CI database, supplied by Jenkins.
          */
         TEST_DB_PASSWORD = credentials('leap-ci-db-password')
 
@@ -65,6 +61,54 @@ pipeline {
                             node:24-bookworm \
                             sh -lc 'npm ci && npm test -- --watch=false && npm run build'
                     '''
+                }
+            }
+        }
+
+        stage('Frontend Browser Validation') {
+            options {
+                timeout(time: 15, unit: 'MINUTES')
+            }
+            steps {
+                dir('frontend') {
+                    dir('test-results') { deleteDir() }
+                    dir('playwright-report') { deleteDir() }
+                    sh '''
+                        set -eu
+                        mkdir -p test-results playwright-report
+                        browser_image_id_file="$(mktemp)"
+                        rm -f "$browser_image_id_file"
+                        cleanup_browser_image() {
+                            if [ -s "$browser_image_id_file" ]; then
+                                docker image rm "$(cat "$browser_image_id_file")" >/dev/null 2>&1 || true
+                            fi
+                            rm -f "$browser_image_id_file"
+                        }
+                        trap cleanup_browser_image EXIT
+
+                        docker build --iidfile "$browser_image_id_file" -f Dockerfile.e2e .
+                        # Playwright removes and recreates its output directories.
+                        # Mount their writable parent, including this build's npm install.
+                        docker run --rm --init --shm-size=1g \
+                            -u "$(id -u):$(id -g)" \
+                            -e HOME=/tmp \
+                            -v "$PWD:/app" \
+                            -w /app \
+                            "$(cat "$browser_image_id_file")" \
+                            sh -c 'npm run test:e2e:types && npm run test:e2e'
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts(
+                        artifacts: 'frontend/playwright-report/**,frontend/test-results/**',
+                        allowEmptyArchive: true
+                    )
+                    junit(
+                        testResults: 'frontend/test-results/e2e-junit.xml',
+                        allowEmptyResults: currentBuild.currentResult != 'SUCCESS'
+                    )
                 }
             }
         }
@@ -148,20 +192,31 @@ pipeline {
                      * leap_trading_test.
                      */
                     sh '''
+                        set +x
+                        set -eu
+
                         if [ -z "${JWT_SECRET}" ]; then
                             echo "ERROR: JWT_SECRET is empty"
                             exit 1
                         fi
 
+                        # Create the cache as Jenkins, before Docker starts.
+                        # Its contents survive container removal and Maven clean.
+                        maven_cache_dir="${WORKSPACE}@maven-cache"
+                        mkdir -p "$maven_cache_dir/.m2/repository" "$maven_cache_dir/.m2/wrapper"
+
                         docker run --rm \
                             --network "container:$CI_DB_CONTAINER" \
                             -u "$(id -u):$(id -g)" \
-                            -e HOME=/tmp \
+                            -e HOME=/var/maven \
+                            -e MAVEN_CONFIG=/var/maven/.m2 \
+                            -e MAVEN_USER_HOME=/var/maven/.m2 \
                             -e TEST_DB_URL="jdbc:postgresql://localhost:5432/${CI_TEST_DB}" \
                             -e TEST_DB_USERNAME="${TEST_DB_USERNAME}" \
                             -e TEST_DB_PASSWORD="${TEST_DB_PASSWORD}" \
                             -e JWT_SECRET="${JWT_SECRET}" \
                             -v "$PWD:/app" \
+                            -v "$maven_cache_dir:/var/maven" \
                             -w /app \
                             maven:3.9.9-eclipse-temurin-21 \
                             ./mvnw -B -ntp \
@@ -179,10 +234,13 @@ pipeline {
                         allowEmptyArchive: true
                     )
 
-                    /* Missing reports must not turn a no-tests run green. */
+                    /*
+                     * Preserve the original failure if Maven stopped before
+                     * producing reports. Successful builds still require XML.
+                     */
                     junit(
                         testResults: 'backend/trading-platform/target/surefire-reports/TEST-*.xml',
-                        allowEmptyResults: false
+                        allowEmptyResults: currentBuild.currentResult != 'SUCCESS'
                     )
                 }
             }
@@ -205,6 +263,7 @@ pipeline {
 
             Frontend tests:       PASSED
             Frontend build:       PASSED
+            Browser UI checks:    PASSED
             Backend tests:        PASSED
             Backend build:        PASSED
             PostgreSQL tests:     PASSED

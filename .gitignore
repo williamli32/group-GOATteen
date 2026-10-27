@@ -38,3 +38,10 @@ req/
 
 # Scripts
 scripts/
+
+# Docs
+docs/sprint-7-goal5-validation.md
+# Full-stack deployment credentials and backups
+.env.deploy
+deploy/backups/
+deploy/__pycache__/

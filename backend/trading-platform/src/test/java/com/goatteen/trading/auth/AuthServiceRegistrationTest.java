@@ -4,6 +4,7 @@ import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.auth.dto.RegisterRequest;
 import com.goatteen.trading.auth.security.JwtService;
+import com.goatteen.trading.auth.security.AuthProperties;
 import com.goatteen.trading.auth.service.AuthService;
 import com.goatteen.trading.auth.service.RefreshTokenService;
 import com.goatteen.trading.client.ClientRepository;
@@ -17,7 +18,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -32,11 +32,15 @@ class AuthServiceRegistrationTest {
     private final RoleRepository roles = mock(RoleRepository.class);
     private final PasswordEncoder passwords = mock(PasswordEncoder.class);
     private AuthService service;
+    private AuthProperties properties;
+    private static final String STAFF_CODE = "deployment-staff-test-code";
 
     @BeforeEach
     void setup() {
+        properties = new AuthProperties();
+        properties.setInternalAccessCode(STAFF_CODE);
         service = new AuthService(users, clients, accounts, roles, passwords,
-                mock(JwtService.class), mock(RefreshTokenService.class));
+                mock(JwtService.class), mock(RefreshTokenService.class), properties);
         when(roles.findByName(anyString())).thenReturn(Optional.of(mock(Role.class)));
         when(passwords.encode(anyString())).thenReturn("encoded-password");
         when(users.save(any())).thenAnswer(call -> call.getArgument(0));
@@ -49,7 +53,7 @@ class AuthServiceRegistrationTest {
         request.setFirstName("Test"); request.setLastName("User");
         request.setEmail("TEST@example.com"); request.setPassword("Test-password-123!");
         request.setRole(role); request.setCurrency(currency);
-        request.setAccessCode((String) ReflectionTestUtils.getField(AuthService.class, "ANALYST_ACCESS_CODE"));
+        request.setAccessCode(STAFF_CODE);
         return request;
     }
 
@@ -104,5 +108,24 @@ class AuthServiceRegistrationTest {
         assertThrows(IllegalArgumentException.class, () -> service.register(request(role, "JPY")));
         verify(users, never()).save(any());
         verify(accounts, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ANALYST", "OPERATIONS"})
+    void deploymentCodeReplacesTheDevelopmentCode(String role) {
+        RegisterRequest request = request(role, "USD");
+        request.setAccessCode("goatteen14");
+        assertThrows(IllegalArgumentException.class, () -> service.register(request));
+        verify(users, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void emptyStaffCodeCannotEnableInternalRegistration(String code) {
+        properties.setInternalAccessCode(code);
+        RegisterRequest request = request("OPERATIONS", "USD");
+        request.setAccessCode(code);
+        assertThrows(IllegalArgumentException.class, () -> service.register(request));
+        verify(users, never()).save(any());
     }
 }

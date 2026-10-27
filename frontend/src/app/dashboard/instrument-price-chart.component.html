@@ -1,0 +1,205 @@
+<section
+  class="instrument-price-card"
+  [attr.aria-labelledby]="id + '-heading'"
+  [style.--price-live-color]="liveChange() < 0 ? 'var(--chart-red)' : 'var(--chart-green)'"
+>
+  <header class="price-chart-heading">
+    <div class="instrument-heading">
+      <p class="eyebrow">
+        INSTRUMENT PRICE · {{ view() === 'day' ? 'ROLLING 24 HOURS' : 'LIVE DETAIL' }}
+      </p>
+      <h2 [id]="id + '-heading'">
+        <span class="instrument-symbol">{{ instrument()?.symbol ?? 'Select an instrument' }}</span>
+        @if (instrument(); as item) {
+          <span class="instrument-market">{{ item.exchange }} · {{ item.currency }}</span>
+        }
+      </h2>
+      @if (instrument(); as item) {
+        <p class="instrument-name">{{ item.name }}</p>
+      }
+    </div>
+    @if (history(); as values) {
+      <div class="live-summary">
+        <span class="live-state" [class.paused]="!live()"
+          ><span aria-hidden="true"></span>{{ live() ? 'Live quotes' : 'Updates paused' }}</span
+        >
+        <strong class="live-price">{{ money(values.latest.price) }}</strong>
+        <span class="live-change" [class.negative]="liveChange() < 0"
+          >{{ percent(liveChange()) }} <small>since live tracking began</small></span
+        >
+      </div>
+    }
+  </header>
+
+  @if (history(); as values) {
+    <div class="chart-toolbar">
+      <div class="range-controls" role="group" aria-label="Instrument chart time range">
+        <button type="button" [attr.aria-pressed]="view() === 'day'" (click)="setView('day')">
+          24h
+        </button>
+        <button type="button" [attr.aria-pressed]="view() === 'live'" (click)="setView('live')">
+          Live detail
+        </button>
+      </div>
+      <div class="chart-legend">
+        @if (previewPoints().length) {
+          <span
+            ><i class="legend-line preview-key" aria-hidden="true"></i>Illustrative history</span
+          >
+        }
+        <span><i class="legend-line live-key" aria-hidden="true"></i>Captured live quotes</span>
+        <span class="chart-timezone">UTC · {{ instrument()?.currency }}</span>
+      </div>
+    </div>
+    @if (!live()) {
+      <div class="chart-warning" role="status">
+        <span
+          >{{ refreshFailed() ? 'Market refresh failed.' : 'Waiting for a fresh quote.' }} Last live
+          observation: {{ time(values.latest.timestamp, true) }} UTC.</span
+        >
+        <button type="button" (click)="refreshPrices.emit()" [disabled]="marketLoading()">
+          Refresh chart
+        </button>
+      </div>
+    }
+    @if (points().length) {
+      <div class="price-plot-layout">
+        <div class="price-axis" aria-hidden="true">
+          @for (tick of ticks(); track $index; let i = $index) {
+            <span [style.top.%]="6.25 + i * 21.875">{{ axisPrice(tick) }}</span>
+          }
+        </div>
+        <div
+          class="instrument-price-plot"
+          tabindex="0"
+          role="group"
+          [attr.aria-label]="plotLabel()"
+          [attr.aria-describedby]="id + '-detail ' + id + '-source'"
+          (focus)="focusChart()"
+          (blur)="blurChart()"
+          (keydown)="keydown($event)"
+          (pointerdown)="pointer($event)"
+          (pointermove)="pointer($event)"
+          (pointerleave)="leaveChart()"
+        >
+          <svg
+            viewBox="0 0 1000 240"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <defs>
+              <linearGradient [id]="id + '-live-fill'" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--price-live-color)" stop-opacity=".22" />
+                <stop offset="100%" stop-color="var(--price-live-color)" stop-opacity="0" />
+              </linearGradient>
+              <linearGradient [id]="id + '-preview-fill'" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--chart-blue)" stop-opacity=".09" />
+                <stop offset="100%" stop-color="var(--chart-blue)" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            @for (tick of ticks(); track $index; let i = $index) {
+              <line
+                class="gridline"
+                x1="0"
+                x2="1000"
+                [attr.y1]="15 + i * 52.5"
+                [attr.y2]="15 + i * 52.5"
+              />
+            }
+            @for (tick of timeTicks(); track $index; let i = $index) {
+              <line
+                class="gridline vertical"
+                [attr.x1]="(i * 1000) / (timeTicks().length - 1)"
+                [attr.x2]="(i * 1000) / (timeTicks().length - 1)"
+                y1="15"
+                y2="225"
+              />
+            }
+            <path
+              class="preview-area"
+              [attr.d]="previewArea()"
+              [attr.fill]="'url(#' + id + '-preview-fill)'"
+            />
+            <path
+              class="live-area"
+              [attr.d]="liveArea()"
+              [attr.fill]="'url(#' + id + '-live-fill)'"
+            />
+            <path class="preview-line" [attr.d]="previewPath()" />
+            <path class="live-line" [attr.d]="livePath()" />
+            @if (selectedPoint(); as point) {
+              <line class="crosshair" [attr.x1]="x(point)" [attr.x2]="x(point)" y1="0" y2="240" />
+            }
+          </svg>
+          @if (values.latest.timestamp >= windowStart() && values.latest.timestamp <= now()) {
+            <span
+              class="latest-marker"
+              [class.pulsing]="live()"
+              [style.left.%]="x(values.latest) / 10"
+              [style.top.%]="y(values.latest) / 2.4"
+              aria-hidden="true"
+            ></span>
+          }
+          @if (selectedPoint(); as point) {
+            <span
+              class="inspection-marker"
+              [class.preview-point]="point.source === 'illustrative'"
+              [style.left.%]="x(point) / 10"
+              [style.top.%]="y(point) / 2.4"
+              aria-hidden="true"
+            ></span>
+          }
+        </div>
+        <div class="price-time-axis" aria-hidden="true">
+          @for (tick of timeTicks(); track $index; let i = $index) {
+            <span>{{ i === timeTicks().length - 1 ? 'Now' : tickTime(tick) }}</span>
+          }
+        </div>
+      </div>
+    } @else {
+      <p class="chart-empty">
+        No captured quotes fall within the current 24-hour window. Waiting for a fresh price.
+      </p>
+    }
+
+    <div
+      class="price-inspection"
+      [id]="id + '-detail'"
+      role="status"
+      [attr.aria-live]="focused() && selectedPoint() ? 'polite' : 'off'"
+    >
+      @if (selectedPoint(); as point) {
+        <span class="inspection-source" [class.illustrative]="point.source === 'illustrative'">{{
+          point.source === 'illustrative' ? 'Illustrative price' : 'Live quote'
+        }}</span>
+        <strong>{{ money(point.price) }}</strong
+        ><span>{{ time(point.timestamp, true) }} UTC</span>
+      } @else {
+        <span class="inspection-source">Latest quote</span
+        ><strong>{{ money(values.latest.price) }}</strong
+        ><span>{{ time(values.latest.timestamp, true) }} UTC</span>
+      }
+    </div>
+    <p class="chart-hint">
+      Hover, tap or use arrow keys to inspect prices. Live tracking began
+      {{ time(values.firstLive.timestamp, true) }} UTC.
+    </p>
+    <p class="source-note" [id]="id + '-source'">
+      The 24h overview includes dashed history generated for illustration. Live detail uses captured
+      quotes. The solid line records incoming quotes while this chart is open. Prices use the
+      instrument's currency.
+    </p>
+  } @else {
+    <div class="chart-empty" role="status">
+      @if (instrument()) {
+        <p>Waiting for a current quote to start the chart.</p>
+        <button type="button" (click)="refreshPrices.emit()" [disabled]="marketLoading()">
+          {{ marketLoading() ? 'Refreshing…' : 'Refresh chart' }}
+        </button>
+      } @else {
+        <p>Choose a market instrument, watchlist entry or holding to view its price chart.</p>
+      }
+    </div>
+  }
+</section>

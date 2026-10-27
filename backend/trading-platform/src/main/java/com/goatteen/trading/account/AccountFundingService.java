@@ -2,6 +2,7 @@ package com.goatteen.trading.account;
 
 import com.goatteen.trading.account.dto.AddFundsRequest;
 import com.goatteen.trading.account.dto.AddFundsResponse;
+import com.goatteen.trading.account.dto.WithdrawFundsRequest;
 import com.goatteen.trading.portfolio.CashTransaction;
 import com.goatteen.trading.portfolio.CashTransactionRepository;
 import org.springframework.http.HttpStatus;
@@ -59,6 +60,48 @@ public class AccountFundingService {
         entry.setBalanceAfter(after);
         entry.setCreatedAt(LocalDateTime.now());
         entry.setDescription("Account funding (" + currency.name() + ")");
+
+        account.setCashBalance(after);
+        accounts.saveAndFlush(account);
+        entry = transactions.save(entry);
+        return response(account, entry, false);
+    }
+
+    @Transactional
+    public AddFundsResponse withdrawFunds(Long userId, WithdrawFundsRequest request) {
+        if (request == null || request.idempotencyKey() == null) {
+            throw new IllegalArgumentException("A withdrawal request ID is required");
+        }
+
+        Account account = accounts.findByUserIdForUpdate(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+        AccountCurrency currency = AccountCurrency.fromCode(account.getCurrency());
+        BigDecimal amount = currency.validateAmount(request.amount());
+
+        CashTransaction existing = transactions.findByAccountIdAndWithdrawalKey(
+                account.getId(), request.idempotencyKey()).orElse(null);
+        if (existing != null) {
+            if (existing.getAmount().abs().compareTo(amount) != 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "This withdrawal request ID has already been used for a different amount");
+            }
+            return response(account, existing, true);
+        }
+
+        BigDecimal before = account.getCashBalance();
+        BigDecimal after = before.subtract(amount);
+        if (after.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Insufficient available cash");
+        }
+
+        CashTransaction entry = new CashTransaction();
+        entry.setAccount(account);
+        entry.setWithdrawalKey(request.idempotencyKey());
+        entry.setAmount(amount.negate());
+        entry.setBalanceBefore(before);
+        entry.setBalanceAfter(after);
+        entry.setCreatedAt(LocalDateTime.now());
+        entry.setDescription("Account withdrawal (" + currency.name() + ")");
 
         account.setCashBalance(after);
         accounts.saveAndFlush(account);

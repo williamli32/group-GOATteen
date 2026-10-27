@@ -1,11 +1,30 @@
+@if (openingPage()) {
+  <div
+    class="route-progress"
+    role="progressbar"
+    aria-label="Opening page"
+    aria-valuetext="Loading"
+  ></div>
+}
+@if (pageError()) {
+  <div class="route-error" role="alert">
+    <span>We couldn't open that page. Check your connection and try again.</span>
+    <button type="button" (click)="retryPage()">Retry opening page</button>
+  </div>
+}
 @if (showSidebar()) {
-	<div class="app-layout">
-		<app-sidebar />
+  <div class="app-layout">
+    <app-sidebar />
 
-		<main class="app-content">
-			<router-outlet />
-		</main>
-	</div>
+    <a class="skip-link" href="#workspace-content">Skip to workspace</a>
+    <main id="workspace-content" class="app-content" tabindex="-1">
+      <div class="mobile-tools">
+        <app-theme-toggle />
+        <app-motion-toggle />
+      </div>
+      <router-outlet />
+    </main>
+  </div>
 } @else {
-	<router-outlet />
+  <router-outlet />
 }

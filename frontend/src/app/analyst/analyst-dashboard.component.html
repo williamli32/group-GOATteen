@@ -1,1608 +1,1363 @@
-<main class="analyst-shell">
-    @if (expandedMetric(); as metric) {
-        <div class="metric-modal-backdrop" (click)="toggleMetric(metric)">
-            <section #metricDialog class="metric-modal" role="dialog" tabindex="-1"
-                (keydown)="onMetricDialogKeydown($event)" aria-modal="true" [attr.aria-label]="metricTitle(metric)"
-                (click)="$event.stopPropagation()">
-                <button type="button" class="metric-modal-close" aria-label="Close metric details"
-                    (click)="toggleMetric(metric)">×</button>
-                <p class="eyebrow">MARKET PULSE DETAIL</p>
-                <h2>{{ metricTitle(metric) }}</h2>
-
-                @if (metric === 'instruments') {
-                    <div class="metric-modal-content">
-                        <span class="modal-kicker">Current coverage</span>
-                        <strong>{{ instruments().length }}</strong>
-                        <p>instruments with executed trades in the selected reporting period.</p>
-                        <small>Daily historical instrument counts are not currently available from the reporting API.</small>
-                    </div>
-                } @else if (metric === 'clients') {
-                    <div class="metric-modal-content">
-                        <span class="modal-kicker">Distinct active clients</span>
-                        <strong>{{ distinctClientCount() }}</strong>
-                        <p>unique clients with activity in the selected reporting period.</p>
-                        <small>Each client is counted once, even if they placed orders on multiple days.</small>
-                    </div>
-                } @else {
-                    <div class="metric-modal-stats">
-                        <article>
-                            <span>{{ metricStats(metric).currentLabel }}</span>
-                            <strong>{{ metricValue(metric, metricStats(metric).current) }}</strong>
-                        </article>
-                        <article>
-                            <span>{{ metricStats(metric).previousLabel }}</span>
-                            <strong>{{ metricValue(metric, metricStats(metric).previous) }}</strong>
-                        </article>
-                        <article class="change-stat">
-                            <span>Change vs previous period</span>
-                            <strong [class.positive-change]="(metricStats(metric).change ?? 0) >= 0"
-                                [class.negative-change]="(metricStats(metric).change ?? 0) < 0">
-                                {{ metricStats(metric).change === null ? 'No prior baseline' : ((metricStats(metric).change ?? 0) | number:'1.1-1') + '%' }}
-                            </strong>
-                        </article>
-                    </div>
-                    <div class="metric-modal-content">
-                        <span class="modal-kicker">Interpretation</span>
-                        <p>{{ metricInterpretation(metric) }}</p>
-                        <small>Both periods use the same filters. The comparison window immediately precedes the selected window and has the same number of days.</small>
-                    </div>
-                }
-            </section>
-        </div>
-    }
-
-    @if (graphDialog(); as dialog) {
-        <aside class="chart-hover-dialog" role="status" aria-live="polite"
-            [style.left.px]="dialog.x" [style.top.px]="dialog.y">
-            <button type="button" class="chart-hover-close" aria-label="Close chart details" (click)="hideTrendDialog()">×</button>
-            <span>{{ dialog.date }}</span>
-            <small>{{ dialog.detail }}</small>
-            @for (series of dialog.series; track series.label) {
-                <div class="chart-dialog-series">
-                    <i [style.background-color]="series.color"></i>
-                    <span>{{ series.label }}</span>
-                    <strong>{{ series.value }}</strong>
-                </div>
-            }
-        </aside>
-    }
-
-    <header class="masthead">
-        <div>
-            <p class="eyebrow">INTERNAL OPERATIONS</p>
-
-            <h1>Reporting desk</h1>
-
-            <p class="lede">
-                Aggregate historical trading activity across all clients,
-                reconstructed from the reporting data path.
-            </p>
-        </div>
-
-        <div class="status-mark">
-            <span></span>
-            ALL CLIENTS · READ-ONLY DATA
-        </div>
-    </header>
-
-
-    <section class="filter-panel" aria-label="Reporting filters">
-
-        <div class="filter-heading">
-
-            <div>
-                <p class="eyebrow">
-                    REPORTING WINDOW
-                </p>
-            </div>
-
-            <button type="button" class="text-button" (click)="resetFilters()">
-
-                Reset filters
-
-            </button>
-
-        </div>
-
-
-        <div class="filter-grid">
-
-            <label>
-
-                <span>
-                    From date
-                </span>
-
-                <input type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" [max]="toDate()">
-
-            </label>
-
-
-            <label>
-
-                <span>
-                    To date
-                </span>
-
-                <input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" [min]="fromDate()"
-                    [max]="today">
-
-            </label>
-
-
-            <label>
-
-                <span>
-                    Instrument
-                </span>
-
-                <select [ngModel]="instrumentId() ?? ''" (ngModelChange)="selectInstrument($event)">
-
-                    <option value="">
-                        All instruments
-                    </option>
-
-                    @for (
-                    instrument of marketInstruments();
-                    track instrument.instrumentId
-                    ) {
-
-                    <option [value]="instrument.instrumentId">
-
-                        {{ instrument.symbol }}
-                        ·
-                        {{ instrument.name }}
-
-                    </option>
-
-                    }
-
-                </select>
-
-            </label>
-
-
-            <label>
-
-                <span>
-                    Currency
-                </span>
-
-                <select [ngModel]="currency()" (ngModelChange)="selectCurrency($event)">
-
-                    @for (
-                    option of currencyOptions();
-                    track option
-                    ) {
-
-                    <option [value]="option">
-                        {{ option }}
-                    </option>
-
-                    }
-
-                </select>
-
-            </label>
-
-
-            <label>
-
-                <span>
-                    Side
-                </span>
-
-                <select [ngModel]="side() ?? ''" (ngModelChange)="selectSide($event)">
-
-                    <option value="">
-                        BUY and SELL
-                    </option>
-
-                    <option value="BUY">
-                        BUY
-                    </option>
-
-                    <option value="SELL">
-                        SELL
-                    </option>
-
-                </select>
-
-            </label>
-
-
-            <label>
-
-                <span>
-                    Status
-                </span>
-
-                <select [ngModel]="status() ?? ''" (ngModelChange)="selectStatus($event)">
-
-                    <option value="">
-                        All statuses
-                    </option>
-
-                    <option value="FILLED">
-                        FILLED
-                    </option>
-
-                    <option value="REJECTED">
-                        REJECTED
-                    </option>
-
-                </select>
-
-            </label>
-
-
-            <label>
-
-                <span>
-                    Client
-                </span>
-
-                <select [ngModel]="clientId() ?? ''" (ngModelChange)="selectClient($event)">
-
-                    <option value="">
-                        All clients
-                    </option>
-
-                    @for (
-                    client of uniqueClientOptions();
-                    track client.clientId
-                    ) {
-
-                    <option [value]="client.clientId">
-                        {{ client.clientName }}
-                    </option>
-
-                    }
-
-                </select>
-
-            </label>
-
-
-            <button type="button" class="apply-button" (click)="applyFilters()" [disabled]="loading()">
-
-                {{
-                loading()
-                ? 'Loading...'
-                : 'Apply filters'
-                }}
-
-            </button>
-
-        </div>
-
-    </section>
-
-
-    @if (errorMessage()) {
-
-    <section class="state-panel error-state">
-
-        <strong>
-            {{
-            accessDenied()
-            ? 'Access forbidden'
-            : 'Reporting unavailable'
-            }}
-        </strong>
-
-        <span>
-            {{ errorMessage() }}
-        </span>
-
-        <button type="button" class="apply-button compact" (click)="applyFilters()">
-
-            Retry
-
+<section aria-label="Reports and insights" class="analyst-shell" [attr.aria-busy]="loading()">
+  @if (expandedMetric(); as metric) {
+    <div class="metric-modal-backdrop" (click)="toggleMetric(metric)">
+      <section
+        #metricDialog
+        class="metric-modal"
+        role="dialog"
+        tabindex="-1"
+        (keydown)="onMetricDialogKeydown($event)"
+        aria-modal="true"
+        [attr.aria-label]="metricTitle(metric)"
+        (click)="$event.stopPropagation()"
+      >
+        <button
+          type="button"
+          class="metric-modal-close"
+          aria-label="Close metric details"
+          (click)="toggleMetric(metric)"
+        >
+          ×
         </button>
+        <p class="eyebrow">MARKET PULSE DETAIL</p>
+        <h2>{{ metricTitle(metric) }}</h2>
+        <p class="metric-definition">{{ metricDefinition(metric) }}</p>
 
+        @if (metric === 'instruments') {
+          <div class="metric-modal-content">
+            <span class="modal-kicker">Current coverage</span>
+            <strong>{{ instruments().length }}</strong>
+            <p>instruments with executed trades in the selected reporting period.</p>
+            <small
+              >Daily historical instrument counts are not currently available from the reporting
+              API.</small
+            >
+          </div>
+        } @else {
+          <div class="metric-modal-stats">
+            <article>
+              <span>{{ metricStats(metric).currentLabel }}</span>
+              <strong>{{ metricValue(metric, metricStats(metric).current) }}</strong>
+            </article>
+            <article>
+              <span>{{ metricStats(metric).previousLabel }}</span>
+              <strong>{{ metricValue(metric, metricStats(metric).previous) }}</strong>
+            </article>
+            <article class="change-stat">
+              <span>Change vs previous period</span>
+              <strong
+                [class.positive-change]="(metricStats(metric).change ?? 0) >= 0"
+                [class.negative-change]="(metricStats(metric).change ?? 0) < 0"
+              >
+                {{
+                  metricStats(metric).change === null
+                    ? 'No prior baseline'
+                    : (metricStats(metric).change ?? 0 | number: '1.1-1') + '%'
+                }}
+              </strong>
+            </article>
+          </div>
+          <div class="metric-modal-content">
+            <span class="modal-kicker">Interpretation</span>
+            <p>{{ metricInterpretation(metric) }}</p>
+            <small
+              >Both periods use the same filters. The comparison window immediately precedes the
+              selected window and has the same number of days.</small
+            >
+          </div>
+        }
+      </section>
+    </div>
+  }
+
+  @if (graphDialog(); as dialog) {
+    <aside
+      class="chart-hover-dialog"
+      role="status"
+      aria-live="polite"
+      [style.left.px]="dialog.x"
+      [style.top.px]="dialog.y"
+    >
+      <button
+        type="button"
+        class="chart-hover-close"
+        aria-label="Close chart details"
+        (click)="hideTrendDialog()"
+      >
+        ×
+      </button>
+      <span>{{ dialog.date }}</span>
+      <small>{{ dialog.detail }}</small>
+      @for (series of dialog.series; track series.label) {
+        <div class="chart-dialog-series">
+          <i [style.background-color]="series.color"></i>
+          <span>{{ series.label }}</span>
+          <strong>{{ series.value }}</strong>
+        </div>
+      }
+    </aside>
+  }
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">INTERNAL REPORTING</p>
+
+      <h1>Reports &amp; insights</h1>
+
+      <p class="lede">Explore trading activity, spot patterns and understand what changed.</p>
+      <div class="status-mark">
+        <span></span>
+        READ-ONLY REPORTING
+      </div>
+    </div>
+
+    <app-market-motion class="header-art" [framed]="true" />
+  </header>
+
+  <nav class="report-views" aria-label="Reporting views">
+    @for (view of reportViews; track view.id) {
+      <button
+        type="button"
+        [attr.aria-pressed]="activeView() === view.id"
+        [attr.aria-controls]="'reports-view-' + view.id"
+        (click)="selectReportView(view.id)"
+      >
+        {{ view.label }}
+      </button>
+    }
+  </nav>
+
+  <section class="filter-panel" aria-label="Reporting filters">
+    <div class="filter-heading">
+      <div>
+        <p class="eyebrow">REPORTING WINDOW</p>
+      </div>
+
+      <button type="button" class="text-button" (click)="resetFilters()">Reset filters</button>
+    </div>
+
+    <div class="filter-grid">
+      <label>
+        <span> From date </span>
+
+        <input
+          type="date"
+          [ngModel]="fromDate()"
+          (ngModelChange)="fromDate.set($event)"
+          [max]="toDate()"
+        />
+      </label>
+
+      <label>
+        <span> To date </span>
+
+        <input
+          type="date"
+          [ngModel]="toDate()"
+          (ngModelChange)="toDate.set($event)"
+          [min]="fromDate()"
+          [max]="today"
+        />
+      </label>
+
+      <label>
+        <span> Instrument </span>
+
+        <select [ngModel]="instrumentId() ?? ''" (ngModelChange)="selectInstrument($event)">
+          <option value="">All instruments</option>
+
+          @for (instrument of marketInstruments(); track instrument.instrumentId) {
+            <option [value]="instrument.instrumentId">
+              {{ instrument.symbol }}
+              ·
+              {{ instrument.name }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span> Currency </span>
+
+        <select [ngModel]="currency()" (ngModelChange)="selectCurrency($event)">
+          @for (option of currencyOptions(); track option) {
+            <option [value]="option">
+              {{ option }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span> Side </span>
+
+        <select [ngModel]="side() ?? ''" (ngModelChange)="selectSide($event)">
+          <option value="">BUY and SELL</option>
+
+          <option value="BUY">BUY</option>
+
+          <option value="SELL">SELL</option>
+        </select>
+      </label>
+
+      <label>
+        <span> Status </span>
+
+        <select [ngModel]="status() ?? ''" (ngModelChange)="selectStatus($event)">
+          <option value="">All statuses</option>
+
+          <option value="FILLED">FILLED</option>
+
+          <option value="REJECTED">REJECTED</option>
+        </select>
+      </label>
+
+      <label>
+        <span> Client </span>
+
+        <select [ngModel]="clientId() ?? ''" (ngModelChange)="selectClient($event)">
+          <option value="">All clients</option>
+
+          @for (client of uniqueClientOptions(); track client.clientId) {
+            <option [value]="client.clientId">
+              {{ client.clientName }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <button type="button" class="apply-button" (click)="applyFilters()" [disabled]="loading()">
+        {{ loading() ? 'Loading...' : 'Apply filters' }}
+      </button>
+    </div>
+
+    @if (draftChanged()) {
+      <div class="draft-notice" role="status">
+        Draft changes have not been applied. Results still use the applied filters.
+        <button type="button" class="text-button" (click)="discardDraft()">Discard edits</button>
+      </div>
+    }
+    @if (filterError()) {
+      <p class="filter-error" role="alert">{{ filterError() }}</p>
+    }
+  </section>
+
+  @if (summary()) {
+    <section class="applied-scope" aria-label="Applied reporting filters">
+      <div>
+        <strong>Applied filters</strong>
+        <p>{{ appliedScope() }}</p>
+        <details class="metric-guide">
+          <summary>How to read these figures</summary>
+          <p>
+            Order counts and client activity use submission dates. Fills and notional use execution
+            dates. Dates follow the reporting calendar; timestamps retain their recorded time.
+          </p>
+        </details>
+      </div>
+      <button type="button" class="text-button" (click)="refreshApplied()" [disabled]="loading()">
+        Refresh applied results
+      </button>
+      @if (loading()) {
+        <span role="status">Updating results…</span>
+      }
     </section>
+  }
 
-    } @else if (loading() && !summary()) {
+  @if (errorMessage()) {
+    <section class="state-panel error-state" role="alert">
+      <strong>
+        {{ accessDenied() ? 'Access forbidden' : 'Reporting unavailable' }}
+      </strong>
 
-    <section class="state-panel">
+      <span>
+        {{ errorMessage() }}
+      </span>
 
-        <span class="loader"></span>
-
-        <span>
-            Loading historical activity...
-        </span>
-
+      <button type="button" class="apply-button compact" (click)="retryReporting()">Retry</button>
     </section>
+  }
 
-    } @else {
+  @if (loading() && !summary()) {
+    <section class="state-panel" role="status" aria-live="polite">
+      <span class="loader"></span>
 
+      <span> Loading historical activity... </span>
+    </section>
+  } @else if (summary()) {
     @if (insights(); as insight) {
-    <section class="business-insights section-block" aria-label="Business insights">
+      <section
+        id="reports-view-insights"
+        class="business-insights section-block"
+        aria-label="Business insights"
+        [hidden]="activeView() !== 'insights'"
+      >
         <div class="section-title">
-            <div>
-                <p class="eyebrow">BUSINESS INSIGHTS</p>
-                <h2>What changed in the selected period</h2>
-                <p>{{ insight.currentWindow.fromDate }} to {{ insight.currentWindow.toDate }}
-                    compared with {{ insight.previousWindow.fromDate }} to {{ insight.previousWindow.toDate }}.
-                    Same filters; values in {{ insight.currency }}.</p>
-            </div>
+          <div>
+            <p class="eyebrow">BUSINESS INSIGHTS</p>
+            <h2>What changed in the selected period</h2>
+            <p>
+              {{ insight.currentWindow.fromDate }} to {{ insight.currentWindow.toDate }} compared
+              with {{ insight.previousWindow.fromDate }} to {{ insight.previousWindow.toDate }}.
+              Same filters; values in {{ insight.currency }}.
+            </p>
+          </div>
         </div>
         <div class="insight-cards">
-            <article class="insight-card">
-                <h3>Most active instrument</h3>
-                @if (insight.mostActiveInstrument; as instrument) {
-                    <strong>{{ instrument.symbol }}</strong>
-                    <p>{{ instrument.fillCount }} fills</p>
-                    <small>{{ instrument.newlyActive ? 'Newly active' : changeLabel(instrument.changePercent) + ' vs previous period' }}</small>
-                } @else { <p>No executed trades.</p> }
-            </article>
-            <article class="insight-card">
-                <h3>Fastest-growing instrument</h3>
-                @if (insight.fastestGrowingInstrument; as instrument) {
-                    <strong>{{ instrument.symbol }}</strong>
-                    <p>{{ changeLabel(instrument.changePercent) }}</p>
-                    <small>{{ instrument.previousFillCount }} to {{ instrument.fillCount }} fills</small>
-                } @else { <p>No comparable positive growth.</p> }
-                @if (insight.newlyActiveInstruments.length) {
-                    <small>Newly active:
-                        @for (instrument of insight.newlyActiveInstruments; track instrument.instrumentId) {
-                            {{ instrument.symbol }}{{ $last ? '' : ', ' }}
-                        }
-                    </small>
+          <article class="insight-card">
+            <h3>Most active instrument</h3>
+            @if (insight.mostActiveInstrument; as instrument) {
+              <strong>{{ instrument.symbol }}</strong>
+              <p>{{ instrument.fillCount }} fills</p>
+              <small>{{
+                instrument.newlyActive
+                  ? 'Newly active'
+                  : changeLabel(instrument.changePercent) + ' vs previous period'
+              }}</small>
+            } @else {
+              <p>No executed trades.</p>
+            }
+          </article>
+          <article class="insight-card">
+            <h3>Fastest-growing instrument</h3>
+            @if (insight.fastestGrowingInstrument; as instrument) {
+              <strong>{{ instrument.symbol }}</strong>
+              <p>{{ changeLabel(instrument.changePercent) }}</p>
+              <small>{{ instrument.previousFillCount }} to {{ instrument.fillCount }} fills</small>
+            } @else {
+              <p>No comparable positive growth.</p>
+            }
+            @if (insight.newlyActiveInstruments.length) {
+              <small
+                >Newly active:
+                @for (instrument of insight.newlyActiveInstruments; track instrument.instrumentId) {
+                  {{ instrument.symbol }}{{ $last ? '' : ', ' }}
                 }
-            </article>
-            <article class="insight-card">
-                <h3>Trading volume change</h3>
-                <strong>{{ changeLabel(insight.volumeChangePercent) }}</strong>
-                <p>{{ insight.currentFillCount }} vs {{ insight.previousFillCount }} fills</p>
-                <small>Volume means executed fill count, not order submissions or monetary value.</small>
-            </article>
-            <article class="insight-card">
-                <h3>Highest-volume trading day</h3>
-                @if (insight.highestVolumeDay; as day) {
-                    <strong>{{ day.date }}</strong>
-                    <p>{{ day.fillCount }} fills</p>
-                    <small>Earliest date wins a tie.</small>
-                } @else { <p>No executed trades.</p> }
-            </article>
-            <article class="insight-card">
-                <h3>BUY / SELL distribution</h3>
-                <strong>{{ insight.current.buyFills }} / {{ insight.current.sellFills }}</strong>
-                @if (insight.buySharePercent !== null) {
-                    <p>{{ insight.buySharePercent | number:'1.1-1' }}% BUY /
-                        {{ insight.sellSharePercent | number:'1.1-1' }}% SELL</p>
-                } @else { <p>No executed trades.</p> }
-            </article>
-            <article class="insight-card">
-                <h3>Order rejection rate</h3>
-                @if (insight.current.totalOrders) {
-                    <strong>{{ insight.current.rejectionRate | number:'1.1-1' }}%</strong>
-                } @else { <strong>No orders</strong> }
-                <p>{{ changeLabel(insight.rejectionRateChangePercentagePoints, ' pp', 'No comparable rate') }}</p>
-                <small>Percentage-point change; orders are grouped by submission date.</small>
-            </article>
+              </small>
+            }
+          </article>
+          <article class="insight-card">
+            <h3>Trading volume change</h3>
+            <strong>{{ changeLabel(insight.volumeChangePercent) }}</strong>
+            <p>{{ insight.currentFillCount }} vs {{ insight.previousFillCount }} fills</p>
+            <small
+              >Volume means executed fill count, not order submissions or monetary value.</small
+            >
+          </article>
+          <article class="insight-card">
+            <h3>Highest-volume trading day</h3>
+            @if (insight.highestVolumeDay; as day) {
+              <strong>{{ day.date }}</strong>
+              <p>{{ day.fillCount }} fills</p>
+              <small>Earliest date wins a tie.</small>
+            } @else {
+              <p>No executed trades.</p>
+            }
+          </article>
+          <article class="insight-card">
+            <h3>BUY / SELL distribution</h3>
+            <strong>{{ insight.current.buyFills }} / {{ insight.current.sellFills }}</strong>
+            @if (insight.buySharePercent !== null) {
+              <p>
+                {{ insight.buySharePercent | number: '1.1-1' }}% BUY /
+                {{ insight.sellSharePercent | number: '1.1-1' }}% SELL
+              </p>
+            } @else {
+              <p>No executed trades.</p>
+            }
+          </article>
+          <article class="insight-card">
+            <h3>Order rejection rate</h3>
+            @if (insight.current.totalOrders) {
+              <strong>{{ insight.current.rejectionRate | number: '1.1-1' }}%</strong>
+            } @else {
+              <strong>No orders</strong>
+            }
+            <p>
+              {{
+                changeLabel(
+                  insight.rejectionRateChangePercentagePoints,
+                  ' pp',
+                  'No comparable rate'
+                )
+              }}
+            </p>
+            <small>Percentage-point change; orders are grouped by submission date.</small>
+          </article>
         </div>
         <article class="chart-panel rejection-trend-panel">
-            @let chart = rejectionChart();
-            <div class="rejection-trend-heading">
-                <div>
-                    <h3 id="rejection-trend-title">Rejection rate over time</h3>
-                    <p>Daily rejected orders as a percentage of submitted orders.</p>
-                </div>
-                <span class="rejection-trend-period">
-                    {{ (insight.currentWindow.fromDate + 'T00:00:00Z') | date:'MMM d, y':'UTC' }}
-                    @if (insight.currentWindow.fromDate !== insight.currentWindow.toDate) {
-                        &ndash; {{ (insight.currentWindow.toDate + 'T00:00:00Z') | date:'MMM d, y':'UTC' }}
-                    }
-                </span>
+          @let chart = rejectionChart();
+          <div class="rejection-trend-heading">
+            <div>
+              <h3 id="rejection-trend-title">Rejection rate over time</h3>
+              <p>Daily rejected orders as a percentage of submitted orders.</p>
             </div>
-            @if (chart.points.length) {
-                <p class="rejection-trend-coverage">
-                    {{ chart.points.length }} of {{ chart.dayCount }}
-                    {{ chart.dayCount === 1 ? 'day' : 'days' }} with submitted orders
-                </p>
-                @if (chart.points.length === 1) {
-                    <p class="rejection-single-point" role="status">
-                        Only one day has submitted orders. Its rate is shown as a single point.
-                    </p>
-                }
-                <p class="rejection-axis-title">Rejection rate (%)</p>
-                <div class="rejection-chart" role="group" aria-labelledby="rejection-trend-title">
-                    <div class="rejection-y-axis" aria-hidden="true">
-                        @for (rate of rejectionRateTicks; track rate) {
-                            <span class="rejection-y-tick" [style.top.%]="100 - rate">{{ rate }}%</span>
-                        }
-                    </div>
-                    <div class="rejection-plot">
-                        <svg class="rejection-trend-svg" viewBox="0 0 100 100" preserveAspectRatio="none"
-                            aria-hidden="true" focusable="false">
-                            @for (rate of rejectionRateTicks; track rate) {
-                                <line x1="0" [attr.y1]="100 - rate" x2="100" [attr.y2]="100 - rate"
-                                    class="rejection-gridline" [class.rejection-baseline]="rate === 0"
-                                    vector-effect="non-scaling-stroke" />
-                            }
-                            <path [attr.d]="chart.path" class="rejection-trend-line"
-                                vector-effect="non-scaling-stroke" />
-                        </svg>
-                        @for (point of chart.points; track point.date) {
-                            <button type="button" class="rejection-trend-point"
-                                [style.left.%]="point.x" [style.top.%]="point.y"
-                                [attr.aria-label]="point.date + ': ' + point.rejectionRate + '% rejection rate; '
-                                    + point.rejectedOrders + ' of ' + point.totalOrders + ' orders rejected'">
-                                <span class="rejection-point-tooltip" aria-hidden="true"
-                                    [class.rejection-tooltip-start]="point.x <= 15"
-                                    [class.rejection-tooltip-end]="point.x >= 85">
-                                    <span>{{ (point.date + 'T00:00:00Z') | date:'EEE, MMM d, y':'UTC' }}</span>
-                                    <strong>{{ point.rejectionRate | number:'1.0-2' }}% rejection rate</strong>
-                                    <span>{{ point.rejectedOrders | number }} of {{ point.totalOrders | number }} orders rejected</span>
-                                </span>
-                            </button>
-                        }
-                    </div>
-                    <div class="rejection-x-axis" aria-hidden="true">
-                        @for (tick of chart.ticks; track tick.date) {
-                            <span class="rejection-x-tick" [style.left.%]="tick.x"
-                                [class.rejection-tick-start]="tick.x === 0"
-                                [class.rejection-tick-end]="tick.x === 100"
-                                [class.rejection-tick-secondary]="tick.secondary">
-                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
-                            </span>
-                        }
-                    </div>
-                    <p class="rejection-date-title">Submission date</p>
-                </div>
-                <p class="rejection-trend-note">
-                    <span class="rejection-legend-dot" aria-hidden="true"></span>
-                    Dots show daily rates. Hover or focus a dot for order counts.
-                    Gaps mean no submitted orders, not a 0% rejection rate.
-                </p>
-            } @else {
-                <div class="rejection-trend-empty" role="status">
-                    <strong>{{ insight.current.totalOrders === 0
-                        ? 'No submitted orders in this period'
-                        : 'No daily rejection-rate data available' }}</strong>
-                    <p>Try a different date range or adjust the reporting filters.</p>
-                    <small>A rejection rate needs at least one submitted order.</small>
-                </div>
+            <span class="rejection-trend-period">
+              {{ insight.currentWindow.fromDate + 'T00:00:00Z' | date: 'MMM d, y' : 'UTC' }}
+              @if (insight.currentWindow.fromDate !== insight.currentWindow.toDate) {
+                &ndash; {{ insight.currentWindow.toDate + 'T00:00:00Z' | date: 'MMM d, y' : 'UTC' }}
+              }
+            </span>
+          </div>
+          @if (chart.points.length) {
+            <p class="rejection-trend-coverage">
+              {{ chart.points.length }} of {{ chart.dayCount }}
+              {{ chart.dayCount === 1 ? 'day' : 'days' }} with submitted orders
+            </p>
+            @if (chart.points.length === 1) {
+              <p class="rejection-single-point" role="status">
+                Only one day has submitted orders. Its rate is shown as a single point.
+              </p>
             }
+            <p class="rejection-axis-title">Rejection rate (%)</p>
+            <div class="rejection-chart" role="group" aria-labelledby="rejection-trend-title">
+              <div class="rejection-y-axis" aria-hidden="true">
+                @for (rate of rejectionRateTicks; track rate) {
+                  <span class="rejection-y-tick" [style.top.%]="100 - rate">{{ rate }}%</span>
+                }
+              </div>
+              <div class="rejection-plot">
+                <svg
+                  class="rejection-trend-svg"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  @for (rate of rejectionRateTicks; track rate) {
+                    <line
+                      x1="0"
+                      [attr.y1]="100 - rate"
+                      x2="100"
+                      [attr.y2]="100 - rate"
+                      class="rejection-gridline"
+                      [class.rejection-baseline]="rate === 0"
+                      vector-effect="non-scaling-stroke"
+                    />
+                  }
+                  <path
+                    [attr.d]="chart.path"
+                    class="rejection-trend-line"
+                    vector-effect="non-scaling-stroke"
+                  />
+                </svg>
+                @for (point of chart.points; track point.date) {
+                  <button
+                    type="button"
+                    class="rejection-trend-point"
+                    [style.left.%]="point.x"
+                    [style.top.%]="point.y"
+                    [attr.aria-label]="
+                      point.date +
+                      ': ' +
+                      point.rejectionRate +
+                      '% rejection rate; ' +
+                      point.rejectedOrders +
+                      ' of ' +
+                      point.totalOrders +
+                      ' orders rejected'
+                    "
+                  >
+                    <span
+                      class="rejection-point-tooltip"
+                      aria-hidden="true"
+                      [class.rejection-tooltip-start]="point.x <= 15"
+                      [class.rejection-tooltip-end]="point.x >= 85"
+                    >
+                      <span>{{ point.date + 'T00:00:00Z' | date: 'EEE, MMM d, y' : 'UTC' }}</span>
+                      <strong>{{ point.rejectionRate | number: '1.0-2' }}% rejection rate</strong>
+                      <span
+                        >{{ point.rejectedOrders | number }} of
+                        {{ point.totalOrders | number }} orders rejected</span
+                      >
+                    </span>
+                  </button>
+                }
+              </div>
+              <div class="rejection-x-axis" aria-hidden="true">
+                @for (tick of chart.ticks; track tick.date) {
+                  <span
+                    class="rejection-x-tick"
+                    [style.left.%]="tick.x"
+                    [class.rejection-tick-start]="tick.x === 0"
+                    [class.rejection-tick-end]="tick.x === 100"
+                    [class.rejection-tick-secondary]="tick.secondary"
+                  >
+                    {{ tick.date + 'T00:00:00Z' | date: 'MMM d, y' : 'UTC' }}
+                  </span>
+                }
+              </div>
+              <p class="rejection-date-title">Submission date</p>
+            </div>
+            <p class="rejection-trend-note">
+              <span class="rejection-legend-dot" aria-hidden="true"></span>
+              Dots show daily rates. Hover or focus a dot for order counts. Gaps mean no submitted
+              orders, not a 0% rejection rate.
+            </p>
+          } @else {
+            <div class="rejection-trend-empty" role="status">
+              <strong>{{
+                insight.current.totalOrders === 0
+                  ? 'No submitted orders in this period'
+                  : 'No daily rejection-rate data available'
+              }}</strong>
+              <p>Try a different date range or adjust the reporting filters.</p>
+              <small>A rejection rate needs at least one submitted order.</small>
+            </div>
+          }
         </article>
-    </section>
+      </section>
     }
 
-    <section class="section-block overview-section">
+    <section
+      id="reports-view-overview"
+      class="section-block overview-section"
+      aria-label="Market pulse"
+      [hidden]="activeView() !== 'overview'"
+    >
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">AT A GLANCE</p>
 
-        <div class="section-title">
-
-            <div>
-
-                <p class="eyebrow">
-                    AT A GLANCE
-                </p>
-
-                <h2>
-                    Market pulse
-                </h2>
-
-            </div>
-
-            <span class="period-label">
-                {{ appliedFilters().fromDate }}
-                →
-                {{ appliedFilters().toDate }}
-                ·
-                {{ reportedCurrency() }}
-            </span>
-
+          <h2>Market pulse</h2>
         </div>
 
+        <span class="period-label">
+          {{ appliedFilters().fromDate }}
+          →
+          {{ appliedFilters().toDate }}
+          ·
+          {{ reportedCurrency() }}
+        </span>
+      </div>
 
-        <div class="metric-grid">
+      <div class="metric-grid">
+        <button
+          type="button"
+          class="metric-card accent-blue"
+          (click)="toggleMetric('trades')"
+          aria-haspopup="dialog"
+        >
+          <span> Total successful trades </span>
 
-            <button type="button" class="metric-card accent-blue" (click)="toggleMetric('trades')" aria-haspopup="dialog">
+          <strong>
+            {{ formatNumber(totalTrades()) }}
+          </strong>
 
-                <span>
-                    Total successful trades
-                </span>
+          <small> executed trades </small>
+        </button>
 
-                <strong>
-                    {{ formatNumber(totalTrades()) }}
-                </strong>
+        <button
+          type="button"
+          class="metric-card accent-cyan"
+          (click)="toggleMetric('quantity')"
+          aria-haspopup="dialog"
+        >
+          <span> Executed quantity </span>
 
-                <small>
-                    executed trades
-                </small>
+          <strong>
+            {{ formatQuantity(summary()?.totalExecutedQuantity) }}
+          </strong>
 
+          <small> units filled </small>
+        </button>
 
-            </button>
+        <button
+          type="button"
+          class="metric-card accent-green"
+          (click)="toggleMetric('filled')"
+          aria-haspopup="dialog"
+        >
+          <span> Filled orders </span>
 
+          <strong>
+            {{ formatNumber(summary()?.filledOrders) }}
+          </strong>
 
-            <button type="button" class="metric-card accent-cyan" (click)="toggleMetric('quantity')" aria-haspopup="dialog">
+          <small> {{ formatNumber(summary()?.fillRate) }}% fill rate </small>
+        </button>
 
-                <span>
-                    Executed quantity
-                </span>
+        <button
+          type="button"
+          class="metric-card accent-red"
+          (click)="toggleMetric('rejected')"
+          aria-haspopup="dialog"
+        >
+          <span> Rejected orders </span>
 
-                <strong>
-                    {{
-                    formatQuantity(
-                    summary()?.totalExecutedQuantity
-                    )
-                    }}
-                </strong>
+          <strong>
+            {{ formatNumber(summary()?.rejectedOrders) }}
+          </strong>
 
-                <small>
-                    units filled
-                </small>
+          <small> {{ formatNumber(summary()?.rejectionRate) }}% rejection rate </small>
+        </button>
 
+        <button
+          type="button"
+          class="metric-card accent-gold"
+          (click)="toggleMetric('value')"
+          aria-haspopup="dialog"
+        >
+          <span> Trading value </span>
 
-            </button>
+          <strong>
+            {{ formatMoney(summary()?.totalTradedValue, reportedCurrency()) }}
+          </strong>
 
+          <small> reported notional · {{ reportedCurrency() }} </small>
+        </button>
 
-            <button type="button" class="metric-card accent-green" (click)="toggleMetric('filled')" aria-haspopup="dialog">
+        <button
+          type="button"
+          class="metric-card accent-violet"
+          (click)="toggleMetric('clients')"
+          aria-haspopup="dialog"
+        >
+          <span> Active clients </span>
 
-                <span>
-                    Filled orders
-                </span>
+          <strong>
+            {{ formatNumber(summary()?.activeClients) }}
+          </strong>
 
-                <strong>
-                    {{
-                    formatNumber(
-                    summary()?.filledOrders
-                    )
-                    }}
-                </strong>
+          <small> with submitted orders </small>
+        </button>
 
-                <small>
-                    {{
-                    formatNumber(
-                    summary()?.fillRate
-                    )
-                    }}% fill rate
-                </small>
+        <button
+          type="button"
+          class="metric-card accent-blue"
+          (click)="toggleMetric('instruments')"
+          aria-haspopup="dialog"
+        >
+          <span> Active instruments </span>
 
+          <strong>
+            {{ instruments().length }}
+          </strong>
 
-            </button>
-
-
-            <button type="button" class="metric-card accent-red" (click)="toggleMetric('rejected')" aria-haspopup="dialog">
-
-                <span>
-                    Rejected orders
-                </span>
-
-                <strong>
-                    {{
-                    formatNumber(
-                    summary()?.rejectedOrders
-                    )
-                    }}
-                </strong>
-
-                <small>
-                    {{
-                    formatNumber(
-                    summary()?.rejectionRate
-                    )
-                    }}% rejection rate
-                </small>
-
-
-            </button>
-
-
-            <button type="button" class="metric-card accent-gold" (click)="toggleMetric('value')" aria-haspopup="dialog">
-
-                <span>
-                    Trading value
-                </span>
-
-                <strong>
-                    {{
-                    formatMoney(
-                    summary()?.totalTradedValue,
-                    reportedCurrency()
-                    )
-                    }}
-                </strong>
-
-                <small>
-                    reported notional · {{ reportedCurrency() }}
-                </small>
-
-
-            </button>
-
-
-            <button type="button" class="metric-card accent-violet" (click)="toggleMetric('clients')" aria-haspopup="dialog">
-
-                <span>
-                    Active clients
-                </span>
-
-                <strong>
-                    {{
-                    formatNumber(
-                    summary()?.activeClients
-                    )
-                    }}
-                </strong>
-
-                <small>
-                    with submitted orders
-                </small>
-
-
-            </button>
-
-
-            <button type="button" class="metric-card accent-blue" (click)="toggleMetric('instruments')" aria-haspopup="dialog">
-
-                <span>
-                    Active instruments
-                </span>
-
-                <strong>
-                    {{ instruments().length }}
-                </strong>
-
-                <small>
-                    with executed trades
-                </small>
-
-
-            </button>
-
-        </div>
-
+          <small> with executed trades </small>
+        </button>
+      </div>
     </section>
 
+    <section
+      id="reports-view-trends"
+      class="section-block trend-section"
+      aria-label="Activity and trends"
+      [hidden]="activeView() !== 'trends'"
+    >
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">ACTIVITY AND TRENDS</p>
 
-    <section class="section-block trend-section">
-
-        <div class="section-title">
-
-            <div>
-
-                <p class="eyebrow">
-                    ACTIVITY AND TRENDS
-                </p>
-
-                <h2>
-                    Volume, value and outcomes
-                </h2>
-
-            </div>
-
-            <span class="legend">
-
-                <i class="orders-key"></i>
-                Orders
-
-                <i class="value-key"></i>
-                Value
-
-            </span>
-
+          <h2>Volume, value and outcomes</h2>
         </div>
 
+        <span class="legend">
+          <i class="orders-key"></i>
+          Orders
 
-        <div class="trend-grid">
+          <i class="value-key"></i>
+          Value
+        </span>
+      </div>
 
-            <article class="chart-panel wide-panel">
+      <div class="trend-grid">
+        <article class="chart-panel wide-panel">
+          <div class="panel-heading">
+            <h3>Filled orders over time</h3>
+            <span>daily filled orders · submission date</span>
+          </div>
+          <div class="line-chart" role="group" aria-label="Filled orders over time line chart">
+            <div class="chart-y-axis" aria-hidden="true">
+              <b>Orders</b>
+              @for (label of dailyCharts().orders.labels; track label) {
+                <small>{{ formatNumber(label) }}</small>
+              }
+            </div>
+            @if (dailyCharts().orders.activeDays) {
+              <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+                <path class="orders-area" [attr.d]="dailyCharts().orders.area" />
+                <path class="orders-line" [attr.d]="dailyCharts().orders.path" />
+                @for (point of dailyCharts().orders.points; track point.date; let index = $index) {
+                  <circle
+                    class="orders-point"
+                    [attr.cx]="point.x"
+                    [attr.cy]="point.y"
+                    r="4"
+                    tabindex="0"
+                    role="button"
+                    [attr.aria-label]="
+                      graphDateLabel(point.date) +
+                      ': ' +
+                      formatNumber(point.value) +
+                      ' Filled orders over time'
+                    "
+                    (mouseenter)="showDailyPoint('orders', index, $event)"
+                    (focus)="showDailyPoint('orders', index, $event)"
+                    (click)="showDailyPoint('orders', index, $event)"
+                    (keydown.enter)="showDailyPoint('orders', index, $event)"
+                    (keydown.space)="
+                      $event.preventDefault(); showDailyPoint('orders', index, $event)
+                    "
+                    (keydown.escape)="hideTrendDialog()"
+                    (blur)="hideTrendDialog()"
+                    (mouseleave)="hideTrendDialog()"
+                  />
+                }
+              </svg>
+              <div class="chart-labels">
+                @for (tick of trendTicks(); track tick.date) {
+                  <small
+                    [style.left.%]="tick.x"
+                    [class.chart-tick-start]="tick.x === 0"
+                    [class.chart-tick-end]="tick.x === 100"
+                    [class.chart-tick-secondary]="tick.secondary"
+                    >{{ tick.date + 'T00:00:00Z' | date: 'MMM d, y' : 'UTC' }}</small
+                  >
+                }
+              </div>
+            } @else {
+              <p class="empty-copy">No daily filled orders for this period.</p>
+            }
+          </div>
+          <p class="chart-note">
+            Distinct FILLED orders by submission day. {{ chartNote('orders') }}
+          </p>
+        </article>
 
-                <div class="panel-heading">
+        <article class="chart-panel wide-panel">
+          <div class="panel-heading">
+            <h3>Trading value over time</h3>
+            <span>reported notional · {{ reportedCurrency() }}</span>
+          </div>
+          <div
+            class="line-chart value-line-chart"
+            role="group"
+            aria-label="Trading value over time line chart"
+          >
+            <div class="chart-y-axis" aria-hidden="true">
+              <b>{{ reportedCurrency() }}</b>
+              @for (label of dailyCharts().value.labels; track label) {
+                <small>{{ formatMoney(label, reportedCurrency()) }}</small>
+              }
+            </div>
+            @if (dailyCharts().value.activeDays) {
+              <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+                <path class="value-area" [attr.d]="dailyCharts().value.area" />
+                <path class="value-line" [attr.d]="dailyCharts().value.path" />
+                @for (point of dailyCharts().value.points; track point.date; let index = $index) {
+                  <circle
+                    class="value-point"
+                    [attr.cx]="point.x"
+                    [attr.cy]="point.y"
+                    r="4"
+                    tabindex="0"
+                    role="button"
+                    [attr.aria-label]="
+                      graphDateLabel(point.date) +
+                      ': ' +
+                      formatMoney(point.value, reportedCurrency()) +
+                      ' Trading value over time'
+                    "
+                    (mouseenter)="showDailyPoint('value', index, $event)"
+                    (focus)="showDailyPoint('value', index, $event)"
+                    (click)="showDailyPoint('value', index, $event)"
+                    (keydown.enter)="showDailyPoint('value', index, $event)"
+                    (keydown.space)="
+                      $event.preventDefault(); showDailyPoint('value', index, $event)
+                    "
+                    (keydown.escape)="hideTrendDialog()"
+                    (blur)="hideTrendDialog()"
+                    (mouseleave)="hideTrendDialog()"
+                  />
+                }
+              </svg>
+              <div class="chart-labels">
+                @for (tick of trendTicks(); track tick.date) {
+                  <small
+                    [style.left.%]="tick.x"
+                    [class.chart-tick-start]="tick.x === 0"
+                    [class.chart-tick-end]="tick.x === 100"
+                    [class.chart-tick-secondary]="tick.secondary"
+                    >{{ tick.date + 'T00:00:00Z' | date: 'MMM d, y' : 'UTC' }}</small
+                  >
+                }
+              </div>
+            } @else {
+              <p class="empty-copy">No traded value for this period.</p>
+            }
+          </div>
+          <p class="chart-note">
+            Execution price × fill quantity in the applied instrument currency.
+            {{ chartNote('value') }}
+          </p>
+        </article>
 
-                    <h3>
-                        Trades over time
-                    </h3>
+        <article class="chart-panel split-panel buy-sell-panel">
+          <div class="panel-heading">
+            <h3>BUY vs SELL</h3>
 
-                    <span>
-                        daily filled orders
-                    </span>
+            <span> fills </span>
+          </div>
 
-                </div>
+          <div class="donut-copy">
+            <div
+              class="split-ring"
+              [style.background]="splitRingStyle()"
+              (mouseenter)="showPieDialog($event)"
+              (mouseleave)="hideTrendDialog()"
+            >
+              <span>
+                {{ formatNumber((summary()?.buyFills ?? 0) + (summary()?.sellFills ?? 0)) }}
+              </span>
 
+              <small> trades </small>
+            </div>
 
-                <div class="line-chart" role="img" aria-label="Trades over time line chart">
+            <div class="split-legend">
+              <span>
+                <i class="buy-dot"></i>
 
-                    <div class="chart-y-axis" aria-hidden="true"><b>Orders</b>
-                        @for (label of trendAxisLabels('orders'); track label) {
-                        <small>{{ formatNumber(label) }}</small>
-                        }
-                    </div>
+                BUY
 
-                    @if (trends().length) {
+                <b>
+                  {{ summary()?.buyFills ?? 0 }}
+                </b>
+              </span>
 
-                    <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+              <span>
+                <i class="sell-dot"></i>
 
-                        <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+                SELL
 
-                        <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+                <b>
+                  {{ summary()?.sellFills ?? 0 }}
+                </b>
+              </span>
+            </div>
 
-                        <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
-
-                        <polygon class="orders-area" [attr.points]="trendAreaPoints('orders')" />
-
-                        <polyline class="orders-line" [attr.points]="trendPoints('orders')" />
-
-
-                        @for (
-                        point of trends();
-                        track point.date;
-                        let index = $index
-                        ) {
-
-                        <circle class="orders-point" [attr.cx]="trendPointX(index)"
-                            [attr.cy]="trendPointY(index, 'orders')" r="3"
-                            (mouseenter)="showTrendDialog('Filled orders', graphDateLabel(point.date), formatNumber(point.filledOrders), 'Daily filled order activity', $event)"
-                            (mouseleave)="hideTrendDialog()"></circle>
-
-                        }
-
-                    </svg>
-
-
-                    <div class="chart-labels">
-                        @for (tick of trendTicks(); track tick.date) {
-                            <small [style.left.%]="tick.x" [class.chart-tick-start]="tick.x === 0"
-                                [class.chart-tick-end]="tick.x === 100" [class.chart-tick-secondary]="tick.secondary">
-                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
-                            </small>
-                        }
-                    </div>
-
-                    } @else {
-
-                    <p class="empty-copy">
-                        No daily activity for this period.
-                    </p>
-
+            <div class="buy-sell-history">
+              <div class="history-heading">
+                <span>Historical fills</span>
+                <span><i class="buy-dot"></i> BUY <i class="sell-dot"></i> SELL</span>
+              </div>
+              @if (dailyCharts().BUY.activeDays || dailyCharts().SELL.activeDays) {
+                <svg viewBox="-48 0 648 220" role="group" aria-label="BUY and SELL fills over time">
+                  @for (label of buySellAxisLabels(); track label; let index = $index) {
+                    <text
+                      class="history-y-label"
+                      x="-8"
+                      [attr.y]="index === 0 ? 26 : index === 1 ? 110 : 194"
+                    >
+                      {{ formatNumber(label) }}
+                    </text>
+                  }
+                  <line class="history-gridline" x1="0" y1="22" x2="600" y2="22"></line>
+                  <line class="history-gridline" x1="0" y1="106" x2="600" y2="106"></line>
+                  <line class="history-axis" x1="0" y1="190" x2="600" y2="190"></line>
+                  <path class="buy-history-line" [attr.d]="dailyCharts().BUY.path"></path>
+                  <path class="sell-history-line" [attr.d]="dailyCharts().SELL.path"></path>
+                  @for (side of ['BUY', 'SELL']; track side) {
+                    @for (
+                      point of side === 'BUY'
+                        ? dailyCharts().BUY.points
+                        : dailyCharts().SELL.points;
+                      track point.date
+                    ) {
+                      <circle
+                        [attr.class]="side === 'BUY' ? 'buy-history-point' : 'sell-history-point'"
+                        [attr.cx]="point.x"
+                        [attr.cy]="point.y"
+                        r="4"
+                        tabindex="0"
+                        role="button"
+                        [attr.aria-label]="point.date + ': ' + point.value + ' ' + side + ' fills'"
+                        (mouseenter)="showBuySellDateDialog(point.index, $event)"
+                        (focus)="showBuySellDateDialog(point.index, $event)"
+                        (click)="showBuySellDateDialog(point.index, $event)"
+                        (keydown.enter)="showBuySellDateDialog(point.index, $event)"
+                        (keydown.space)="
+                          $event.preventDefault(); showBuySellDateDialog(point.index, $event)
+                        "
+                        (keydown.escape)="hideTrendDialog()"
+                        (blur)="hideTrendDialog()"
+                        (mouseleave)="hideTrendDialog()"
+                      />
                     }
+                  }
+                  @for (tick of trendTicks(); track tick.date) {
+                    <text
+                      class="history-label"
+                      [class.chart-tick-secondary]="tick.secondary"
+                      [attr.x]="tick.x * 6"
+                      [attr.text-anchor]="
+                        tick.x === 0 ? 'start' : tick.x === 100 ? 'end' : 'middle'
+                      "
+                      y="212"
+                    >
+                      {{ tick.date + 'T00:00:00Z' | date: 'MMM d, y' : 'UTC' }}
+                    </text>
+                  }
+                </svg>
+              } @else {
+                <p class="empty-copy">No BUY or SELL fills for this period.</p>
+              }
+              <p class="chart-note">
+                Execution fills by execution day. {{ chartNote('BUY') }} {{ chartNote('SELL') }}
+              </p>
+            </div>
+          </div>
+        </article>
 
-                </div>
+        <article class="chart-panel split-panel outcome-panel">
+          <div class="panel-heading">
+            <h3>FILLED vs REJECTED</h3>
 
-            </article>
+            <span> orders </span>
+          </div>
 
+          <div class="outcome-bars">
+            <div>
+              <span>
+                FILLED
 
-            <article class="chart-panel wide-panel">
+                <b>
+                  {{ summary()?.filledOrders ?? 0 }}
+                </b>
+              </span>
 
-                <div class="panel-heading">
+              <i
+                class="filled-bar"
+                [style.width.%]="
+                  summary()?.filledOrders
+                    ? ((summary()?.filledOrders ?? 0) /
+                        ((summary()?.filledOrders ?? 0) + (summary()?.rejectedOrders ?? 0))) *
+                      100
+                    : 0
+                "
+                (mouseenter)="showOutcomeDialog('FILLED', summary()?.filledOrders ?? 0, $event)"
+                (mouseleave)="hideTrendDialog()"
+              >
+              </i>
+            </div>
 
-                    <h3>
-                        Trading value over time
-                    </h3>
+            <div>
+              <span>
+                REJECTED
 
-                    <span>
-                        reported notional · {{ reportedCurrency() }}
-                    </span>
+                <b>
+                  {{ summary()?.rejectedOrders ?? 0 }}
+                </b>
+              </span>
 
-                </div>
+              <i
+                class="rejected-bar"
+                [style.width.%]="
+                  summary()?.rejectedOrders
+                    ? ((summary()?.rejectedOrders ?? 0) /
+                        ((summary()?.filledOrders ?? 0) + (summary()?.rejectedOrders ?? 0))) *
+                      100
+                    : 0
+                "
+                (mouseenter)="showOutcomeDialog('REJECTED', summary()?.rejectedOrders ?? 0, $event)"
+                (mouseleave)="hideTrendDialog()"
+              >
+              </i>
+            </div>
+          </div>
 
+          <p class="chart-note">
+            Bars show shares of FILLED + REJECTED orders only. Rejection rate uses all submitted
+            orders, including pending orders.
+            {{
+              Math.max(
+                0,
+                (summary()?.totalOrders ?? 0) -
+                  (summary()?.filledOrders ?? 0) -
+                  (summary()?.rejectedOrders ?? 0)
+              )
+            }}
+            orders are still pending.
+          </p>
+        </article>
 
-                <div class="line-chart value-line-chart" role="img" aria-label="Trading value over time line chart">
+        <article class="chart-panel wide-panel client-trend-panel">
+          <div class="panel-heading">
+            <h3>Client activity over time</h3>
+            <span>distinct clients per day</span>
+          </div>
+          <div
+            class="line-chart client-line-chart"
+            role="group"
+            aria-label="Client activity over time line chart"
+          >
+            <div class="chart-y-axis" aria-hidden="true">
+              <b>Clients</b>
+              @for (label of dailyCharts().clients.labels; track label) {
+                <small>{{ formatNumber(label) }}</small>
+              }
+            </div>
+            @if (dailyCharts().clients.activeDays) {
+              <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+                <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+                <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+                <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+                <path class="client-area" [attr.d]="dailyCharts().clients.area" />
+                <path class="client-line" [attr.d]="dailyCharts().clients.path" />
+                @for (point of dailyCharts().clients.points; track point.date; let index = $index) {
+                  <circle
+                    class="client-point"
+                    [attr.cx]="point.x"
+                    [attr.cy]="point.y"
+                    r="4"
+                    tabindex="0"
+                    role="button"
+                    [attr.aria-label]="
+                      graphDateLabel(point.date) +
+                      ': ' +
+                      formatNumber(point.value) +
+                      ' Client activity over time'
+                    "
+                    (mouseenter)="showDailyPoint('clients', index, $event)"
+                    (focus)="showDailyPoint('clients', index, $event)"
+                    (click)="showDailyPoint('clients', index, $event)"
+                    (keydown.enter)="showDailyPoint('clients', index, $event)"
+                    (keydown.space)="
+                      $event.preventDefault(); showDailyPoint('clients', index, $event)
+                    "
+                    (keydown.escape)="hideTrendDialog()"
+                    (blur)="hideTrendDialog()"
+                    (mouseleave)="hideTrendDialog()"
+                  />
+                }
+              </svg>
+              <div class="chart-labels">
+                @for (tick of trendTicks(); track tick.date) {
+                  <small
+                    [style.left.%]="tick.x"
+                    [class.chart-tick-start]="tick.x === 0"
+                    [class.chart-tick-end]="tick.x === 100"
+                    [class.chart-tick-secondary]="tick.secondary"
+                    >{{ tick.date + 'T00:00:00Z' | date: 'MMM d, y' : 'UTC' }}</small
+                  >
+                }
+              </div>
+            } @else {
+              <p class="empty-copy">No client activity for this period.</p>
+            }
+          </div>
+          <p class="chart-note">
+            Daily distinct clients with submitted orders; daily counts must not be summed for the
+            period total. {{ chartNote('clients') }}
+          </p>
+        </article>
+      </div>
+    </section>
 
-                    <div class="chart-y-axis" aria-hidden="true"><b>{{ reportedCurrency() }}</b>
-                        @for (label of trendAxisLabels('value'); track label) {
-                        <small>{{ formatMoney(label, reportedCurrency()) }}</small>
-                        }
-                    </div>
+    <section
+      id="reports-view-data"
+      class="section-block analysis-section"
+      aria-label="Data explorer"
+      [hidden]="activeView() !== 'data'"
+    >
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">AGGREGATE ANALYSIS</p>
 
-                    @if (trends().length) {
+          <h2>Where activity is concentrated across all clients</h2>
+        </div>
+      </div>
 
-                    <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+      <div class="analysis-grid">
+        <article class="table-panel">
+          <div class="panel-heading">
+            <h3>Most active instruments</h3>
 
-                        <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
+            <span> by fill count </span>
+          </div>
 
-                        <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
+          <table role="table" class="workspace-table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">Instrument</th>
 
-                        <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
+                <th scope="col" role="columnheader">Fills</th>
 
-                        <polygon class="value-area" [attr.points]="trendAreaPoints('value')" />
+                <th scope="col" role="columnheader">Quantity</th>
 
-                        <polyline class="value-line" [attr.points]="trendPoints('value')" />
+                <th scope="col" role="columnheader">Value</th>
+              </tr>
+            </thead>
 
+            <tbody role="rowgroup">
+              @for (item of instrumentRows('instruments'); track trackByInstrument($index, item)) {
+                <tr role="row">
+                  <td role="cell" data-label="Instrument">
+                    <strong>
+                      {{ item.instrumentSymbol }}
+                    </strong>
 
-                        @for (
-                        point of trends();
-                        track point.date;
-                        let index = $index
-                        ) {
+                    <small>
+                      {{ item.currency }}
+                    </small>
+                  </td>
 
-                        <circle class="value-point" [attr.cx]="trendPointX(index)"
-                            [attr.cy]="trendPointY(index, 'value')" r="3"
-                            (mouseenter)="showTrendDialog('Trading value', graphDateLabel(point.date), formatMoney(point.tradedValue, reportedCurrency()), 'Daily reported notional', $event)"
-                            (mouseleave)="hideTrendDialog()"></circle>
+                  <td role="cell" data-label="Fills">
+                    {{ item.fillCount }}
+                  </td>
 
-                        }
+                  <td role="cell" data-label="Quantity">
+                    {{ formatQuantity(item.executedQuantity) }}
+                  </td>
 
-                    </svg>
+                  <td role="cell" data-label="Value">
+                    {{ formatMoney(item.tradedValue, item.currency) }}
+                  </td>
+                </tr>
+              } @empty {
+                <tr role="row">
+                  <td role="cell" colspan="4" class="empty-copy">No instrument data.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <app-result-pagination
+            label="Instrument fills"
+            [total]="tableTotal('instruments')"
+            [page]="pages().instruments"
+            [pageSize]="pageSize()"
+            [disabled]="loading()"
+            (pageChange)="changePage('instruments', $event)"
+            (pageSizeChange)="changePageSize($event)"
+          />
+        </article>
 
+        <article class="table-panel">
+          <div class="panel-heading">
+            <h3>Highest trading value instruments</h3>
 
-                    <div class="chart-labels">
-                        @for (tick of trendTicks(); track tick.date) {
-                            <small [style.left.%]="tick.x" [class.chart-tick-start]="tick.x === 0"
-                                [class.chart-tick-end]="tick.x === 100" [class.chart-tick-secondary]="tick.secondary">
-                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
-                            </small>
-                        }
-                    </div>
+            <span> by traded value </span>
+          </div>
 
-                    } @else {
+          <table role="table" class="workspace-table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">Instrument</th>
 
-                    <p class="empty-copy">
-                        No traded value for this period.
-                    </p>
+                <th scope="col" role="columnheader">Fills</th>
 
-                    }
+                <th scope="col" role="columnheader">Quantity</th>
 
-                </div>
+                <th scope="col" role="columnheader">Value</th>
+              </tr>
+            </thead>
 
-            </article>
+            <tbody role="rowgroup">
+              @for (item of instrumentRows('values'); track item.instrumentId) {
+                <tr role="row">
+                  <td role="cell" data-label="Instrument">
+                    <strong>
+                      {{ item.instrumentSymbol }}
+                    </strong>
 
+                    <small>
+                      {{ item.currency }}
+                    </small>
+                  </td>
 
-            <article class="chart-panel split-panel buy-sell-panel">
+                  <td role="cell" data-label="Fills">
+                    {{ item.fillCount }}
+                  </td>
 
-                <div class="panel-heading">
+                  <td role="cell" data-label="Quantity">
+                    {{ formatQuantity(item.executedQuantity) }}
+                  </td>
 
-                    <h3>
-                        BUY vs SELL
-                    </h3>
+                  <td role="cell" data-label="Value">
+                    {{ formatMoney(item.tradedValue, item.currency) }}
+                  </td>
+                </tr>
+              } @empty {
+                <tr role="row">
+                  <td role="cell" colspan="4" class="empty-copy">No instrument data.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <app-result-pagination
+            label="Instrument values"
+            [total]="tableTotal('values')"
+            [page]="pages().values"
+            [pageSize]="pageSize()"
+            [disabled]="loading()"
+            (pageChange)="changePage('values', $event)"
+            (pageSizeChange)="changePageSize($event)"
+          />
+        </article>
 
-                    <span>
-                        fills
-                    </span>
+        <article class="table-panel">
+          <div class="panel-heading">
+            <h3>Most active clients</h3>
 
-                </div>
+            <span> by orders </span>
+          </div>
 
+          <p class="chart-note">
+            Orders use submission dates; fills and value use execution dates. A client with a fill
+            can appear here even if the order was submitted before this period.
+          </p>
+          <table role="table" class="workspace-table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">Client</th>
 
-                <div class="donut-copy">
+                <th scope="col" role="columnheader">Orders</th>
 
-                    <div class="split-ring" [style.background]="splitRingStyle()"
-                        (mouseenter)="showPieDialog($event)" (mouseleave)="hideTrendDialog()">
+                <th scope="col" role="columnheader">Fills</th>
 
-                        <span>
-                            {{
-                            formatNumber(
-                            (summary()?.buyFills ?? 0)
-                            +
-                            (summary()?.sellFills ?? 0)
-                            )
-                            }}
-                        </span>
+                <th scope="col" role="columnheader">Value</th>
+              </tr>
+            </thead>
+
+            <tbody role="rowgroup">
+              @for (item of clientRows(); track item.clientId) {
+                <tr role="row">
+                  <td role="cell" data-label="Client">
+                    <strong>
+                      {{ item.clientName }}
+                    </strong>
+
+                    <small> ID {{ item.clientId }} </small>
+                  </td>
+
+                  <td role="cell" data-label="Orders">
+                    {{ item.orderCount }}
+                  </td>
+
+                  <td role="cell" data-label="Fills">
+                    {{ item.fillCount }}
+                  </td>
+
+                  <td role="cell" data-label="Value">
+                    @for (value of item.values; track value.currency) {
+                      <div>
+                        {{ formatMoney(value.tradedValue, value.currency) }}
 
                         <small>
-                            trades
+                          {{ value.currency }}
                         </small>
-
-                    </div>
-
-
-                    <div class="split-legend">
-
-                        <span>
-
-                            <i class="buy-dot"></i>
-
-                            BUY
-
-                            <b>
-                                {{
-                                summary()?.buyFills
-                                ?? 0
-                                }}
-                            </b>
-
-                        </span>
-
-
-                        <span>
-
-                            <i class="sell-dot"></i>
-
-                            SELL
-
-                            <b>
-                                {{
-                                summary()?.sellFills
-                                ?? 0
-                                }}
-                            </b>
-
-                        </span>
-
-                    </div>
-
-                    <div class="buy-sell-history">
-                        <div class="history-heading">
-                            <span>Historical fills</span>
-                            <span><i class="buy-dot"></i> BUY <i class="sell-dot"></i> SELL</span>
-                        </div>
-                        <svg viewBox="-48 0 648 220" role="img" aria-label="BUY and SELL fills over time">
-                            @for (label of buySellAxisLabels(); track label; let index = $index) {
-                                <text class="history-y-label" x="-8" [attr.y]="index === 0 ? 26 : index === 1 ? 110 : 194">{{ formatNumber(label) }}</text>
-                            }
-                            <line class="history-gridline" x1="0" y1="22" x2="600" y2="22"></line>
-                            <line class="history-gridline" x1="0" y1="106" x2="600" y2="106"></line>
-                            <line class="history-axis" x1="0" y1="190" x2="600" y2="190"></line>
-                            <polyline class="buy-history-line" [attr.points]="buySellTrendPoints('BUY')"></polyline>
-                            <polyline class="sell-history-line" [attr.points]="buySellTrendPoints('SELL')"></polyline>
-                            @for (point of trends(); track point.date; let index = $index) {
-                                <circle class="buy-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'BUY')" r="4"
-                                    (mouseenter)="showBuySellDateDialog(index, $event)"
-                                    (mouseleave)="hideTrendDialog()"></circle>
-                                <circle class="sell-history-point" [attr.cx]="buySellTrendPointX(index)" [attr.cy]="buySellTrendPointY(index, 'SELL')" r="4"
-                                    (mouseenter)="showBuySellDateDialog(index, $event)"
-                                    (mouseleave)="hideTrendDialog()"></circle>
-                            }
-                            @for (tick of trendTicks(); track tick.date) {
-                                <text class="history-label" [class.chart-tick-secondary]="tick.secondary"
-                                    [attr.x]="tick.x * 6" [attr.text-anchor]="tick.x === 0 ? 'start' : tick.x === 100 ? 'end' : 'middle'"
-                                    y="212">{{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}</text>
-                            }
-                        </svg>
-                    </div>
-
-                </div>
-
-            </article>
-
-
-            <article class="chart-panel split-panel outcome-panel">
-
-                <div class="panel-heading">
-
-                    <h3>
-                        FILLED vs REJECTED
-                    </h3>
-
-                    <span>
-                        orders
-                    </span>
-
-                </div>
-
-
-                <div class="outcome-bars">
-
-                    <div>
-
-                        <span>
-                            FILLED
-
-                            <b>
-                                {{
-                                summary()?.filledOrders
-                                ?? 0
-                                }}
-                            </b>
-                        </span>
-
-                        <i class="filled-bar" [style.width.%]="
-                                    summary()?.filledOrders
-                                        ? (
-                                            (summary()?.filledOrders ?? 0)
-                                            /
-                                            (
-                                                (summary()?.filledOrders ?? 0)
-                                                +
-                                                (summary()?.rejectedOrders ?? 0)
-                                            )
-                                        ) * 100
-                                        : 0
-                                " (mouseenter)="showOutcomeDialog('FILLED', summary()?.filledOrders ?? 0, $event)" (mouseleave)="hideTrendDialog()">
-                        </i>
-
-                    </div>
-
-
-                    <div>
-
-                        <span>
-                            REJECTED
-
-                            <b>
-                                {{
-                                summary()?.rejectedOrders
-                                ?? 0
-                                }}
-                            </b>
-                        </span>
-
-                        <i class="rejected-bar" [style.width.%]="
-                                    summary()?.rejectedOrders
-                                        ? (
-                                            (summary()?.rejectedOrders ?? 0)
-                                            /
-                                            (
-                                                (summary()?.filledOrders ?? 0)
-                                                +
-                                                (summary()?.rejectedOrders ?? 0)
-                                            )
-                                        ) * 100
-                                        : 0
-                                " (mouseenter)="showOutcomeDialog('REJECTED', summary()?.rejectedOrders ?? 0, $event)" (mouseleave)="hideTrendDialog()">
-                        </i>
-
-                    </div>
-
-                </div>
-
-            </article>
-
-
-            <article class="chart-panel wide-panel client-trend-panel">
-
-                <div class="panel-heading">
-
-                    <h3>
-                        Client activity over time
-                    </h3>
-
-                    <span>
-                        distinct active clients
-                    </span>
-
-                </div>
-
-
-                <div class="line-chart client-line-chart" role="img" aria-label="Client activity over time line chart">
-
-                    <div class="chart-y-axis" aria-hidden="true"><b>Clients</b>
-                        @for (label of clientAxisLabels(); track label) {
-                        <small>{{ formatNumber(label) }}</small>
-                        }
-                    </div>
-
-                    @if (trends().length) {
-
-                    <svg viewBox="0 0 600 220" preserveAspectRatio="none">
-
-                        <line class="chart-gridline" x1="0" y1="22" x2="600" y2="22" />
-
-                        <line class="chart-gridline" x1="0" y1="106" x2="600" y2="106" />
-
-                        <line class="chart-axis" x1="0" y1="190" x2="600" y2="190" />
-
-                        <polygon class="client-area" [attr.points]="clientTrendAreaPoints()" />
-
-                        <polyline class="client-line" [attr.points]="clientTrendPoints()" />
-
-
-                        @for (
-                        point of trends();
-                        track point.date;
-                        let index = $index
-                        ) {
-
-                        <circle class="client-point" [attr.cx]="clientTrendPointX(index)"
-                            [attr.cy]="clientTrendPointY(index)" r="4"
-                            (mouseenter)="showTrendDialog('Active clients', graphDateLabel(point.date), formatNumber(point.activeClients), 'Distinct clients active that day', $event)"
-                            (mouseleave)="hideTrendDialog()"></circle>
-
-                        }
-
-                    </svg>
-
-
-                    <div class="chart-labels">
-                        @for (tick of trendTicks(); track tick.date) {
-                            <small [style.left.%]="tick.x" [class.chart-tick-start]="tick.x === 0"
-                                [class.chart-tick-end]="tick.x === 100" [class.chart-tick-secondary]="tick.secondary">
-                                {{ (tick.date + 'T00:00:00Z') | date:'MMM d':'UTC' }}
-                            </small>
-                        }
-                    </div>
-
-                    } @else {
-
-                    <p class="empty-copy">
-                        No client activity for this period.
-                    </p>
-
+                      </div>
                     }
+                  </td>
+                </tr>
+              } @empty {
+                <tr role="row">
+                  <td role="cell" colspan="4" class="empty-copy">No client data.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <app-result-pagination
+            label="Client activity"
+            [total]="tableTotal('clients')"
+            [page]="pages().clients"
+            [pageSize]="pageSize()"
+            [disabled]="loading()"
+            (pageChange)="changePage('clients', $event)"
+            (pageSizeChange)="changePageSize($event)"
+          />
+        </article>
 
-                </div>
+        <article class="table-panel recent-activity-panel">
+          <div class="panel-heading">
+            <h3>Recent trading activity</h3>
 
-            </article>
+            <span> latest orders and executions </span>
+          </div>
 
-        </div>
+          <p class="chart-note">
+            Orders submitted in the applied period. The shown time is the execution time when
+            filled, otherwise the submission time.
+          </p>
+          <table role="table" class="workspace-table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">Time</th>
 
+                <th scope="col" role="columnheader">Instrument</th>
+
+                <th scope="col" role="columnheader">Side</th>
+
+                <th scope="col" role="columnheader">Status</th>
+
+                <th scope="col" role="columnheader">Value</th>
+              </tr>
+            </thead>
+
+            <tbody role="rowgroup">
+              @for (item of activityRows(); track trackByActivity($index, item)) {
+                <tr role="row">
+                  <td role="cell" data-label="Time">
+                    {{ timestamp(item.occurredAt) }}
+                  </td>
+
+                  <td role="cell" data-label="Instrument">
+                    <strong>
+                      {{ item.instrumentSymbol }}
+                    </strong>
+
+                    <small>
+                      {{ clientName(item.clientId) }}
+                      · Client #{{ item.clientId }} · Order #{{ item.orderId }}
+                    </small>
+                  </td>
+
+                  <td role="cell" data-label="Side">
+                    <span
+                      class="side-pill"
+                      [class.buy-pill]="item.side === 'BUY'"
+                      [class.sell-pill]="item.side === 'SELL'"
+                    >
+                      {{ item.side }}
+                    </span>
+                  </td>
+
+                  <td role="cell" data-label="Status">
+                    {{ item.status }}
+                  </td>
+
+                  <td role="cell" data-label="Value">
+                    @if (item.tradedValue !== null) {
+                      {{ formatMoney(item.tradedValue, reportedCurrency()) }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr role="row">
+                  <td role="cell" colspan="5" class="empty-copy">No recent activity.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <app-result-pagination
+            label="Trading activity"
+            [total]="tableTotal('activity')"
+            [page]="pages().activity"
+            [pageSize]="pageSize()"
+            [disabled]="loading()"
+            (pageChange)="changePage('activity', $event)"
+            (pageSizeChange)="changePageSize($event)"
+          />
+        </article>
+      </div>
     </section>
-
-
-    <section class="section-block analysis-section">
-
-        <div class="section-title">
-
-            <div>
-
-                <p class="eyebrow">
-                    AGGREGATE ANALYSIS
-                </p>
-
-                <h2>
-                    Where activity is concentrated across all clients
-                </h2>
-
-            </div>
-
-        </div>
-
-
-        <div class="analysis-grid">
-
-            <article class="table-panel">
-
-                <div class="panel-heading">
-
-                    <h3>
-                        Most active instruments
-                    </h3>
-
-                    <span>
-                        by fill count
-                    </span>
-
-                </div>
-
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>
-                                Instrument
-                            </th>
-
-                            <th>
-                                Fills
-                            </th>
-
-                            <th>
-                                Quantity
-                            </th>
-
-                            <th>
-                                Value
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                        @for (
-                        item of instruments().slice(0, 6);
-                        track trackByInstrument($index, item)
-                        ) {
-
-                        <tr>
-
-                            <td>
-
-                                <strong>
-                                    {{ item.instrumentSymbol }}
-                                </strong>
-
-                                <small>
-                                    {{ item.currency }}
-                                </small>
-
-                            </td>
-
-                            <td>
-                                {{ item.fillCount }}
-                            </td>
-
-                            <td>
-                                {{
-                                formatQuantity(
-                                item.executedQuantity
-                                )
-                                }}
-                            </td>
-
-                            <td>
-                                {{
-                                formatMoney(
-                                item.tradedValue,
-                                item.currency
-                                )
-                                }}
-                            </td>
-
-                        </tr>
-
-                        } @empty {
-
-                        <tr>
-
-                            <td colspan="4" class="empty-copy">
-
-                                No instrument data.
-
-                            </td>
-
-                        </tr>
-
-                        }
-
-                    </tbody>
-
-                </table>
-
-            </article>
-
-
-            <article class="table-panel">
-
-                <div class="panel-heading">
-
-                    <h3>
-                        Highest trading value instruments
-                    </h3>
-
-                    <span>
-                        by traded value
-                    </span>
-
-                </div>
-
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>
-                                Instrument
-                            </th>
-
-                            <th>
-                                Fills
-                            </th>
-
-                            <th>
-                                Quantity
-                            </th>
-
-                            <th>
-                                Value
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                        @for (
-                        item of highestValueInstruments();
-                        track item.instrumentId
-                        ) {
-
-                        <tr>
-
-                            <td>
-
-                                <strong>
-                                    {{ item.instrumentSymbol }}
-                                </strong>
-
-                                <small>
-                                    {{ item.currency }}
-                                </small>
-
-                            </td>
-
-                            <td>
-                                {{ item.fillCount }}
-                            </td>
-
-                            <td>
-                                {{
-                                formatQuantity(
-                                item.executedQuantity
-                                )
-                                }}
-                            </td>
-
-                            <td>
-                                {{
-                                formatMoney(
-                                item.tradedValue,
-                                item.currency
-                                )
-                                }}
-                            </td>
-
-                        </tr>
-
-                        } @empty {
-
-                        <tr>
-
-                            <td colspan="4" class="empty-copy">
-
-                                No instrument data.
-
-                            </td>
-
-                        </tr>
-
-                        }
-
-                    </tbody>
-
-                </table>
-
-            </article>
-
-
-            <article class="table-panel">
-
-                <div class="panel-heading">
-
-                    <h3>
-                        Most active clients
-                    </h3>
-
-                    <span>
-                        by orders
-                    </span>
-
-                </div>
-
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>
-                                Client
-                            </th>
-
-                            <th>
-                                Orders
-                            </th>
-
-                            <th>
-                                Fills
-                            </th>
-
-                            <th>
-                                Value
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                        @for (
-                        item of mostActiveClients();
-                        track item.clientId
-                        ) {
-
-                        <tr>
-
-                            <td>
-
-                                <strong>
-                                    {{ item.clientName }}
-                                </strong>
-
-                                <small>
-                                    ID {{ item.clientId }}
-                                </small>
-
-                            </td>
-
-                            <td>
-                                {{ item.orderCount }}
-                            </td>
-
-                            <td>
-                                {{ item.fillCount }}
-                            </td>
-
-                            <td>
-
-                                @for (
-                                value of item.values;
-                                track value.currency
-                                ) {
-
-                                <div>
-
-                                    {{
-                                    formatMoney(
-                                    value.tradedValue,
-                                    value.currency
-                                    )
-                                    }}
-
-                                    <small>
-                                        {{ value.currency }}
-                                    </small>
-
-                                </div>
-
-                                }
-
-                            </td>
-
-                        </tr>
-
-                        } @empty {
-
-                        <tr>
-
-                            <td colspan="4" class="empty-copy">
-
-                                No client data.
-
-                            </td>
-
-                        </tr>
-
-                        }
-
-                    </tbody>
-
-                </table>
-
-            </article>
-
-
-            <article class="table-panel recent-activity-panel">
-
-                <div class="panel-heading">
-
-                    <h3>
-                        Recent trading activity
-                    </h3>
-
-                    <span>
-                        latest orders and executions
-                    </span>
-
-                </div>
-
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th>
-                                Time
-                            </th>
-
-                            <th>
-                                Instrument
-                            </th>
-
-                            <th>
-                                Side
-                            </th>
-
-                            <th>
-                                Status
-                            </th>
-
-                            <th>
-                                Value
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                        @for (
-                        item of activity().slice(0, 8);
-                        track trackByActivity($index, item)
-                        ) {
-
-                        <tr>
-
-                            <td>
-                                {{
-                                item.occurredAt
-                                | date:'MMM d, HH:mm'
-                                }}
-                            </td>
-
-                            <td>
-
-                                <strong>
-                                    {{ item.instrumentSymbol }}
-                                </strong>
-
-                                <small>
-                                    {{ clientName(item.clientId) }}
-                                    · ID {{ item.clientId }}
-                                </small>
-
-                            </td>
-
-                            <td>
-
-                                <span class="side-pill" [class.buy-pill]="item.side === 'BUY'"
-                                    [class.sell-pill]="item.side === 'SELL'">
-
-                                    {{ item.side }}
-
-                                </span>
-
-                            </td>
-
-                            <td>
-                                {{ item.status }}
-                            </td>
-
-                            <td>
-
-                                @if (
-                                item.tradedValue !== null
-                                ) {
-
-                                {{
-                                formatMoney(
-                                item.tradedValue,
-                                reportedCurrency()
-                                )
-                                }}
-
-                                } @else {
-
-                                —
-
-                                }
-
-                            </td>
-
-                        </tr>
-
-                        } @empty {
-
-                        <tr>
-
-                            <td colspan="5" class="empty-copy">
-
-                                No recent activity.
-
-                            </td>
-
-                        </tr>
-
-                        }
-
-                    </tbody>
-
-                </table>
-
-            </article>
-
-        </div>
-
-    </section>
-
-    }
-
-</main>
+  }
+</section>

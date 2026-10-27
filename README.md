@@ -1,5 +1,16 @@
 # LEAP Trading Platform
 
+## Run the full application with Docker
+
+See [Container deployment](docs/container-deployment.md) for the four-container
+application, Windows-to-Linux access, HTTPS and existing-data migration.
+Use `compose.deploy.yaml` for that stack. The original `docker-compose.yml`
+below continues to start only the development PostgreSQL database.
+
+The dashboard also includes a [Trading assistant](docs/floating-chatbot.md) for
+buying/selling simulated stocks by ticker and viewing your current holdings.
+Click the chat icon at the bottom right of the dashboard; try `buy 5 AAPL` or `show my holdings`.
+
 ## Project Overview
 
 Group GOATteen trading platform, G.O.A.T. Platforms.

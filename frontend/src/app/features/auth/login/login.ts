@@ -1,3 +1,6 @@
+import { ThemeToggleComponent } from '../../../shared/theme-toggle.component';
+import { MarketMotionComponent } from '../../../shared/market-motion.component';
+import { MotionToggleComponent } from '../../../shared/motion-toggle.component';
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -9,6 +12,7 @@ import { Auth } from '../../../core/auth/auth';
 @Component({
   selector: 'app-login',
   imports: [
+    MarketMotionComponent, MotionToggleComponent, ThemeToggleComponent,
     FormsModule,
     RouterLink
   ],

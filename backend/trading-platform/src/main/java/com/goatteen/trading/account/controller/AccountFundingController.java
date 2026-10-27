@@ -3,6 +3,7 @@ package com.goatteen.trading.account.controller;
 import com.goatteen.trading.account.AccountFundingService;
 import com.goatteen.trading.account.dto.AddFundsRequest;
 import com.goatteen.trading.account.dto.AddFundsResponse;
+import com.goatteen.trading.account.dto.WithdrawFundsRequest;
 import com.goatteen.trading.auth.service.CurrentUserService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,5 +25,10 @@ public class AccountFundingController {
     @PostMapping
     public AddFundsResponse addFunds(@Valid @RequestBody AddFundsRequest request) {
         return funding.addFunds(currentUser.getCurrentUserId(), request);
+    }
+
+    @PostMapping("/withdraw")
+    public AddFundsResponse withdrawFunds(@Valid @RequestBody WithdrawFundsRequest request) {
+        return funding.withdrawFunds(currentUser.getCurrentUserId(), request);
     }
 }

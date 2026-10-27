@@ -1,0 +1,147 @@
+<nav class="watchlist-views" aria-label="Watchlist views">
+  <button
+    type="button"
+    [attr.aria-pressed]="view() === 'instruments'"
+    aria-controls="saved-instruments-view"
+    (click)="view.set('instruments')"
+  >
+    Saved instruments
+  </button>
+  <button
+    type="button"
+    [attr.aria-pressed]="view() === 'alerts'"
+    aria-controls="price-alerts-view"
+    (click)="view.set('alerts')"
+  >
+    Price alerts
+  </button>
+</nav>
+<div id="price-alerts-view" [hidden]="view() !== 'alerts'">
+  <app-price-alerts [instruments]="instruments()" />
+</div>
+<section
+  id="saved-instruments-view"
+  [hidden]="view() !== 'instruments'"
+  class="watchlist"
+  aria-labelledby="watchlist-title"
+  [attr.aria-busy]="loading()"
+>
+  <header>
+    <div>
+      <h2 id="watchlist-title">My watchlist</h2>
+      <p>Follow your instruments. Select one to fill the order ticket.</p>
+    </div>
+    <button
+      type="button"
+      class="refresh-button"
+      (click)="reload()"
+      [disabled]="loading() || pendingId() !== null"
+    >
+      Refresh watchlist
+    </button>
+  </header>
+
+  <form (ngSubmit)="addSelected()" class="add-form">
+    <label for="watchlist-instrument">Add an instrument</label>
+    <div class="add-controls">
+      <select
+        id="watchlist-instrument"
+        name="watchlistInstrument"
+        [(ngModel)]="addId"
+        [disabled]="!loaded() || loading() || marketLoading() || pendingId() !== null"
+      >
+        <option value="" disabled>Choose an instrument</option>
+        @for (instrument of availableInstruments(); track instrument.instrumentId) {
+          <option [value]="instrument.instrumentId">
+            {{ instrument.symbol }} · {{ instrument.name }} · {{ instrument.exchange }} ·
+            {{ instrument.currency }}
+          </option>
+        }
+      </select>
+      <button type="submit" [disabled]="!addId || !loaded() || loading() || pendingId() !== null">
+        {{ pendingId() !== null ? 'Saving...' : 'Add to watchlist' }}
+      </button>
+    </div>
+  </form>
+
+  @if (error()) {
+    <p class="message error" role="alert">{{ error() }}</p>
+  }
+  @if (success()) {
+    <p class="message success" role="status">{{ success() }}</p>
+  }
+  @if (loading()) {
+    <p class="message" role="status">Loading saved instruments...</p>
+  }
+  @if (marketError()) {
+    <p class="message">
+      Market updates are unavailable. Prices show their last available quote time.
+    </p>
+  }
+
+  <ul class="watchlist-items">
+    @for (instrument of watchedInstruments(); track instrument.instrumentId) {
+      <li [class.selected]="selectedInstrumentId() === instrument.instrumentId">
+        <button
+          type="button"
+          class="instrument-button"
+          (click)="select(instrument)"
+          [disabled]="!canSelect(instrument)"
+          [attr.aria-label]="
+            'Select ' + instrument.symbol + ' on ' + instrument.exchange + ' for the order ticket'
+          "
+          [attr.aria-pressed]="selectedInstrumentId() === instrument.instrumentId"
+        >
+          <strong
+            >{{ instrument.symbol }} <span>{{ instrument.exchange }}</span></strong
+          >
+          <small>{{ instrument.name }}</small>
+          @if (!canSelect(instrument) && !selectionDisabled() && !marketLoading()) {
+            <small>Trading quote unavailable</small>
+          }
+        </button>
+        <div class="quote">
+          <div class="quote-price">
+            @if (instrument.latestQuote; as quote) {
+              <strong>{{ quote.lastPrice | number: '1.2-8' }} {{ instrument.currency }}</strong>
+            } @else {
+              <strong>Price unavailable</strong>
+            }
+            <span class="day-change">
+              <span class="day-change-label">Day % (UTC)</span>
+              <app-daily-price-change
+                [change]="instrument.latestQuote ? (instrument.dayChange ?? null) : null"
+                [currency]="instrument.currency"
+              />
+            </span>
+          </div>
+          @if (instrument.latestQuote; as quote) {
+            <small>Quote: {{ quote.quotedAt | date: 'MMM d, HH:mm:ss' }}</small>
+          } @else {
+            <small>{{ instrument.currency }}</small>
+          }
+        </div>
+        <button
+          type="button"
+          class="remove-button"
+          (click)="remove(instrument)"
+          [disabled]="loading() || pendingId() !== null"
+          [attr.aria-label]="
+            'Remove ' + instrument.symbol + ' on ' + instrument.exchange + ' from your watchlist'
+          "
+        >
+          Remove
+        </button>
+      </li>
+    } @empty {
+      @if (loaded() && !loading() && !error()) {
+        <li class="empty">Your watchlist is empty. Add an instrument above to get started.</li>
+      }
+    }
+  </ul>
+  @if (watchedInstruments().length > 0) {
+    <p class="day-change-note">
+      Day % compares the latest price with today's first recorded price (UTC).
+    </p>
+  }
+</section>

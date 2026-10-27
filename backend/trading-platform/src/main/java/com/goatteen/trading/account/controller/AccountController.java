@@ -4,7 +4,9 @@ import com.goatteen.trading.account.Account;
 import com.goatteen.trading.account.AccountRepository;
 import com.goatteen.trading.auth.service.CurrentUserService;
 import com.goatteen.trading.account.AccountOwnershipService;
+import com.goatteen.trading.account.PortfolioHistoryService;
 import com.goatteen.trading.account.dto.AccountResponse;
+import com.goatteen.trading.account.dto.PortfolioHistoryPoint;
 import com.goatteen.trading.execution.Fill;
 import com.goatteen.trading.account.dto.AccountResponse;
 import com.goatteen.trading.execution.FillRepository;
@@ -19,6 +21,7 @@ import com.goatteen.trading.portfolio.dto.PositionResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,6 +38,7 @@ public class AccountController {
     private final FillRepository fillRepository;
     private final CurrentUserService currentUserService;
     private final AccountOwnershipService accountOwnershipService;
+        private final PortfolioHistoryService portfolioHistoryService;
 
     public AccountController(
             AccountRepository accountRepository,
@@ -42,7 +46,8 @@ public class AccountController {
             OrderRepository orderRepository,
             FillRepository fillRepository,
             CurrentUserService currentUserService,
-            AccountOwnershipService accountOwnershipService) {
+            AccountOwnershipService accountOwnershipService,
+            PortfolioHistoryService portfolioHistoryService) {
 
         this.accountRepository = accountRepository;
         this.positionRepository = positionRepository;
@@ -50,6 +55,7 @@ public class AccountController {
         this.fillRepository = fillRepository;
         this.currentUserService = currentUserService;
         this.accountOwnershipService = accountOwnershipService;
+        this.portfolioHistoryService = portfolioHistoryService;
     }
 
     @GetMapping("/me/holdings")
@@ -108,12 +114,16 @@ public class AccountController {
         response.setStatus(order.getStatus());
         response.setRejectionReason(order.getRejectionReason());
         response.setSubmittedAt(order.getSubmittedAt());
+        response.setFillCurrency(order.getInstrument().getCurrency());
+        response.setAccountCurrency(order.getAccount().getCurrency());
         
 
         if (order.getStatus() == OrderStatus.FILLED) {
             Fill fill = fillRepository.findByOrderId(order.getId()).orElse(null);
             if (fill != null) {
                 response.setFillPrice(fill.getFillPrice());
+                response.setFxRate(fill.getFxRate());
+                response.setSettlementAmount(fill.getCashSettlementAmount());
                 response.setFilledAt(fill.getExecutedAt());
             }
         }
@@ -139,4 +149,12 @@ public class AccountController {
 
         return ResponseEntity.ok(response);
     }
+
+        @GetMapping("/me/portfolio-history")
+        public ResponseEntity<List<PortfolioHistoryPoint>> getPortfolioHistory(
+                        @RequestParam(defaultValue = "7") int days) {
+                Long userId = currentUserService.getCurrentUserId();
+                Account account = accountOwnershipService.getCurrentUserAccount(userId);
+                return ResponseEntity.ok(portfolioHistoryService.history(account.getId(), days));
+        }
 }
