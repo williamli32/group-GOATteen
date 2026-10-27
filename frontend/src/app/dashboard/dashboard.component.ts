@@ -1,4 +1,5 @@
 import { InstrumentPriceChartComponent } from './instrument-price-chart.component';
+import { TradingChatbotComponent } from './trading-chatbot.component';
 import { PortfolioChartComponent, type PortfolioHistoryRange, type PortfolioValuePoint } from './portfolio-chart.component';
 import { buildHoldingsAllocation } from './holdings-allocation';
 import { catchError, map, of } from 'rxjs';
@@ -155,6 +156,7 @@ type DashboardTab = 'overview' | 'watchlist' | 'orders' | 'holdings';
     PriceAlertPopupListenerComponent,
 
     AccountFundingComponent,
+    TradingChatbotComponent,
     WatchlistComponent,
     DailyPriceChangeComponent, MarketMotionComponent, ResultPaginationComponent, HoldingsAllocationComponent, PortfolioChartComponent, InstrumentPriceChartComponent
 
@@ -473,6 +475,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private dashboardRequest?: Subscription;
   private dashboardRequestVersion = 0;
+
+  onChatOrderChanged(order: OrderResponse): void {
+    this.addOrderToBlotter(order);
+    this.loadDashboard(false);
+    this.refreshPortfolioHistory();
+  }
 
   onAccountFunded(result: AddFundsResponse): void {
     const account = this.account();

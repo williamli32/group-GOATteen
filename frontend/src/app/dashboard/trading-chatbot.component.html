@@ -1,0 +1,166 @@
+<section class="chatbot" aria-label="Trading assistant">
+  <div class="chat-heading">
+    <div>
+      <p class="eyebrow">YOUR TRADING ASSISTANT</p>
+      <h2>Stocks, in a conversation.</h2>
+      <p>Buy or sell by ticker, or ask about your holdings.</p>
+    </div>
+    <button
+      type="button"
+      class="toggle"
+      [attr.aria-expanded]="isOpen()"
+      aria-controls="trading-chat-panel"
+      (click)="isOpen.set(!isOpen())"
+    >
+      {{ isOpen() ? 'Close chat' : 'Open chat' }}
+    </button>
+  </div>
+
+  @if (isOpen()) {
+    <div id="trading-chat-panel">
+      <p class="simulation-note">
+        Uses this platform's simulated trading account. Prices can change before execution.
+      </p>
+      <div class="chat-examples" role="group" aria-label="Example messages">
+        <button type="button" [disabled]="busy()" (click)="sendExample('show my holdings')">
+          My holdings
+        </button>
+        <button
+          type="button"
+          [disabled]="busy() || pending() !== null || storageError()"
+          (click)="sendExample('buy AAPL')"
+        >
+          Buy AAPL
+        </button>
+        <button
+          type="button"
+          [disabled]="busy() || pending() !== null || storageError()"
+          (click)="sendExample('sell MSFT')"
+        >
+          Sell MSFT
+        </button>
+      </div>
+      <div
+        #conversation
+        class="conversation"
+        role="log"
+        aria-label="Trading conversation"
+        aria-live="polite"
+        aria-relevant="additions"
+        tabindex="0"
+      >
+        @for (entry of messages(); track entry.id) {
+          <article class="chat-message" [class.from-user]="entry.role === 'user'">
+            <span class="speaker">{{ entry.role === 'user' ? 'You' : 'Trading assistant' }}</span>
+            <p>{{ entry.text }}</p>
+            @if (entry.holdings; as holdings) {
+              <p class="cash-balance">
+                Available cash:
+                <strong
+                  >{{ holdings.cashBalance | number: '1.2-2' }} {{ holdings.currency }}</strong
+                >
+              </p>
+              @if (holdings.positions.length) {
+                <div class="holdings-table-wrap">
+                  <table aria-label="Your holdings snapshot">
+                    <thead>
+                      <tr>
+                        <th scope="col">Ticker</th>
+                        <th scope="col">Stock / instrument</th>
+                        <th scope="col">Quantity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (position of holdings.positions; track position.instrumentId) {
+                        <tr>
+                          <th scope="row">{{ position.symbol }}</th>
+                          <td>{{ position.instrumentName }}</td>
+                          <td>{{ position.quantity | number: '1.0-6' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+              <p class="snapshot-note">
+                Account snapshot at {{ entry.fetchedAt | date: 'mediumTime' }}. Ask again to
+                refresh.
+              </p>
+            }
+          </article>
+        }
+      </div>
+
+      @if (pending() ?? preview(); as trade) {
+        <section class="trade-preview" aria-label="Chat order preview">
+          <h3>
+            {{ pending() ? 'Previous order awaiting confirmation' : 'Review your stock order' }}
+          </h3>
+          <p class="trade-summary">
+            {{ trade.request.side }} {{ trade.request.quantity | number: '1.0-6' }}
+            {{ trade.symbol }}
+          </p>
+          <p>{{ trade.name }} · {{ trade.exchange }}</p>
+          <dl>
+            <div>
+              <dt>Reference {{ trade.request.side === 'BUY' ? 'ask' : 'bid' }}</dt>
+              <dd>{{ trade.unitPrice | number: '1.2-6' }} {{ trade.currency }}</dd>
+            </div>
+            <div>
+              <dt>Estimated {{ trade.request.side === 'BUY' ? 'cost' : 'proceeds' }}</dt>
+              <dd>
+                {{ trade.unitPrice * trade.request.quantity | number: '1.2-6' }}
+                {{ trade.currency }}
+              </dd>
+            </div>
+          </dl>
+          <p>
+            Market order. The execution price may differ. Your balance and holdings are checked when
+            the order is placed.
+          </p>
+          @if (trade.currency !== account().currency) {
+            <p>
+              Settlement is converted from {{ trade.currency }} into your account currency,
+              {{ account().currency }}, at execution.
+            </p>
+          }
+          <div class="trade-actions">
+            @if (!pending()) {
+              <button type="button" class="secondary" [disabled]="busy()" (click)="cancel()">
+                Cancel draft
+              </button>
+            }
+            <button type="button" [disabled]="busy()" (click)="confirmOrder()">
+              {{ pending() ? 'Check previous order' : 'Confirm order' }}
+            </button>
+          </div>
+        </section>
+      }
+      @if (storageError()) {
+        <p class="chat-error" role="alert">
+          Order recovery is unavailable. Review your order history and browser session storage
+          before trading here.
+        </p>
+      }
+      @if (busy()) {
+        <p class="working" role="status">Working on your request…</p>
+      }
+      <form class="chat-composer" (ngSubmit)="send()" [attr.aria-busy]="busy()">
+        <label for="trading-chat-message">Message the trading assistant</label>
+        <div>
+          <input
+            id="trading-chat-message"
+            name="chatMessage"
+            type="text"
+            autocomplete="off"
+            maxlength="500"
+            [(ngModel)]="message"
+            [disabled]="busy()"
+            placeholder="e.g. buy 5 AAPL or show my holdings"
+          />
+          <button type="submit" [disabled]="busy() || !message.trim()">Send</button>
+        </div>
+      </form>
+    </div>
+  }
+</section>

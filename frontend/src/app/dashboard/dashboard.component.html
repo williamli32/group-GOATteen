@@ -42,6 +42,10 @@
       </div>
     </header>
 
+    @if (account(); as chatAccount) {
+      <app-trading-chatbot [account]="chatAccount" (orderChanged)="onChatOrderChanged($event)" />
+    }
+
     <div class="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
       @for (tab of dashboardTabs; track tab.id; let index = $index) {
         <button

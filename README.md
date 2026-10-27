@@ -7,6 +7,10 @@ application, Windows-to-Linux access, HTTPS and existing-data migration.
 Use `compose.deploy.yaml` for that stack. The original `docker-compose.yml`
 below continues to start only the development PostgreSQL database.
 
+The dashboard also includes a [Trading assistant](docs/trading-chatbot.md) for
+buying/selling simulated stocks by ticker and viewing your current holdings.
+Open the chat above the dashboard tabs; try `buy 5 AAPL` or `show my holdings`.
+
 ## Project Overview
 
 Group GOATteen trading platform, G.O.A.T. Platforms.
