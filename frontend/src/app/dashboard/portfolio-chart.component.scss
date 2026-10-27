@@ -63,6 +63,22 @@ button.active {
   line-height: 1.7;
   margin: 12px 0 0;
 }
+.live-status {
+  color: var(--positive);
+  font-weight: 650;
+}
+.live-status::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.live-status.paused {
+  color: var(--amber);
+}
 .history-error {
   display: flex;
   flex-wrap: wrap;
@@ -81,7 +97,7 @@ button.active {
 }
 .plot-layout {
   display: grid;
-  grid-template-columns: minmax(50px, 5rem) minmax(0, 1fr);
+  grid-template-columns: minmax(65px, 6.5rem) minmax(0, 1fr);
   margin-top: 22px;
   gap: 0 12px;
 }
@@ -128,6 +144,67 @@ svg {
 .value-point.selected {
   fill: var(--chart-gold);
   stroke-width: 3;
+}
+.inspection-line {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+.portfolio-tooltip {
+  position: fixed;
+  z-index: 80;
+  visibility: hidden;
+  pointer-events: none;
+  width: min(260px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: hidden;
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--popover);
+  color: var(--ink);
+  box-shadow: 0 8px 28px var(--shadow-color);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.portfolio-tooltip > * {
+  display: block;
+}
+.tooltip-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.tooltip-value {
+  margin: 4px 0;
+  font: 600 19px var(--mono);
+}
+.tooltip-value small {
+  display: inline;
+  font-size: 11px;
+  color: var(--muted);
+}
+.portfolio-tooltip time,
+.tooltip-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+.tooltip-change {
+  margin-top: 8px;
+  font-weight: 650;
+  color: var(--positive);
+}
+.tooltip-change.negative,
+.tooltip-missing {
+  color: var(--negative);
+}
+.tooltip-missing {
+  margin-top: 8px;
+  font-size: 11px;
 }
 .x-axis {
   grid-column: 2;
@@ -179,7 +256,7 @@ table {
     padding: 18px;
   }
   .plot-layout {
-    grid-template-columns: minmax(45px, 4rem) minmax(0, 1fr);
+    grid-template-columns: minmax(60px, 5.8rem) minmax(0, 1fr);
     gap: 0 8px;
   }
   .portfolio-value-chart {

@@ -1,13 +1,27 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, input, output, signal } from '@angular/core';
+import {
+  afterRenderEffect,
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { boundedPage, pageRows } from '../core/utils/reporting-workflow';
 import { ResultPaginationComponent } from '../shared/result-pagination.component';
+import { LIVE_PORTFOLIO_WINDOW_MS } from './portfolio-live-history';
 
 export type PortfolioHistoryRange = 5 | 30 | -1 | 365 | 0;
 export interface PortfolioValuePoint {
   timestamp: number;
   value: number | null;
   unavailable?: readonly string[];
+  breakBefore?: boolean;
 }
 export const portfolioRanges = [
   { days: 5, label: '5D' },
@@ -31,6 +45,25 @@ export class PortfolioChartComponent {
   readonly valuationLoading = input(false);
   readonly valuationNote = input('');
   readonly points = input<readonly PortfolioValuePoint[]>([]);
+  readonly liveEnabled = input(false);
+  readonly livePoints = input<readonly PortfolioValuePoint[]>([]);
+  readonly now = input(Date.now());
+  readonly view = signal<'live' | 'daily'>('live');
+  readonly isLive = computed(() => this.liveEnabled() && this.view() === 'live');
+  readonly displayedPoints = computed(() =>
+    this.isLive()
+      ? this.livePoints().filter(
+          (point) =>
+            point.timestamp >= this.now() - LIVE_PORTFOLIO_WINDOW_MS &&
+            point.timestamp <= this.now(),
+        )
+      : this.points(),
+  );
+  readonly liveStatus = computed(() => {
+    const last = this.displayedPoints().at(-1);
+    if (!last) return 'Waiting for live values';
+    return last.value !== null && this.now() - last.timestamp <= 10_000 ? 'Live' : 'Updates paused';
+  });
   readonly requestedRange = input<PortfolioHistoryRange>(5);
   readonly appliedRange = input<PortfolioHistoryRange>(5);
   readonly loading = input(false);
@@ -42,17 +75,44 @@ export class PortfolioChartComponent {
   readonly detailId = 'portfolio-point-detail-' + ++chartSequence;
   readonly selectedIndex = signal<number | null>(null);
   readonly focused = signal(false);
+  readonly pointerAnchor = signal<{ x: number; y: number } | null>(null);
+  private readonly tooltip = viewChild<ElementRef<HTMLElement>>('pointTooltip');
   readonly page = signal(1);
   readonly pageSize = signal(10);
   private touchPinned = false;
-  readonly selectedPoint = computed(() => this.points()[this.selectedIndex() ?? -1] ?? null);
-  readonly valuedPoints = computed(() => this.points().filter((point) => point.value !== null));
-  readonly maximum = computed(() =>
-    Math.max(1, ...this.valuedPoints().map((point) => point.value!)),
+  readonly selectedPoint = computed(
+    () => this.displayedPoints()[this.selectedIndex() ?? -1] ?? null,
   );
-  readonly minimum = computed(() =>
-    Math.min(0, ...this.valuedPoints().map((point) => point.value!)),
+  readonly selectedChange = computed(() => {
+    const index = this.selectedIndex();
+    if (index === null || index < 1) return null;
+    const point = this.displayedPoints()[index];
+    const previous = this.displayedPoints()[index - 1];
+    if (
+      !point ||
+      !previous ||
+      point.value === null ||
+      previous.value === null ||
+      point.breakBefore ||
+      point.timestamp - previous.timestamp > (this.isLive() ? 10_000 : 86_400_000)
+    )
+      return null;
+    const amount = point.value - previous.value;
+    return { amount, percent: previous.value > 0 ? (amount / previous.value) * 100 : null };
+  });
+  readonly valuedPoints = computed(() =>
+    this.displayedPoints().filter((point) => point.value !== null),
   );
+  readonly bounds = computed(() => {
+    const values = this.valuedPoints().map((point) => point.value!);
+    if (!values.length) return { low: 0, high: 1 };
+    const low = Math.min(...values),
+      high = Math.max(...values);
+    const padding = Math.max((high - low) * 0.15, high * 0.00001, 0.01);
+    return { low: Math.max(0, low - padding), high: high + padding };
+  });
+  readonly maximum = computed(() => this.bounds().high);
+  readonly minimum = computed(() => this.bounds().low);
   readonly labels = computed(() =>
     Array.from(
       { length: 5 },
@@ -60,7 +120,7 @@ export class PortfolioChartComponent {
     ),
   );
   readonly dateTicks = computed(() => {
-    const count = this.points().length;
+    const count = this.displayedPoints().length;
     if (!count) return [];
     return [...new Set([0, Math.floor((count - 1) / 2), count - 1])].filter((i) => i >= 0);
   });
@@ -68,8 +128,12 @@ export class PortfolioChartComponent {
     const result: string[] = [];
     let segment: string[] = [];
     let previous = -Infinity;
-    this.points().forEach((point, i) => {
-      if (point.value === null || point.timestamp - previous > 86_400_000) {
+    this.displayedPoints().forEach((point, i) => {
+      if (
+        point.value === null ||
+        point.breakBefore ||
+        point.timestamp - previous > (this.isLive() ? 10_000 : 86_400_000)
+      ) {
         if (segment.length > 1) result.push(segment.join(' '));
         segment = [];
       }
@@ -79,15 +143,82 @@ export class PortfolioChartComponent {
     if (segment.length > 1) result.push(segment.join(' '));
     return result;
   });
-  readonly tableRows = computed(() => pageRows([...this.points()], this.page(), this.pageSize()));
+  readonly tableRows = computed(() =>
+    pageRows([...this.displayedPoints()], this.page(), this.pageSize()),
+  );
 
   constructor() {
-    effect(() => {
-      this.points();
-      this.selectedIndex.set(null);
-      this.page.set(1);
-      this.touchPinned = false;
+    afterRenderEffect({
+      earlyRead: () => {
+        const anchor = this.pointerAnchor();
+        const tooltip = this.tooltip()?.nativeElement;
+        this.selectedPoint();
+        if (!anchor || !tooltip) return null;
+        const { width, height } = tooltip.getBoundingClientRect();
+        const gap = 16,
+          margin = 12;
+        const x =
+          anchor.x + gap + width <= window.innerWidth - margin
+            ? anchor.x + gap
+            : anchor.x - width - gap;
+        const y =
+          anchor.y + gap + height <= window.innerHeight - margin
+            ? anchor.y + gap
+            : anchor.y - height - gap;
+        return {
+          tooltip,
+          x: Math.max(margin, Math.min(x, window.innerWidth - width - margin)),
+          y: Math.max(margin, Math.min(y, window.innerHeight - height - margin)),
+        };
+      },
+      write: (placement) => {
+        const position = placement();
+        if (!position) return;
+        position.tooltip.style.left = `${position.x}px`;
+        position.tooltip.style.top = `${position.y}px`;
+        position.tooltip.style.visibility = 'visible';
+      },
     });
+    const dismiss = () => this.dismissTooltip();
+    window.addEventListener('scroll', dismiss, true);
+    window.addEventListener('resize', dismiss);
+    inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('scroll', dismiss, true);
+      window.removeEventListener('resize', dismiss);
+    });
+    effect(() => {
+      const points = this.displayedPoints();
+      if (this.isLive()) {
+        // Preserve an inspected timestamp while fresh observations arrive.
+        const timestamp = this.selectionTimestamp;
+        let index: number | null = null;
+        if (timestamp !== null && points.length) {
+          index = 0;
+          for (let i = 1; i < points.length; i++)
+            if (
+              Math.abs(points[i].timestamp - timestamp) <
+              Math.abs(points[index].timestamp - timestamp)
+            )
+              index = i;
+        }
+        this.selectedIndex.set(index);
+      } else {
+        this.selectedIndex.set(null);
+        this.page.set(1);
+        this.touchPinned = false;
+      }
+    });
+  }
+
+  private selectionTimestamp: number | null = null;
+  setView(view: 'live' | 'daily', range?: PortfolioHistoryRange): void {
+    this.dismissTooltip();
+    this.view.set(view);
+    this.selectedIndex.set(null);
+    this.selectionTimestamp = null;
+    this.page.set(1);
+    this.touchPinned = false;
+    if (range !== undefined) this.rangeSelected.emit(range);
   }
 
   rangeLabel(days: PortfolioHistoryRange): string {
@@ -102,16 +233,50 @@ export class PortfolioChartComponent {
       maximumFractionDigits: compact ? 1 : 2,
     }).format(value);
   }
+  changeMoney(value: number): string {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: this.currency(),
+      signDisplay: 'exceptZero',
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+  changePercent(value: number): string {
+    return (
+      new Intl.NumberFormat('en-GB', {
+        signDisplay: 'exceptZero',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value) + '%'
+    );
+  }
+  dismissTooltip(): void {
+    this.pointerAnchor.set(null);
+  }
   date(timestamp: number): string {
     return new Intl.DateTimeFormat('en-GB', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
+      ...(this.isLive()
+        ? { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' as const }
+        : {}),
       timeZone: 'UTC',
     }).format(timestamp);
   }
+  tickLabel(timestamp: number): string {
+    return this.isLive()
+      ? new Intl.DateTimeFormat('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23',
+          timeZone: 'UTC',
+        }).format(timestamp)
+      : this.date(timestamp);
+  }
   x(index: number): number {
-    const points = this.points();
+    const points = this.displayedPoints();
     if (points.length <= 1) return 400;
     const start = points[0].timestamp;
     const end = points[points.length - 1].timestamp;
@@ -123,14 +288,22 @@ export class PortfolioChartComponent {
 
   focusChart(): void {
     this.focused.set(true);
-    if (this.selectedIndex() === null && this.points().length) this.selectedIndex.set(0);
+    if (this.selectedIndex() === null && this.displayedPoints().length) {
+      this.selectedIndex.set(this.isLive() ? this.displayedPoints().length - 1 : 0);
+      this.selectionTimestamp = this.selectedPoint()?.timestamp ?? null;
+    }
   }
   blurChart(): void {
+    this.dismissTooltip();
     this.focused.set(false);
-    if (!this.touchPinned) this.selectedIndex.set(null);
+    if (!this.touchPinned) {
+      this.selectedIndex.set(null);
+      this.selectionTimestamp = null;
+    }
   }
   keydown(event: KeyboardEvent): void {
-    const count = this.points().length;
+    this.dismissTooltip();
+    const count = this.displayedPoints().length;
     if (!count) return;
     let index = this.selectedIndex() ?? 0;
     if (event.key === 'ArrowRight') index = Math.min(count - 1, index + 1);
@@ -139,25 +312,33 @@ export class PortfolioChartComponent {
     else if (event.key === 'End') index = count - 1;
     else if (event.key === 'Escape') {
       this.selectedIndex.set(null);
+      this.selectionTimestamp = null;
       this.touchPinned = false;
       event.preventDefault();
       return;
     } else return;
     event.preventDefault();
     this.selectedIndex.set(index);
+    this.selectionTimestamp = this.selectedPoint()?.timestamp ?? null;
   }
   pointer(event: PointerEvent): void {
     if (event.type === 'pointerdown') this.touchPinned = event.pointerType !== 'mouse';
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    if (!this.points().length || bounds.width <= 0) return;
+    if (!this.displayedPoints().length || bounds.width <= 0) return;
     const x = Math.max(0, Math.min(800, ((event.clientX - bounds.left) / bounds.width) * 800));
     let nearest = 0;
-    for (let i = 1; i < this.points().length; i++)
+    for (let i = 1; i < this.displayedPoints().length; i++)
       if (Math.abs(this.x(i) - x) < Math.abs(this.x(nearest) - x)) nearest = i;
     this.selectedIndex.set(nearest);
+    this.selectionTimestamp = this.selectedPoint()?.timestamp ?? null;
+    this.pointerAnchor.set({ x: event.clientX, y: event.clientY });
   }
   leave(): void {
-    if (!this.focused() && !this.touchPinned) this.selectedIndex.set(null);
+    this.dismissTooltip();
+    if (!this.focused() && !this.touchPinned) {
+      this.selectedIndex.set(null);
+      this.selectionTimestamp = null;
+    }
   }
   changePageSize(size: number): void {
     if ([10, 25, 50].includes(size)) {
@@ -166,6 +347,6 @@ export class PortfolioChartComponent {
     }
   }
   changePage(page: number): void {
-    this.page.set(boundedPage(page, this.points().length, this.pageSize()));
+    this.page.set(boundedPage(page, this.displayedPoints().length, this.pageSize()));
   }
 }

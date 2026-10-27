@@ -67,6 +67,7 @@
 
     @if (activeTab() === 'overview') {
       <app-portfolio-chart [value]="portfolioValue()" [currency]="account()?.currency ?? 'GBP'"
+        [liveEnabled]="true" [livePoints]="portfolioLiveHistory()?.points ?? []" [now]="quoteClock()"
         [valuationLoading]="portfolioFxLoading() || marketLoading()" [valuationNote]="portfolioValuationNote()"
         [points]="portfolioValueHistory()" [requestedRange]="portfolioHistoryDays()" [appliedRange]="portfolioAppliedDays()"
         [loading]="portfolioHistoryLoading()" [failed]="portfolioHistoryRequestFailed()"
@@ -120,7 +121,7 @@
           <div class="summary-card">
             <span class="summary-label">Holdings</span>
             <strong class="summary-value"
-              >{{ holdings()?.positions?.length ?? 0 }} instruments</strong
+              >{{ openPositions().length }} instruments</strong
             >
             <button type="button" class="text-button" (click)="selectTab('holdings')">
               View holdings →
@@ -644,7 +645,7 @@
         </div>
         @if (activeTab() === 'holdings') {
           <app-holdings-allocation
-            [positions]="holdings()?.positions ?? []"
+            [positions]="openPositions()"
             [instruments]="marketInstruments()"
             [accountCurrency]="account()?.currency ?? holdings()?.currency ?? ''"
             [marketLoading]="marketLoading()"
@@ -658,7 +659,7 @@
         <section class="positions-section" aria-labelledby="positions-title">
           <div class="panel-heading">
             <h2 id="positions-title">Positions</h2>
-            <span>{{ holdings()?.positions?.length ?? 0 }} instruments</span>
+            <span>{{ openPositions().length }} instruments</span>
           </div>
           <div class="table-wrapper">
             <table
@@ -674,7 +675,7 @@
                 </tr>
               </thead>
               <tbody role="rowgroup">
-                @for (position of holdings()?.positions ?? []; track position.instrumentId) {
+                @for (position of openPositions(); track position.instrumentId) {
                   <tr role="row" class="position-row">
                     <td role="cell" class="symbol-cell" data-label="Symbol">
                       <button

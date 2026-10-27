@@ -291,6 +291,9 @@ describe('Dashboard trading recovery', () => {
     fixture = TestBed.createComponent(DashboardComponent); component = fixture.componentInstance;
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.dashboard-tabs')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.history-error')).toBeNull();
+    (Array.from(fixture.nativeElement.querySelectorAll('.portfolio-value-controls button')) as HTMLButtonElement[])
+      .find(button => button.textContent?.trim() === '5D')!.click(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.history-error').textContent).toContain('Could not load');
     account.getPortfolioHistory.mockClear();
     component.selectPortfolioHistoryRange(30);
@@ -305,7 +308,8 @@ describe('Dashboard trading recovery', () => {
     component.selectTab('overview');
     component.portfolioValueHistory.set([{ timestamp: Date.now(), value: 2000 }]);
     account.getPortfolioHistory.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
-    component.selectPortfolioHistoryRange(30); fixture.detectChanges();
+    (Array.from(fixture.nativeElement.querySelectorAll('.portfolio-value-controls button')) as HTMLButtonElement[])
+      .find(button => button.textContent?.trim() === '1M')!.click(); fixture.detectChanges();
     expect(component.portfolioAppliedDays()).toBe(5);
     const panel = fixture.nativeElement.querySelector('.portfolio-value-panel');
     expect(panel.querySelector('.history-error').textContent).toContain('Still showing 5D');
@@ -318,5 +322,101 @@ describe('Dashboard trading recovery', () => {
     component.refreshPortfolioHistory();
     expect(component.portfolioValueHistory()[0].value).toBeNull();
     expect(component.portfolioValueHistory()[0].unavailable).toEqual(['AAPL']);
+  });
+
+  it('samples the complete portfolio on new stock quotes and moves the live line without a history request', () => {
+    const start = component.quoteClock();
+    component.holdings.set({ accountId: 1, currency: 'GBP', cashBalance: 2000,
+      positions: [{ instrumentId: 1, symbol: 'VOD.L', instrumentName: 'Vodafone', quantity: 2 }] });
+    fixture.detectChanges();
+    const first = component.portfolioLiveHistory()!.points.at(-1)!;
+    expect(first.value).toBeCloseTo(2150.1);
+    const calls = account.getPortfolioHistory.mock.calls.length;
+    component.quoteClock.set(start + 3000);
+    instrument = { ...instrument, latestQuote: { ...instrument.latestQuote!, quoteId: 2,
+      lastPrice: 77.05, quotedAt: new Date(start + 3000).toISOString() } };
+    market.getInstruments.mockReturnValue(of([instrument]));
+    component.loadMarketData(false); fixture.detectChanges();
+    const points = component.portfolioLiveHistory()!.points;
+    expect(points.at(-1)?.value).toBeCloseTo(2154.1);
+    expect(points).toHaveLength(2);
+    expect(account.getPortfolioHistory.mock.calls.length).toBe(calls);
+    component.selectTab('overview'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.value-line')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.portfolio-range-caption').textContent).toContain('Live');
+  });
+
+  it('uses account-currency FX for live observations and includes cash changes', () => {
+    const start = component.quoteClock();
+    component.holdings.set({ accountId: 1, currency: 'GBP', cashBalance: 2000,
+      positions: [{ instrumentId: 1, symbol: 'AAPL', instrumentName: 'Apple', quantity: 2 }] });
+    fx.quote.mockReturnValue(of({ from: 'USD', to: 'GBP', rate: .8, asOf: '2026-10-27', provider: 'TEST' }));
+    component.marketInstruments.set([{ ...instrument, currency: 'USD',
+      latestQuote: { ...instrument.latestQuote!, lastPrice: 100 } }]);
+    fixture.detectChanges();
+    expect(component.portfolioLiveHistory()?.points.at(-1)?.value).toBe(2160);
+    component.quoteClock.set(start + 3000);
+    component.account.update(value => ({ ...value!, cashBalance: 2100 }));
+    component.holdings.update(value => ({ ...value!, cashBalance: 2100 }));
+    fixture.detectChanges();
+    expect(component.portfolioLiveHistory()?.points.at(-1)?.value).toBe(2260);
+  });
+
+  it('records a gap for missing or stale held-stock prices and resumes with a line break', () => {
+    const start = component.quoteClock();
+    component.holdings.set({ accountId: 1, currency: 'GBP', cashBalance: 2000,
+      positions: [{ instrumentId: 1, symbol: 'VOD.L', instrumentName: 'Vodafone', quantity: 2 }] });
+    fixture.detectChanges();
+    component.quoteClock.set(start + 15000); fixture.detectChanges();
+    expect(component.portfolioLiveHistory()?.points.at(-1)?.value).toBeNull();
+    expect(component.portfolioLiveHistory()?.points.at(-1)?.unavailable).toContain('Current stock prices');
+    component.quoteClock.set(start + 18000);
+    component.marketInstruments.set([{ ...instrument, latestQuote: { ...instrument.latestQuote!, quoteId: 2,
+      lastPrice: 80, quotedAt: new Date(start + 18000).toISOString() } }]);
+    fixture.detectChanges();
+    expect(component.portfolioLiveHistory()?.points.at(-1)?.value).toBe(2160);
+    expect(component.portfolioLiveHistory()?.points.at(-1)?.breakBefore).toBe(true);
+  });
+
+  it('pauses live values when an account refresh fails and never mixes account identities', () => {
+    account.getHoldings.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
+    component.loadDashboard(false); fixture.detectChanges();
+    expect(component.portfolioLiveHistory()?.points.at(-1)?.value).toBeNull();
+    component.account.update(value => ({ ...value!, accountId: 99 })); fixture.detectChanges();
+    expect(component.portfolioLiveHistory()).toBeNull();
+  });
+
+  it.each([1, 2])('refreshes positions after selling %s of two shares and hides only fully closed holdings', quantity => {
+    const holding = { instrumentId: 1, symbol: 'VOD.L', instrumentName: 'Vodafone', quantity: 2 };
+    account.getHoldings.mockReturnValue(of({ accountId: 1, currency: 'GBP', cashBalance: 2000, positions: [holding] }));
+    component.loadDashboard(false); component.selectTab('holdings'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.position-row')).toHaveLength(1);
+    const closed = { ...holding, quantity: 2 - quantity };
+    const result = { ...filledOrder(), side: 'SELL', quantity, fillPrice: 75, settlementAmount: 75 * quantity };
+    account.getHoldings.mockReturnValue(of({ accountId: 1, currency: 'GBP', cashBalance: 2000 + 75 * quantity, positions: [closed] }));
+    account.getMyAccount.mockReturnValue(of({ accountId: 1, accountNumber: 'REVIEW', firstName: 'Test', lastName: 'User',
+      cashBalance: 2000 + 75 * quantity, currency: 'GBP' }));
+    account.getBlotter.mockReturnValue(of([result])); orders.placeOrder.mockReturnValue(of(result));
+    component.orderSide = 'SELL'; component.orderQuantity = quantity; component.submitOrder(); fixture.detectChanges();
+    expect(component.openPositions()).toHaveLength(quantity === 2 ? 0 : 1);
+    expect(fixture.nativeElement.querySelectorAll('.position-row')).toHaveLength(quantity === 2 ? 0 : 1);
+    expect(fixture.nativeElement.querySelector('.positions-section .panel-heading').textContent).toContain(`${quantity === 2 ? 0 : 1} instruments`);
+    expect(component.orders()[0].side).toBe('SELL');
+    if (quantity === 2) expect(fixture.nativeElement.querySelector('.positions-table').textContent).toContain('No positions currently held');
+  });
+
+  it('keeps other open positions visible, updates the overview count, and shows a closed stock again after repurchase', () => {
+    const closed = { instrumentId: 1, symbol: 'VOD.L', instrumentName: 'Vodafone', quantity: 0 };
+    const active = { instrumentId: 2, symbol: 'AAPL', instrumentName: 'Apple', quantity: 3 };
+    component.holdings.set({ accountId: 1, currency: 'GBP', cashBalance: 2000, positions: [closed, active] });
+    component.selectTab('holdings'); fixture.detectChanges();
+    const table: HTMLElement = fixture.nativeElement.querySelector('.positions-table');
+    expect(table.textContent).not.toContain('VOD.L'); expect(table.textContent).toContain('AAPL');
+    component.selectTab('overview'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.account-summary-grid').textContent).toContain('1 instruments');
+    component.holdings.update(value => ({ ...value!, positions: [{ ...closed, quantity: 1 }, active] }));
+    component.selectTab('holdings'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.position-row')).toHaveLength(2);
+    expect(fixture.nativeElement.querySelector('.positions-table').textContent).toContain('VOD.L');
   });
 });

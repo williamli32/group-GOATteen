@@ -1,5 +1,6 @@
 import { InstrumentPriceChartComponent } from './instrument-price-chart.component';
 import { TradingChatbotComponent } from './trading-chatbot.component';
+import { PortfolioLiveHistoryService, type LivePortfolioHistory } from './portfolio-live-history';
 import { PortfolioChartComponent, type PortfolioHistoryRange, type PortfolioValuePoint } from './portfolio-chart.component';
 import { buildHoldingsAllocation } from './holdings-allocation';
 import { catchError, map, of } from 'rxjs';
@@ -12,6 +13,7 @@ import { FxRateService, type FxQuote } from '../core/services/fx-rate';
 import {
 
   Component,
+  inject,
 
   computed,
   effect,
@@ -177,6 +179,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     'COMMODITY'
   ] as const;
   readonly portfolioValueHistory = signal<PortfolioValuePoint[]>([]);
+  readonly portfolioLiveHistory = signal<LivePortfolioHistory | null>(null);
+  private readonly liveHistories = inject(PortfolioLiveHistoryService);
+  private readonly portfolioMarketRevision = signal(0);
+  private readonly portfolioAccountRevision = signal(0);
+  private readonly portfolioAccountRefreshFailed = signal(false);
   readonly portfolioHistoryDays = signal<PortfolioHistoryRange>(5);
   readonly portfolioAppliedDays = signal<PortfolioHistoryRange>(5);
   readonly portfolioHistoryRequestFailed = signal(false);
@@ -377,6 +384,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     signal<HoldingsResponse | null>(null);
 
+  readonly openPositions = computed(() => (this.holdings()?.positions ?? [])
+    .filter(position => position.quantity > 0));
+
 
 
   orders =
@@ -518,6 +528,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly host: ElementRef<HTMLElement>
 
   ) {
+    effect(() => {
+      const account = this.account();
+      const holdings = this.holdings();
+      const now = this.quoteClock();
+      if (!account || !holdings || holdings.accountId !== account.accountId || holdings.currency !== account.currency) {
+        this.portfolioLiveHistory.set(null);
+        return;
+      }
+      const cached = this.liveHistories.get(account.accountId, account.currency);
+      const held = holdings.positions.filter(position => position.quantity !== 0);
+      if (this.portfolioFxLoading() || (held.length > 0 && this.marketLoading())) {
+        this.portfolioLiveHistory.set(cached);
+        return;
+      }
+      const allocation = this.portfolioAllocation();
+      const unavailable = [...allocation.missing];
+      if (held.length && (this.marketRefreshFailed() || allocation.stale)) unavailable.push('Current stock prices');
+      if (this.portfolioAccountRefreshFailed() || Number(account.cashBalance) !== Number(holdings.cashBalance))
+        unavailable.push('Current account balance and holdings');
+      const value = unavailable.length ? null : this.portfolioValue();
+      this.portfolioLiveHistory.set(this.liveHistories.observe({
+        accountId: account.accountId, currency: account.currency, timestamp: now, value, unavailable,
+        fingerprint: JSON.stringify([this.portfolioMarketRevision(), this.portfolioAccountRevision(),
+          account.cashBalance, held.map(position => [position.instrumentId, position.quantity]),
+          allocation.slices.map(slice => slice.value), unavailable]),
+      }));
+    });
     effect(onCleanup => {
       const [to, currencies] = JSON.parse(this.portfolioCurrencyKey()) as [string, string[]];
       this.portfolioFxRetry();
@@ -767,6 +804,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         next: result => {
 
           if (requestVersion !== this.dashboardRequestVersion) return;
+          this.portfolioAccountRefreshFailed.set(false);
+          this.portfolioAccountRevision.update(revision => revision + 1);
 
 
 
@@ -847,6 +886,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         ) => {
 
           if (requestVersion !== this.dashboardRequestVersion) return;
+          this.portfolioAccountRefreshFailed.set(true);
 
 
 
@@ -1103,6 +1143,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         next: instruments => {
 
           this.marketRefreshFailed.set(false);
+          this.portfolioMarketRevision.update(revision => revision + 1);
 
           this.marketInstruments.set(
 

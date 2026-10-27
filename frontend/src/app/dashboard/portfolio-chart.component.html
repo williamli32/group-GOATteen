@@ -1,7 +1,7 @@
 <section
   class="portfolio-value-panel"
   aria-label="Portfolio value chart"
-  [attr.aria-busy]="loading()"
+  [attr.aria-busy]="isLive() ? valuationLoading() : loading()"
 >
   <div class="portfolio-value-heading">
     <div>
@@ -9,12 +9,22 @@
       <h2>{{ valuationLoading() ? 'Calculating…' : money(value()) }}</h2>
     </div>
     <div class="portfolio-value-controls" role="group" aria-label="Portfolio graph time range">
+      @if (liveEnabled()) {
+        <button
+          type="button"
+          [class.active]="isLive()"
+          [attr.aria-pressed]="isLive()"
+          (click)="setView('live')"
+        >
+          LIVE
+        </button>
+      }
       @for (range of ranges; track range.days) {
         <button
           type="button"
-          [class.active]="requestedRange() === range.days"
-          [attr.aria-pressed]="requestedRange() === range.days"
-          (click)="rangeSelected.emit(range.days)"
+          [class.active]="!isLive() && requestedRange() === range.days"
+          [attr.aria-pressed]="!isLive() && requestedRange() === range.days"
+          (click)="setView('daily', range.days)"
         >
           {{ range.label }}
         </button>
@@ -28,13 +38,19 @@
     </button>
   }
   <p class="portfolio-range-caption">
-    {{ rangeLabel(appliedRange()) }} · daily account values · {{ points().length }} observations ·
-    UTC
+    @if (isLive()) {
+      <span class="live-status" [class.paused]="liveStatus() !== 'Live'">{{ liveStatus() }}</span>
+      · three-second refresh · last 60 minutes during this visit ·
+      {{ displayedPoints().length }} observations · UTC
+    } @else {
+      {{ rangeLabel(appliedRange()) }} · daily account values · {{ points().length }} observations ·
+      UTC
+    }
   </p>
-  @if (loading()) {
+  @if (!isLive() && loading()) {
     <p role="status" class="history-state">Loading {{ rangeLabel(requestedRange()) }} history…</p>
   }
-  @if (failed()) {
+  @if (!isLive() && failed()) {
     <div role="alert" class="history-error">
       Could not load {{ rangeLabel(requestedRange()) }} portfolio history.
       @if (points().length) {
@@ -45,19 +61,24 @@
       </button>
     </div>
   }
-  @if (points().length > 0) {
+  @if (displayedPoints().length > 0) {
     <div class="plot-layout">
       <div class="y-axis" aria-hidden="true">
         @for (label of labels(); track $index; let index = $index) {
-          <span [style.top.%]="5 + index * 22.5">{{ money(label, true) }}</span>
+          <span [style.top.%]="5 + index * 22.5">{{ money(label, !isLive()) }}</span>
         }
       </div>
       <div
         class="portfolio-value-chart"
         tabindex="0"
         role="group"
-        aria-label="Portfolio history. Use Left and Right arrows, Home or End to inspect daily values; Escape dismisses details."
-        [attr.aria-describedby]="detailId"
+        [attr.aria-label]="
+          (isLive() ? 'Live portfolio value.' : 'Portfolio history.') +
+          ' Use Left and Right arrows, Home or End to inspect values; Escape dismisses details.'
+        "
+        [attr.aria-describedby]="
+          pointerAnchor() && selectedPoint() ? detailId + '-tooltip' : detailId
+        "
         (focus)="focusChart()"
         (blur)="blurChart()"
         (keydown)="keydown($event)"
@@ -78,8 +99,20 @@
           @for (segment of segments(); track $index) {
             <polyline class="value-line" [attr.points]="segment" />
           }
-          @for (point of points(); track point.timestamp; let index = $index) {
-            @if (point.value !== null) {
+          @if (selectedPoint()) {
+            <line
+              class="inspection-line"
+              [attr.x1]="x(selectedIndex()!)"
+              [attr.x2]="x(selectedIndex()!)"
+              y1="0"
+              y2="200"
+            />
+          }
+          @for (point of displayedPoints(); track point.timestamp; let index = $index) {
+            @if (
+              point.value !== null &&
+              (!isLive() || index === displayedPoints().length - 1 || selectedIndex() === index)
+            ) {
               <circle
                 class="value-point"
                 [class.selected]="selectedIndex() === index"
@@ -93,10 +126,33 @@
       </div>
       <div class="x-axis" aria-hidden="true">
         @for (index of dateTicks(); track index) {
-          <span>{{ date(points()[index].timestamp) }}</span>
+          <span>{{ tickLabel(displayedPoints()[index].timestamp) }}</span>
         }
       </div>
     </div>
+    @if (pointerAnchor() && selectedPoint(); as point) {
+      <div #pointTooltip class="portfolio-tooltip" role="tooltip" [id]="detailId + '-tooltip'">
+        <span class="tooltip-label">Portfolio value</span>
+        <strong class="tooltip-value"
+          >{{ money(point.value) }} <small>{{ currency() }}</small></strong
+        >
+        <time>{{ date(point.timestamp) }} UTC</time>
+        @if (selectedChange(); as change) {
+          <span class="tooltip-change" [class.negative]="change.amount < 0">
+            {{ changeMoney(change.amount) }}
+            @if (change.percent !== null) {
+              ({{ changePercent(change.percent) }})
+            }
+          </span>
+          <span class="tooltip-note">vs previous observation</span>
+        }
+        @if (point.unavailable?.length) {
+          <span class="tooltip-missing"
+            >Missing price or FX: {{ point.unavailable!.join(', ') }}</span
+          >
+        }
+      </div>
+    }
     <p
       class="point-detail"
       [id]="detailId"
@@ -109,7 +165,8 @@
           · Missing price or FX: {{ point.unavailable!.join(', ') }}
         }
       } @else {
-        Hover, tap the chart, or focus it and use arrow keys to inspect a day.
+        Hover, tap the chart, or focus it and use arrow keys to inspect
+        {{ isLive() ? 'a live observation' : 'a day' }}.
       }
     </p>
     @if (valuedPoints().length === 0) {
@@ -117,14 +174,24 @@
         No complete valuations are available. Missing prices or FX are shown as gaps, not zero.
       </p>
     } @else if (valuedPoints().length === 1) {
-      <p class="history-state">One complete observation; a trend cannot be inferred.</p>
+      <p class="history-state">
+        {{
+          isLive()
+            ? 'Collecting live values as prices update. A cash-only portfolio stays constant until its balance changes.'
+            : 'One complete observation; a trend cannot be inferred.'
+        }}
+      </p>
     }
     <details class="history-table">
-      <summary>View daily values as a table</summary>
-      <table role="table" class="workspace-table" aria-label="Daily portfolio values">
+      <summary>View {{ isLive() ? 'live' : 'daily' }} values as a table</summary>
+      <table
+        role="table"
+        class="workspace-table"
+        [attr.aria-label]="isLive() ? 'Live portfolio values' : 'Daily portfolio values'"
+      >
         <thead role="rowgroup">
           <tr role="row">
-            <th scope="col" role="columnheader">Date (UTC)</th>
+            <th scope="col" role="columnheader">{{ isLive() ? 'Time (UTC)' : 'Date (UTC)' }}</th>
             <th scope="col" role="columnheader">Value ({{ currency() }})</th>
           </tr>
         </thead>
@@ -144,19 +211,29 @@
       </table>
       <app-result-pagination
         label="Portfolio history"
-        [total]="points().length"
+        [total]="displayedPoints().length"
         [page]="page()"
         [pageSize]="pageSize()"
         (pageChange)="changePage($event)"
         (pageSizeChange)="changePageSize($event)"
       />
     </details>
+  } @else if (isLive()) {
+    <p class="portfolio-value-empty">
+      Waiting for your account and current prices to start the live graph.
+    </p>
   } @else if (!loading() && !failed()) {
     <p class="portfolio-value-empty">No account history is available for this period.</p>
   }
   <p class="valuation-note">
-    Daily estimates use the last available price and reference FX on or before each UTC day. Today's
-    observation is provisional. Missing data breaks the line. Cash transfers affect value; this is
-    not an investment-return chart.
+    @if (isLive()) {
+      Live value = available cash + your holdings at current market prices, converted into
+      {{ currency() }} using reference FX. Only observed values are plotted. Missing or stale data
+      breaks the line. The vertical scale follows the observed values.
+    } @else {
+      Daily estimates use the last available price and reference FX on or before each UTC day.
+      Today's observation is provisional.
+    }
+    Cash transfers affect value; this is not an investment-return chart.
   </p>
 </section>

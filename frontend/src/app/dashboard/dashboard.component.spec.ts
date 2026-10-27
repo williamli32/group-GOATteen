@@ -354,7 +354,8 @@ describe('DashboardComponent', () => {
         expect(accountServiceMock.getPortfolioHistory).toHaveBeenCalledWith(5);
         const root: HTMLElement = fixture.nativeElement;
         const rangeButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.portfolio-value-controls button'));
-        expect(rangeButtons.map(button => button.textContent?.trim())).toEqual(['5D', '1M', 'YTD', '1Y', 'ALL']);
+        expect(rangeButtons.map(button => button.textContent?.trim())).toEqual(['LIVE', '5D', '1M', 'YTD', '1Y', 'ALL']);
+        expect(rangeButtons[0].getAttribute('aria-pressed')).toBe('true');
 
         const ranges = [
             { index: 1, days: 30, label: '1M' },
@@ -364,10 +365,11 @@ describe('DashboardComponent', () => {
             { index: 0, days: 5, label: '5D' }
         ];
         for (const range of ranges) {
-            rangeButtons[range.index].click();
+            const button = rangeButtons.find(button => button.textContent?.trim() === range.label)!;
+            button.click();
             fixture.detectChanges();
             expect(accountServiceMock.getPortfolioHistory).toHaveBeenLastCalledWith(range.days);
-            expect(rangeButtons[range.index].getAttribute('aria-pressed')).toBe('true');
+            expect(button.getAttribute('aria-pressed')).toBe('true');
             expect(root.querySelector('.portfolio-range-caption')?.textContent).toContain(range.label);
         }
     });
